@@ -1,9 +1,8 @@
-import { useRef, useState } from "react"
+import type { ChangeEvent } from "react"
+import { useEffect, useRef, useState } from "react"
 import "./App.css"
-import type { PlaybackHandle } from "./application/use-cases/playRecordedNotes"
-import { playRecordedNotes } from "./application/use-cases/playRecordedNotes"
 import { playNote, playNotes } from "./application/use-cases/playNote"
-import { setMasterVolume, stopAllVoices } from "./engine/audio/audioEngine"
+import { setMasterVolume } from "./engine/audio/audioEngine"
 import {
   createPlayOptions,
   findMathematicalInstrument,
@@ -15,29 +14,60 @@ import {
   createMidiNoteEvent,
   type MidiNoteEvent,
   type MidiNoteEventType,
-  type MidiRecordedNote,
 } from "./engine/midi/events"
 import { availableNotes, type MusicalNote } from "./engine/midi/notes"
+import {
+  appendNoteToTrack,
+  clearTrackNotes,
+  createDefaultProject,
+  parseImportedProject,
+} from "./engine/project/projectModel"
+import { loadStoredProject, saveProject } from "./engine/project/projectStorage"
 import { MidiEventLog } from "./features/midi-events/MidiEventLog"
 import { RecordedNoteList } from "./features/midi-events/RecordedNoteList"
 import { PianoPreview } from "./features/piano/PianoPreview"
 import { TimelinePreview } from "./features/timeline/TimelinePreview"
+import { usePlaybackTransport } from "./features/transport/usePlaybackTransport"
 
 const testChord: MusicalNote[] = ["C4", "E4", "G4"]
+
+function getInitialProject() {
+  return loadStoredProject() ?? createDefaultProject()
+}
+
+function getInitialProjectMessage() {
+  const storedProject = loadStoredProject()
+
+  if (!storedProject) {
+    return ""
+  }
+
+  return storedProject.tracks.some((track) => track.notes.length > 0)
+    ? `Proyecto restaurado: ${storedProject.name}.`
+    : ""
+}
 
 function App() {
   const [volume, setVolume] = useState(0.8)
   const [instrumentId, setInstrumentId] =
     useState<MathematicalInstrumentId>("pure-sine")
   const [selectedNote, setSelectedNote] = useState<MusicalNote>("A4")
+  const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
-  const [recordedNotes, setRecordedNotes] = useState<MidiRecordedNote[]>([])
+  const [project, setProject] = useState(getInitialProject)
   const activeNoteEventsRef = useRef(new Map<MusicalNote, MidiNoteEvent>())
-  const playbackHandleRef = useRef<PlaybackHandle | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
   const startedAtRef = useRef<number | null>(null)
+  const playbackTransport = usePlaybackTransport()
 
   const selectedInstrument = findMathematicalInstrument(instrumentId)
+  const primaryTrack = project.tracks[0]
   const playOptions = createPlayOptions(selectedInstrument)
+  const noteCount = primaryTrack.notes.length
+
+  useEffect(() => {
+    saveProject(project)
+  }, [project])
 
   function updateVolume(nextVolume: number) {
     setVolume(nextVolume)
@@ -52,27 +82,58 @@ function App() {
     playNotes(testChord, 1.15, createPlayOptions(selectedInstrument, 0.72))
   }
 
-  function stopPlayback() {
-    playbackHandleRef.current?.cancel()
-    playbackHandleRef.current = null
-    stopAllVoices()
+  function playRecording() {
+    playbackTransport.play(primaryTrack.notes, playOptions)
   }
 
-  function playRecording() {
-    if (recordedNotes.length === 0) {
+  function exportProject() {
+    const projectJson = JSON.stringify(project, null, 2)
+    const blob = new Blob([projectJson], { type: "application/json" })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    link.href = url
+    link.download = `${project.name.replace(/\s+/g, "-").toLowerCase()}.json`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    setProjectMessage("Proyecto exportado a JSON.")
+  }
+
+  function openImportDialog() {
+    importInputRef.current?.click()
+  }
+
+  async function importProjectFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+
+    if (!file) {
       return
     }
 
-    stopPlayback()
-    playbackHandleRef.current = playRecordedNotes(recordedNotes, playOptions)
+    try {
+      const projectJson = await file.text()
+      const importedProject = parseImportedProject(projectJson)
+
+      playbackTransport.stop()
+      activeNoteEventsRef.current.clear()
+      startedAtRef.current = null
+      setMidiEvents([])
+      setProject(importedProject)
+      setProjectMessage(`Proyecto importado: ${importedProject.name}.`)
+    } catch {
+      setProjectMessage("No se pudo importar el JSON del proyecto.")
+    } finally {
+      event.target.value = ""
+    }
   }
 
   function clearSession() {
-    stopPlayback()
+    playbackTransport.stop()
     activeNoteEventsRef.current.clear()
     startedAtRef.current = null
     setMidiEvents([])
-    setRecordedNotes([])
+    setProject((currentProject) => clearTrackNotes(currentProject, primaryTrack.id))
+    setProjectMessage("Sesion limpiada.")
   }
 
   function registerMidiEvent(type: MidiNoteEventType, note: MusicalNote) {
@@ -91,10 +152,13 @@ function App() {
       const noteOnEvent = activeNoteEventsRef.current.get(note)
 
       if (noteOnEvent) {
-        setRecordedNotes((currentNotes) => [
-          createMidiRecordedNote(noteOnEvent, midiEvent.time),
-          ...currentNotes,
-        ])
+        setProject((currentProject) =>
+          appendNoteToTrack(
+            currentProject,
+            primaryTrack.id,
+            createMidiRecordedNote(noteOnEvent, midiEvent.time),
+          ),
+        )
         activeNoteEventsRef.current.delete(note)
       }
     }
@@ -108,6 +172,31 @@ function App() {
       <p>Core musical experimental basado en instrumentos matematicos.</p>
 
       <section className="audio-lab" aria-label="Core de audio">
+        <input
+          accept=".json,application/json"
+          hidden
+          onChange={importProjectFile}
+          ref={importInputRef}
+          type="file"
+        />
+
+        <div className="project-summary" aria-label="Proyecto actual">
+          <div>
+            <span className="project-label">Proyecto</span>
+            <strong>{project.name}</strong>
+          </div>
+          <div>
+            <span className="project-label">Pista</span>
+            <strong>{primaryTrack.name}</strong>
+          </div>
+          <div>
+            <span className="project-label">Notas</span>
+            <strong>{noteCount}</strong>
+          </div>
+        </div>
+
+        {projectMessage ? <p className="project-message">{projectMessage}</p> : null}
+
         <div className="control-group">
           <label htmlFor="instrument">Instrumento matematico</label>
           <select
@@ -167,14 +256,23 @@ function App() {
         <div className="actions">
           <button onClick={playTestNote}>Tocar nota</button>
           <button onClick={playTestChord}>Tocar acorde</button>
-          <button onClick={playRecording}>Reproducir grabacion</button>
-          <button onClick={stopPlayback}>Detener</button>
+          <button
+            disabled={primaryTrack.notes.length === 0 || playbackTransport.isPlaying}
+            onClick={playRecording}
+          >
+            {playbackTransport.isPlaying
+              ? "Reproduciendo"
+              : "Reproducir grabacion"}
+          </button>
+          <button onClick={playbackTransport.stop}>Detener</button>
           <button onClick={clearSession}>Limpiar</button>
+          <button onClick={openImportDialog}>Importar JSON</button>
+          <button onClick={exportProject}>Exportar JSON</button>
         </div>
 
         <MidiEventLog events={midiEvents} />
-        <RecordedNoteList notes={recordedNotes} />
-        <TimelinePreview notes={recordedNotes} />
+        <RecordedNoteList notes={primaryTrack.notes} />
+        <TimelinePreview notes={primaryTrack.notes} />
       </section>
     </main>
   )

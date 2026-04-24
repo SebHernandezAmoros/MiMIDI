@@ -27,6 +27,31 @@ p {
   gap: 0.4rem;
 }
 
+.project-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.project-summary > div {
+  padding: 0.75rem;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  display: grid;
+  gap: 0.2rem;
+  background: #111111;
+}
+
+.project-label {
+  font-size: 0.8rem;
+  color: #a8a8a8;
+}
+
+.project-message {
+  margin: 0;
+  color: #cfcfcf;
+}
+
 .control-group label {
   font-size: 0.9rem;
   color: #cfcfcf;
@@ -51,4 +76,9 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
