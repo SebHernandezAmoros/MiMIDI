@@ -1008,6 +1008,7 @@ Responsabilidad actual:
 - Consumir un proyecto musical minimo.
 - Mostrar y exportar el proyecto actual.
 - Importar el proyecto actual desde JSON.
+- Permitir renombrar proyecto y pista.
 
 No debe:
 
@@ -1040,6 +1041,7 @@ Responsabilidad actual:
 - Agregar notas a una pista.
 - Limpiar notas de una pista.
 - Parsear e importar un proyecto JSON valido.
+- Renombrar proyecto y pista.
 
 No debe:
 
@@ -1185,29 +1187,77 @@ No debe:
 - sintetizar sonido directamente,
 - convertirse en modelo final de proyecto.
 
+## Movimiento 20 - Renombrar proyecto y pista
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/engine/project/projectModel.ts`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Hacer que la persistencia sea realmente util permitiendo personalizar el nombre
+del proyecto y de la pista actual.
+
+Como se movio:
+
+- Se agrego `renameProject`.
+- Se agrego `renameTrack`.
+- `App.tsx` agrega edicion de:
+  - `project.name`
+  - `primaryTrack.name`
+- Se agregaron `updateProjectName` y `updateTrackName`.
+- La UI ahora tiene inputs para renombrar proyecto y pista.
+- Los nombres actualizados siguen funcionando con:
+  - exportacion JSON,
+  - importacion JSON,
+  - `localStorage`.
+
+Decision tecnica:
+
+El renombrado vive en `projectModel.ts` porque sigue siendo una operacion sobre
+el dominio del proyecto, no una transformacion exclusiva de UI.
+
+La UI usa valores por defecto cuando el usuario deja un nombre vacio, para
+evitar estados incompletos en el proyecto.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El proyecto ya no es una estructura fija generica. Ahora puede tener identidad
+propia y esa identidad persiste.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
 
 Siguiente incremento recomendado:
 
-- permitir renombrar proyecto y pista,
+- mostrar mas metadatos del proyecto si empieza a hacer falta,
+- preparar una segunda pista solo cuando haya una necesidad clara,
 - mantener export/import/localStorage coherentes,
-- conservar una sola pista mientras siga alcanzando,
-- no introducir edicion compleja todavia.
+- no introducir edicion multipista prematura.
 
 Objetivo:
 
-Pasar de proyecto fijo:
-
-```ts
-name: "MiMIDI Project"
-```
-
-a proyecto personalizable:
+Pasar de proyecto personalizable:
 
 ```ts
 project.name = "Mi Idea 01"
 ```
 
-Eso haria la persistencia mucho mas util para sesiones reales.
+a proyecto preparado para crecer:
+
+```ts
+project.tracks[1]
+```
+
+Eso abriria el siguiente nivel del modelo de proyecto sin forzarlo antes de
+tiempo.

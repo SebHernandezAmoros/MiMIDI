@@ -62,6 +62,34 @@ export function clearTrackNotes(
   }
 }
 
+export function renameProject(
+  project: MusicalProject,
+  name: string,
+): MusicalProject {
+  return {
+    ...project,
+    name,
+  }
+}
+
+export function renameTrack(
+  project: MusicalProject,
+  trackId: string,
+  name: string,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            name,
+          }
+        : track,
+    ),
+  }
+}
+
 function isRecordedNote(value: unknown): value is MidiRecordedNote {
   if (!value || typeof value !== "object") {
     return false

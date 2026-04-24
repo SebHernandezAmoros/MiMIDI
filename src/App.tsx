@@ -21,6 +21,8 @@ import {
   clearTrackNotes,
   createDefaultProject,
   parseImportedProject,
+  renameProject,
+  renameTrack,
 } from "./engine/project/projectModel"
 import { loadStoredProject, saveProject } from "./engine/project/projectStorage"
 import { MidiEventLog } from "./features/midi-events/MidiEventLog"
@@ -84,6 +86,18 @@ function App() {
 
   function playRecording() {
     playbackTransport.play(primaryTrack.notes, playOptions)
+  }
+
+  function updateProjectName(name: string) {
+    setProject((currentProject) =>
+      renameProject(currentProject, name.trim() || "MiMIDI Project"),
+    )
+  }
+
+  function updateTrackName(name: string) {
+    setProject((currentProject) =>
+      renameTrack(currentProject, primaryTrack.id, name.trim() || "Track 1"),
+    )
   }
 
   function exportProject() {
@@ -196,6 +210,28 @@ function App() {
         </div>
 
         {projectMessage ? <p className="project-message">{projectMessage}</p> : null}
+
+        <div className="project-editors">
+          <div className="control-group">
+            <label htmlFor="project-name">Nombre del proyecto</label>
+            <input
+              id="project-name"
+              type="text"
+              value={project.name}
+              onChange={(event) => updateProjectName(event.target.value)}
+            />
+          </div>
+
+          <div className="control-group">
+            <label htmlFor="track-name">Nombre de la pista</label>
+            <input
+              id="track-name"
+              type="text"
+              value={primaryTrack.name}
+              onChange={(event) => updateTrackName(event.target.value)}
+            />
+          </div>
+        </div>
 
         <div className="control-group">
           <label htmlFor="instrument">Instrumento matematico</label>

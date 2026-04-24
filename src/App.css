@@ -52,6 +52,12 @@ p {
   color: #cfcfcf;
 }
 
+.project-editors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
 .control-group label {
   font-size: 0.9rem;
   color: #cfcfcf;
@@ -63,7 +69,8 @@ button {
   font: inherit;
 }
 
-select {
+select,
+input[type="text"] {
   width: 100%;
   padding: 0.65rem 0.7rem;
   border: 1px solid #444444;
