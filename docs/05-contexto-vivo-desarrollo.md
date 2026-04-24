@@ -40,6 +40,7 @@ La app ya permite probar sonido desde una UI temporal:
 - seleccionar una nota musical de prueba,
 - tocar una nota de prueba,
 - tocar un acorde de prueba,
+- alternar el piano entre modo nota y modo acorde,
 - tocar notas desde un piano visual de preview,
 - sostener notas mientras una tecla del piano esta presionada,
 - ver teclas naturales y sostenidas con layout tipo piano,
@@ -1009,6 +1010,7 @@ Responsabilidad actual:
 - Mostrar y exportar el proyecto actual.
 - Importar el proyecto actual desde JSON.
 - Permitir renombrar proyecto y pista.
+- Manejar pista activa y creacion de nuevas pistas.
 
 No debe:
 
@@ -1042,6 +1044,8 @@ Responsabilidad actual:
 - Limpiar notas de una pista.
 - Parsear e importar un proyecto JSON valido.
 - Renombrar proyecto y pista.
+- Crear y agregar nuevas pistas.
+- Limpiar notas de todas las pistas.
 
 No debe:
 
@@ -1234,30 +1238,187 @@ Resultado:
 El proyecto ya no es una estructura fija generica. Ahora puede tener identidad
 propia y esa identidad persiste.
 
+## Movimiento 21 - Multipista minima
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/engine/project/projectModel.ts`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Dar el primer paso real hacia proyecto multipista sin convertir MiMIDI todavia
+en un editor complejo.
+
+Como se movio:
+
+- Se agrego `createProjectTrack`.
+- Se agrego `appendTrack`.
+- Se agrego `clearAllTrackNotes`.
+- `App.tsx` ahora maneja `activeTrackId`.
+- La UI permite seleccionar `Pista activa`.
+- La UI permite crear `Nueva pista`.
+- Las notas nuevas se graban en la pista activa.
+- `RecordedNoteList` y `TimelinePreview` muestran la pista activa.
+- `Reproducir grabacion` usa notas de todas las pistas.
+- `Limpiar` limpia notas de todo el proyecto.
+- El resumen del proyecto ahora muestra cantidad de pistas.
+
+Decision tecnica:
+
+La multipista se mantiene deliberadamente minima:
+
+- sin borrar pistas,
+- sin mute/solo,
+- sin timeline separada por pista visual completa,
+- sin mezcla avanzada.
+
+Eso permite validar el modelo antes de crecer.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya no depende de una sola pista. El proyecto puede contener varias pistas
+y grabar en cualquiera de ellas.
+
+## Movimiento 22 - Instrumento por pista y acordes grabados
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/engine/midi/events.ts`
+- `src/engine/project/projectModel.ts`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/App.tsx`
+
+Intencion:
+
+Corregir una limitacion importante del modelo: que las notas grabadas recuerden
+con que instrumento fueron creadas y que `Tocar acorde` deje de ser solo una
+demo sonora para convertirse en grabacion real.
+
+Como se movio:
+
+- `MidiRecordedNote` ahora guarda `instrumentId`.
+- `ProjectTrack` ahora guarda `instrumentId`.
+- Se agrego `updateTrackInstrument`.
+- El selector de instrumento ahora modifica la pista activa.
+- Cada nota grabada conserva el `instrumentId` del momento en que fue creada.
+- La reproduccion grabada usa el `instrumentId` guardado en cada nota.
+- Se agrego `appendNotesToTrack`.
+- `Tocar acorde` ahora:
+  - construye notas desde raiz + tipo de acorde,
+  - las reproduce,
+  - las guarda simultaneamente en la pista activa.
+- Se agrego selector de `Tipo de acorde`.
+- `Tocar nota` tambien graba una nota simple en la pista activa.
+- Las notas sostenidas del piano recuerdan `trackId` e `instrumentId` del
+  momento de `note-on`.
+
+Decision tecnica:
+
+Se eligio guardar `instrumentId` en cada nota grabada, ademas del instrumento de
+la pista. Eso permite que una grabacion antigua no cambie retroactivamente de
+sonido si luego el usuario cambia el instrumento actual de la pista.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La grabacion ya es mucho mas fiel al proyecto musical real: cada pista tiene su
+instrumento y los acordes grabados quedan persistidos correctamente.
+
+## Movimiento 23 - Modo de piano y borrado puntual de notas
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/features/piano/PianoPreview.tsx`
+- `src/engine/project/projectModel.ts`
+- `src/features/midi-events/RecordedNoteList.tsx`
+- `src/features/midi-events/RecordedNoteList.css`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Corregir el desacople entre el selector de tipo de acorde y el teclado visual,
+y dar una primera capacidad real de edicion sobre la pista activa.
+
+Como se movio:
+
+- Se agrego un modo de interaccion del piano:
+  - `note`
+  - `chord`
+- `App.tsx` ahora expone un switch visual `Nota / Acorde`.
+- El piano recibe `interactionMode`.
+- El piano recibe `getPlayableNotes`.
+- En modo `chord`, al presionar una tecla del piano:
+  - se calcula el acorde desde esa raiz,
+  - se disparan varias voces,
+  - se emiten varios eventos `note-on`,
+  - al soltar se emiten varios `note-off`.
+- Se agrego `removeNoteFromTrack`.
+- `RecordedNoteList` ahora puede borrar una nota individual.
+- `App.tsx` conecta ese borrado a la pista activa.
+
+Decision tecnica:
+
+El teclado visual no calcula acordes por si solo. Recibe desde arriba la forma
+de resolver que notas reales debe tocar. Asi la feature `piano` sigue siendo
+una superficie de interaccion y no absorbe reglas musicales que pertenecen a la
+aplicacion.
+
+El borrado se implemento primero desde la lista grabada para abrir edicion
+basica sin convertir la timeline todavia en editor complejo.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El selector de tipo de acorde ahora tambien afecta al piano visual cuando el
+modo esta en `Acorde`, y la pista activa ya permite corregir errores borrando
+notas puntuales.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
 
 Siguiente incremento recomendado:
 
-- mostrar mas metadatos del proyecto si empieza a hacer falta,
-- preparar una segunda pista solo cuando haya una necesidad clara,
-- mantener export/import/localStorage coherentes,
-- no introducir edicion multipista prematura.
+- permitir borrar notas directamente desde la timeline,
+- resaltar una nota al seleccionarla en lista y timeline,
+- mantener sincronizada la seleccion con la pista activa,
+- seguir evitando una grilla DAW completa por ahora.
 
 Objetivo:
 
-Pasar de proyecto personalizable:
+Pasar de proyecto corregible:
 
 ```ts
-project.name = "Mi Idea 01"
+removeNoteFromTrack(project, activeTrackId, noteId)
 ```
 
-a proyecto preparado para crecer:
+a proyecto seleccionable:
 
 ```ts
-project.tracks[1]
+selectNoteInTrack(project, activeTrackId, noteId)
 ```
 
-Eso abriria el siguiente nivel del modelo de proyecto sin forzarlo antes de
-tiempo.
+Eso haria que el proyecto no solo pueda borrar errores, sino empezar a editar
+con mas precision visual.

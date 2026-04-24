@@ -8,10 +8,14 @@ import { playNote, startNote, stopNote } from "../../application/use-cases/playN
 import type { MusicalNote } from "../../engine/midi/notes"
 import "./PianoPreview.css"
 
+export type PianoInteractionMode = "note" | "chord"
+
 type PianoPreviewProps = {
   notes: MusicalNote[]
   selectedNote: MusicalNote
   playOptions: PlayNoteOptions
+  interactionMode?: PianoInteractionMode
+  getPlayableNotes?: (note: MusicalNote) => MusicalNote[]
   onSelectNote: (note: MusicalNote) => void
   onNoteOff?: (note: MusicalNote) => void
   onNoteOn?: (note: MusicalNote) => void
@@ -43,18 +47,33 @@ export function PianoPreview({
   notes,
   selectedNote,
   playOptions,
+  interactionMode = "note",
+  getPlayableNotes,
   onSelectNote,
   onNoteOff,
   onNoteOn,
 }: PianoPreviewProps) {
   const [activeNotes, setActiveNotes] = useState<MusicalNote[]>([])
-  const activeNotesRef = useRef(new Map<MusicalNote, ActiveNoteId>())
+  const activeNotesRef = useRef(new Map<MusicalNote, ActiveNoteId[]>())
   const naturalNotes = getNaturalNotes(notes)
   const sharpNotes = notes.filter(isSharp)
 
+  function resolvePlayableNotes(note: MusicalNote) {
+    if (interactionMode === "chord") {
+      return getPlayableNotes?.(note) ?? [note]
+    }
+
+    return [note]
+  }
+
   function playPianoNoteOnce(note: MusicalNote) {
     onSelectNote(note)
-    playNote(note, 0.75, playOptions)
+
+    const playableNotes = resolvePlayableNotes(note)
+
+    playableNotes.forEach((playableNote) => {
+      playNote(playableNote, 0.75, playOptions)
+    })
   }
 
   function startPianoNote(note: MusicalNote) {
@@ -63,23 +82,37 @@ export function PianoPreview({
     }
 
     onSelectNote(note)
-    onNoteOn?.(note)
-    activeNotesRef.current.set(note, startNote(note, playOptions))
-    setActiveNotes((currentNotes) => [...currentNotes, note])
+
+    const playableNotes = resolvePlayableNotes(note)
+    const activeNoteIds = playableNotes.map((playableNote) => {
+      onNoteOn?.(playableNote)
+
+      return startNote(playableNote, playOptions)
+    })
+
+    activeNotesRef.current.set(note, activeNoteIds)
+    setActiveNotes((currentNotes) =>
+      Array.from(new Set([...currentNotes, ...playableNotes])),
+    )
   }
 
   function stopPianoNote(note: MusicalNote) {
-    const activeNoteId = activeNotesRef.current.get(note)
+    const activeNoteIds = activeNotesRef.current.get(note)
 
-    if (!activeNoteId) {
+    if (!activeNoteIds) {
       return
     }
 
-    onNoteOff?.(note)
-    stopNote(activeNoteId)
+    const playableNotes = resolvePlayableNotes(note)
+
+    playableNotes.forEach((playableNote, index) => {
+      onNoteOff?.(playableNote)
+      stopNote(activeNoteIds[index])
+    })
+
     activeNotesRef.current.delete(note)
     setActiveNotes((currentNotes) =>
-      currentNotes.filter((currentNote) => currentNote !== note),
+      currentNotes.filter((currentNote) => !playableNotes.includes(currentNote)),
     )
   }
 

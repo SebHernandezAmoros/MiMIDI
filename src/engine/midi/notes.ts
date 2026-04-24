@@ -82,3 +82,18 @@ export function noteToFrequency(note: MusicalNote) {
 
   return Number(frequency.toFixed(2))
 }
+
+export function midiNumberToNote(midiNumber: number): MusicalNote {
+  if (midiNumber < 12 || midiNumber > 119) {
+    throw new Error(`MIDI note out of supported range: ${midiNumber}`)
+  }
+
+  const octave = Math.floor(midiNumber / 12) - 1
+  const noteName = chromaticNoteNames[midiNumber % 12]
+
+  return `${noteName}${octave}` as MusicalNote
+}
+
+export function transposeNote(note: MusicalNote, semitones: number) {
+  return midiNumberToNote(noteToMidiNumber(note) + semitones)
+}

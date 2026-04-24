@@ -27,7 +27,7 @@
 
 .recorded-note-item {
   display: grid;
-  grid-template-columns: 1fr 4rem 4rem;
+  grid-template-columns: 1fr 4rem 4rem auto;
   gap: 0.5rem;
   align-items: center;
   padding: 0.5rem 0.6rem;
@@ -38,4 +38,12 @@
 
 .recorded-note-item span {
   color: #cfcfcf;
+}
+
+.recorded-note-remove {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #444444;
+  border-radius: 6px;
+  color: #f5f5f5;
+  background: #171717;
 }

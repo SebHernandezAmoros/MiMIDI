@@ -3,9 +3,13 @@ import "./RecordedNoteList.css"
 
 type RecordedNoteListProps = {
   notes: MidiRecordedNote[]
+  onRemoveNote?: (noteId: string) => void
 }
 
-export function RecordedNoteList({ notes }: RecordedNoteListProps) {
+export function RecordedNoteList({
+  notes,
+  onRemoveNote,
+}: RecordedNoteListProps) {
   return (
     <section className="recorded-note-list" aria-label="Notas MIDI grabadas">
       <h2>Notas grabadas</h2>
@@ -19,6 +23,15 @@ export function RecordedNoteList({ notes }: RecordedNoteListProps) {
               <strong>{recordedNote.note}</strong>
               <span>{recordedNote.startTime.toFixed(2)}s</span>
               <span>{recordedNote.duration.toFixed(2)}s</span>
+              {onRemoveNote ? (
+                <button
+                  className="recorded-note-remove"
+                  onClick={() => onRemoveNote(recordedNote.id)}
+                  type="button"
+                >
+                  Borrar
+                </button>
+              ) : null}
             </li>
           ))}
         </ol>

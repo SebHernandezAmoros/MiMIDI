@@ -1,4 +1,5 @@
 import type { MusicalNote } from "./notes"
+import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
 
 export type MidiNoteEventType = "note-on" | "note-off"
 
@@ -16,6 +17,7 @@ export type MidiRecordedNote = {
   startTime: number
   duration: number
   velocity: number
+  instrumentId: MathematicalInstrumentId
 }
 
 export function createMidiNoteEvent(
@@ -36,6 +38,7 @@ export function createMidiNoteEvent(
 export function createMidiRecordedNote(
   noteOnEvent: MidiNoteEvent,
   noteOffTime: number,
+  instrumentId: MathematicalInstrumentId,
 ): MidiRecordedNote {
   return {
     id: `note-${noteOnEvent.note}-${noteOnEvent.time.toFixed(3)}-${noteOffTime.toFixed(3)}`,
@@ -43,5 +46,6 @@ export function createMidiRecordedNote(
     startTime: noteOnEvent.time,
     duration: Math.max(noteOffTime - noteOnEvent.time, 0),
     velocity: noteOnEvent.velocity,
+    instrumentId,
   }
 }

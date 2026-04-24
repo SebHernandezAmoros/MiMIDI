@@ -15,23 +15,41 @@ import {
   type MidiNoteEvent,
   type MidiNoteEventType,
 } from "./engine/midi/events"
-import { availableNotes, type MusicalNote } from "./engine/midi/notes"
+import { availableNotes, transposeNote, type MusicalNote } from "./engine/midi/notes"
 import {
   appendNoteToTrack,
-  clearTrackNotes,
+  appendNotesToTrack,
+  appendTrack,
+  clearAllTrackNotes,
   createDefaultProject,
   parseImportedProject,
+  removeNoteFromTrack,
   renameProject,
   renameTrack,
+  updateTrackInstrument,
 } from "./engine/project/projectModel"
 import { loadStoredProject, saveProject } from "./engine/project/projectStorage"
 import { MidiEventLog } from "./features/midi-events/MidiEventLog"
 import { RecordedNoteList } from "./features/midi-events/RecordedNoteList"
-import { PianoPreview } from "./features/piano/PianoPreview"
+import {
+  PianoPreview,
+  type PianoInteractionMode,
+} from "./features/piano/PianoPreview"
 import { TimelinePreview } from "./features/timeline/TimelinePreview"
 import { usePlaybackTransport } from "./features/transport/usePlaybackTransport"
 
-const testChord: MusicalNote[] = ["C4", "E4", "G4"]
+const chordIntervals = {
+  major: [0, 4, 7],
+  minor: [0, 3, 7],
+  power: [0, 7, 12],
+} as const
+
+type ChordType = keyof typeof chordIntervals
+type ActiveNoteCapture = {
+  event: MidiNoteEvent
+  instrumentId: MathematicalInstrumentId
+  trackId: string
+}
 
 function getInitialProject() {
   return loadStoredProject() ?? createDefaultProject()
@@ -49,21 +67,28 @@ function getInitialProjectMessage() {
     : ""
 }
 
+function getInitialActiveTrackId() {
+  return getInitialProject().tracks[0]?.id ?? "track-1"
+}
+
 function App() {
   const [volume, setVolume] = useState(0.8)
-  const [instrumentId, setInstrumentId] =
-    useState<MathematicalInstrumentId>("pure-sine")
   const [selectedNote, setSelectedNote] = useState<MusicalNote>("A4")
+  const [selectedChordType, setSelectedChordType] = useState<ChordType>("major")
+  const [pianoMode, setPianoMode] = useState<PianoInteractionMode>("note")
+  const [activeTrackId, setActiveTrackId] = useState(getInitialActiveTrackId)
   const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
   const [project, setProject] = useState(getInitialProject)
-  const activeNoteEventsRef = useRef(new Map<MusicalNote, MidiNoteEvent>())
+  const activeNoteEventsRef = useRef(new Map<MusicalNote, ActiveNoteCapture>())
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const startedAtRef = useRef<number | null>(null)
   const playbackTransport = usePlaybackTransport()
 
-  const selectedInstrument = findMathematicalInstrument(instrumentId)
-  const primaryTrack = project.tracks[0]
+  const primaryTrack =
+    project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0]
+  const selectedInstrument = findMathematicalInstrument(primaryTrack.instrumentId)
+  const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
   const playOptions = createPlayOptions(selectedInstrument)
   const noteCount = primaryTrack.notes.length
 
@@ -76,16 +101,71 @@ function App() {
     setMasterVolume(nextVolume)
   }
 
+  function getCurrentRecordTime() {
+    const now = performance.now()
+
+    startedAtRef.current ??= now
+
+    return (now - startedAtRef.current) / 1000
+  }
+
+  function recordNotesToActiveTrack(notes: MusicalNote[], duration: number) {
+    const startTime = getCurrentRecordTime()
+
+    setProject((currentProject) =>
+      appendNotesToTrack(
+        currentProject,
+        primaryTrack.id,
+        notes.map((note) =>
+          createMidiRecordedNote(
+            createMidiNoteEvent("note-on", note, startTime, 1),
+            startTime + duration,
+            primaryTrack.instrumentId,
+          ),
+        ),
+      ),
+    )
+  }
+
   function playTestNote() {
     playNote(selectedNote, 0.75, playOptions)
+    recordNotesToActiveTrack([selectedNote], 0.75)
+  }
+
+  function buildChordNotes(rootNote: MusicalNote) {
+    return chordIntervals[selectedChordType].map((interval) =>
+      transposeNote(rootNote, interval),
+    )
+  }
+
+  function getPianoPlayableNotes(rootNote: MusicalNote) {
+    return pianoMode === "chord" ? buildChordNotes(rootNote) : [rootNote]
   }
 
   function playTestChord() {
-    playNotes(testChord, 1.15, createPlayOptions(selectedInstrument, 0.72))
+    const chordNotes = buildChordNotes(selectedNote)
+
+    playNotes(chordNotes, 1.15, createPlayOptions(selectedInstrument, 0.72))
+    recordNotesToActiveTrack(chordNotes, 1.15)
+    setProjectMessage(`Acorde ${selectedChordType} grabado en ${primaryTrack.name}.`)
   }
 
   function playRecording() {
-    playbackTransport.play(primaryTrack.notes, playOptions)
+    playbackTransport.play(allRecordedNotes, playOptions)
+  }
+
+  function addTrack() {
+    setProject((currentProject) => {
+      const nextProject = appendTrack(currentProject)
+      const nextTrack = nextProject.tracks.at(-1)
+
+      if (nextTrack) {
+        setActiveTrackId(nextTrack.id)
+        setProjectMessage(`Pista agregada: ${nextTrack.name}.`)
+      }
+
+      return nextProject
+    })
   }
 
   function updateProjectName(name: string) {
@@ -98,6 +178,19 @@ function App() {
     setProject((currentProject) =>
       renameTrack(currentProject, primaryTrack.id, name.trim() || "Track 1"),
     )
+  }
+
+  function updateTrackInstrumentId(instrumentId: MathematicalInstrumentId) {
+    setProject((currentProject) =>
+      updateTrackInstrument(currentProject, primaryTrack.id, instrumentId),
+    )
+  }
+
+  function removeRecordedNote(noteId: string) {
+    setProject((currentProject) =>
+      removeNoteFromTrack(currentProject, primaryTrack.id, noteId),
+    )
+    setProjectMessage(`Nota eliminada de ${primaryTrack.name}.`)
   }
 
   function exportProject() {
@@ -133,6 +226,7 @@ function App() {
       startedAtRef.current = null
       setMidiEvents([])
       setProject(importedProject)
+      setActiveTrackId(importedProject.tracks[0]?.id ?? "track-1")
       setProjectMessage(`Proyecto importado: ${importedProject.name}.`)
     } catch {
       setProjectMessage("No se pudo importar el JSON del proyecto.")
@@ -146,31 +240,35 @@ function App() {
     activeNoteEventsRef.current.clear()
     startedAtRef.current = null
     setMidiEvents([])
-    setProject((currentProject) => clearTrackNotes(currentProject, primaryTrack.id))
+    setProject((currentProject) => clearAllTrackNotes(currentProject))
     setProjectMessage("Sesion limpiada.")
   }
 
   function registerMidiEvent(type: MidiNoteEventType, note: MusicalNote) {
-    const now = performance.now()
-
-    startedAtRef.current ??= now
-
-    const eventTime = (now - startedAtRef.current) / 1000
+    const eventTime = getCurrentRecordTime()
     const midiEvent = createMidiNoteEvent(type, note, eventTime)
 
     if (type === "note-on") {
-      activeNoteEventsRef.current.set(note, midiEvent)
+      activeNoteEventsRef.current.set(note, {
+        event: midiEvent,
+        instrumentId: primaryTrack.instrumentId,
+        trackId: primaryTrack.id,
+      })
     }
 
     if (type === "note-off") {
-      const noteOnEvent = activeNoteEventsRef.current.get(note)
+      const activeNoteCapture = activeNoteEventsRef.current.get(note)
 
-      if (noteOnEvent) {
+      if (activeNoteCapture) {
         setProject((currentProject) =>
           appendNoteToTrack(
             currentProject,
-            primaryTrack.id,
-            createMidiRecordedNote(noteOnEvent, midiEvent.time),
+            activeNoteCapture.trackId,
+            createMidiRecordedNote(
+              activeNoteCapture.event,
+              midiEvent.time,
+              activeNoteCapture.instrumentId,
+            ),
           ),
         )
         activeNoteEventsRef.current.delete(note)
@@ -207,6 +305,10 @@ function App() {
             <span className="project-label">Notas</span>
             <strong>{noteCount}</strong>
           </div>
+          <div>
+            <span className="project-label">Pistas</span>
+            <strong>{project.tracks.length}</strong>
+          </div>
         </div>
 
         {projectMessage ? <p className="project-message">{projectMessage}</p> : null}
@@ -233,13 +335,32 @@ function App() {
           </div>
         </div>
 
+        <div className="track-controls">
+          <div className="control-group">
+            <label htmlFor="active-track">Pista activa</label>
+            <select
+              id="active-track"
+              value={primaryTrack.id}
+              onChange={(event) => setActiveTrackId(event.target.value)}
+            >
+              {project.tracks.map((track) => (
+                <option key={track.id} value={track.id}>
+                  {track.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button onClick={addTrack}>Nueva pista</button>
+        </div>
+
         <div className="control-group">
           <label htmlFor="instrument">Instrumento matematico</label>
           <select
             id="instrument"
-            value={instrumentId}
+            value={primaryTrack.instrumentId}
             onChange={(event) =>
-              setInstrumentId(event.target.value as MathematicalInstrumentId)
+              updateTrackInstrumentId(event.target.value as MathematicalInstrumentId)
             }
           >
             {mathematicalInstruments.map((instrument) => (
@@ -248,6 +369,26 @@ function App() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="control-group">
+          <label>Modo del piano</label>
+          <div className="mode-switch" aria-label="Modo del piano">
+            <button
+              className={pianoMode === "note" ? "mode-switch-active" : ""}
+              onClick={() => setPianoMode("note")}
+              type="button"
+            >
+              Nota
+            </button>
+            <button
+              className={pianoMode === "chord" ? "mode-switch-active" : ""}
+              onClick={() => setPianoMode("chord")}
+              type="button"
+            >
+              Acorde
+            </button>
+          </div>
         </div>
 
         <div className="control-group">
@@ -268,6 +409,19 @@ function App() {
         </div>
 
         <div className="control-group">
+          <label htmlFor="chord-type">Tipo de acorde</label>
+          <select
+            id="chord-type"
+            value={selectedChordType}
+            onChange={(event) => setSelectedChordType(event.target.value as ChordType)}
+          >
+            <option value="major">Mayor</option>
+            <option value="minor">Menor</option>
+            <option value="power">Power</option>
+          </select>
+        </div>
+
+        <div className="control-group">
           <label htmlFor="volume">Volumen maestro</label>
           <input
             id="volume"
@@ -281,6 +435,8 @@ function App() {
         </div>
 
         <PianoPreview
+          getPlayableNotes={getPianoPlayableNotes}
+          interactionMode={pianoMode}
           notes={availableNotes}
           onNoteOff={(note) => registerMidiEvent("note-off", note)}
           onNoteOn={(note) => registerMidiEvent("note-on", note)}
@@ -293,7 +449,7 @@ function App() {
           <button onClick={playTestNote}>Tocar nota</button>
           <button onClick={playTestChord}>Tocar acorde</button>
           <button
-            disabled={primaryTrack.notes.length === 0 || playbackTransport.isPlaying}
+            disabled={allRecordedNotes.length === 0 || playbackTransport.isPlaying}
             onClick={playRecording}
           >
             {playbackTransport.isPlaying
@@ -307,7 +463,7 @@ function App() {
         </div>
 
         <MidiEventLog events={midiEvents} />
-        <RecordedNoteList notes={primaryTrack.notes} />
+        <RecordedNoteList notes={primaryTrack.notes} onRemoveNote={removeRecordedNote} />
         <TimelinePreview notes={primaryTrack.notes} />
       </section>
     </main>

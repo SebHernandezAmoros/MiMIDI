@@ -1,5 +1,9 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
+import {
+  createPlayOptions,
+  findMathematicalInstrument,
+} from "../../engine/audio/mathematicalInstruments"
 import type { MidiRecordedNote } from "../../engine/midi/events"
 
 export type PlaybackHandle = {
@@ -14,8 +18,10 @@ export function playRecordedNotes(
   recordedNotes: MidiRecordedNote[],
   options: PlayRecordedNotesOptions = {},
 ): PlaybackHandle {
+  const { onComplete, ...playOverrides } = options
+
   if (recordedNotes.length === 0) {
-    options.onComplete?.()
+    onComplete?.()
 
     return {
       cancel: () => {},
@@ -37,13 +43,18 @@ export function playRecordedNotes(
         return
       }
 
-      playNote(recordedNote.note, recordedNote.duration, options)
+      const trackInstrument = findMathematicalInstrument(recordedNote.instrumentId)
+
+      playNote(recordedNote.note, recordedNote.duration, {
+        ...createPlayOptions(trackInstrument),
+        ...playOverrides,
+      })
     }, Math.max(recordedNote.startTime - firstStartTime, 0) * 1000),
   )
   const completeTimerId = window.setTimeout(
     () => {
       if (!isCancelled) {
-        options.onComplete?.()
+        onComplete?.()
       }
     },
     Math.max(lastEndTime - firstStartTime, 0) * 1000,

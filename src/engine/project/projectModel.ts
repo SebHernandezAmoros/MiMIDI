@@ -1,8 +1,10 @@
+import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
 import type { MidiRecordedNote } from "../midi/events"
 import type { MusicalNote } from "../midi/notes"
 
 export type ProjectTrack = {
   id: string
+  instrumentId: MathematicalInstrumentId
   name: string
   notes: MidiRecordedNote[]
 }
@@ -17,13 +19,16 @@ export function createDefaultProject(): MusicalProject {
   return {
     id: "project-1",
     name: "MiMIDI Project",
-    tracks: [
-      {
-        id: "track-1",
-        name: "Track 1",
-        notes: [],
-      },
-    ],
+    tracks: [createProjectTrack(1)],
+  }
+}
+
+export function createProjectTrack(index: number): ProjectTrack {
+  return {
+    id: `track-${index}`,
+    instrumentId: "pure-sine",
+    name: `Track ${index}`,
+    notes: [],
   }
 }
 
@@ -45,6 +50,42 @@ export function appendNoteToTrack(
   }
 }
 
+export function appendNotesToTrack(
+  project: MusicalProject,
+  trackId: string,
+  notes: MidiRecordedNote[],
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            notes: [[...notes].reverse(), track.notes].flat(),
+          }
+        : track,
+    ),
+  }
+}
+
+export function removeNoteFromTrack(
+  project: MusicalProject,
+  trackId: string,
+  noteId: string,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            notes: track.notes.filter((note) => note.id !== noteId),
+          }
+        : track,
+    ),
+  }
+}
+
 export function clearTrackNotes(
   project: MusicalProject,
   trackId: string,
@@ -59,6 +100,16 @@ export function clearTrackNotes(
           }
         : track,
     ),
+  }
+}
+
+export function clearAllTrackNotes(project: MusicalProject): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) => ({
+      ...track,
+      notes: [],
+    })),
   }
 }
 
@@ -90,6 +141,31 @@ export function renameTrack(
   }
 }
 
+export function updateTrackInstrument(
+  project: MusicalProject,
+  trackId: string,
+  instrumentId: MathematicalInstrumentId,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            instrumentId,
+          }
+        : track,
+    ),
+  }
+}
+
+export function appendTrack(project: MusicalProject): MusicalProject {
+  return {
+    ...project,
+    tracks: [...project.tracks, createProjectTrack(project.tracks.length + 1)],
+  }
+}
+
 function isRecordedNote(value: unknown): value is MidiRecordedNote {
   if (!value || typeof value !== "object") {
     return false
@@ -102,7 +178,8 @@ function isRecordedNote(value: unknown): value is MidiRecordedNote {
     typeof note.note === "string" &&
     typeof note.startTime === "number" &&
     typeof note.duration === "number" &&
-    typeof note.velocity === "number"
+    typeof note.velocity === "number" &&
+    (typeof note.instrumentId === "string" || typeof note.instrumentId === "undefined")
   )
 }
 
@@ -115,6 +192,8 @@ function isProjectTrack(value: unknown): value is ProjectTrack {
 
   return (
     typeof track.id === "string" &&
+    (typeof track.instrumentId === "string" ||
+      typeof track.instrumentId === "undefined") &&
     typeof track.name === "string" &&
     Array.isArray(track.notes) &&
     track.notes.every(isRecordedNote)
@@ -124,9 +203,11 @@ function isProjectTrack(value: unknown): value is ProjectTrack {
 function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
   return {
     ...track,
+    instrumentId: (track.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
     notes: track.notes.map((note) => ({
       ...note,
       note: note.note as MusicalNote,
+      instrumentId: (note.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
     })),
   }
 }
