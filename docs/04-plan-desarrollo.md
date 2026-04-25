@@ -127,3 +127,146 @@ Tareas:
 ## 🏁 Meta
 
 Sistema musical modular basado en síntesis matemática
+
+---
+
+## Estado Consolidado (Abril 2026)
+
+Avance confirmado:
+
+- FASE 1: completada
+- FASE 2: completada
+- FASE 3: completada
+- FASE 4: completada
+- FASE 5: implementada como timeline editable
+- FASE 8: en desarrollo activo (estado avanzado)
+
+Capacidades ya activas:
+
+- grabacion por pistas
+- instrumentos matematicos por pista
+- exportar/importar JSON
+- persistencia local
+- timeline editable (mover/redimensionar)
+- snap opcional
+- duplicar y revertir nota
+- historial con undo/redo y limite acotado
+- atajos de teclado de historial
+
+Estado de atajos:
+
+- `Ctrl/Cmd + Z`: deshacer
+- `Ctrl/Cmd + Y`: rehacer
+
+Los atajos quedaron integrados al mismo motor de historial (`useProjectHistory`)
+que usan los botones de UI, por lo que ambos caminos de accion comparten estado.
+
+---
+
+## Mapa Futuro Aplicable (priorizado)
+
+Este mapa convierte tus tareas en orden de ejecucion recomendado para aplicar
+sin romper fases ya cerradas.
+
+### Bloque A - Cierre de historial (corto plazo)
+
+Objetivo:
+- cerrar por completo `Deshacer/Rehacer` antes de abrir mas superficie de UI.
+
+Tareas:
+- test de integracion minimo `timeline + historial` (UI real)
+- tooltip corto de ayuda para `Revertir nota`
+
+Cuando aplicarlo:
+- inmediato (siguiente iteracion)
+
+Estado:
+- completado
+
+### Bloque B - Modo App y vistas (medio plazo)
+
+Objetivo:
+- dejar de tener todo en una sola vista "apelotonada" y pasar a estructura de
+  app con navegacion clara.
+
+Tareas:
+- separar vistas por contexto:
+  - Piano/Grabacion
+  - Edicion/Timeline
+  - Proyecto/Exportacion
+- mejorar estetica y jerarquia visual:
+  - layout en columnas/paneles
+  - espaciado y densidad
+  - toolbar estable
+
+Cuando aplicarlo:
+- despues de cerrar Bloque A
+
+### Bloque C - Timeline de tracks (alto valor)
+
+Objetivo:
+- sumar timeline por pistas ademas del timeline de notas.
+
+Tareas:
+- vista de tracks (lanes por pista)
+- seleccion de pista desde timeline de tracks
+- sincronizacion track timeline <-> note timeline
+
+Cuando aplicarlo:
+- despues del Bloque B (ya con modo app)
+
+### Bloque D - FASE 6 Plugins (retomar fase faltante)
+
+Objetivo:
+- definir extensibilidad real del core.
+
+Tareas:
+- contrato minimo de plugin
+- carga/registro de plugins internos
+- primer plugin de ejemplo sin samples
+
+Cuando aplicarlo:
+- despues de Bloque C
+
+### Bloque E - FASE 7 Sintesis avanzada (retomar fase faltante)
+
+Objetivo:
+- enriquecer sonido manteniendo instrumentos matematicos.
+
+Tareas:
+- modulacion LFO
+- mejoras de envolvente/mezcla por pista
+- parametros automatizables basicos
+
+Cuando aplicarlo:
+- en paralelo tardio con FASE 6 o despues de FASE 6
+
+### Bloque F - Exportacion audible (alta prioridad de producto)
+
+Objetivo:
+- exportar audio de buena calidad del proyecto.
+
+Formato recomendado:
+- WAV PCM 32-bit float (sin perdida, alta calidad)
+- opcion secundaria: WAV PCM 24/16-bit para compatibilidad
+
+Estrategia tecnica:
+- `OfflineAudioContext` para render no realtime
+- mezcla por pistas y timeline en render offline
+- exportador WAV en infraestructura
+
+Cuando aplicarlo:
+- despues de Bloque C (ideal con modo app + track timeline listos)
+
+---
+
+## Resumen de Aplicacion
+
+Orden recomendado:
+
+1. Bloque A (cerrar historial)
+2. Bloque B (modo app + estetica)
+3. Bloque C (timeline de tracks)
+4. Bloque D (FASE 6 plugins)
+5. Bloque E (FASE 7 sintesis avanzada)
+6. Bloque F (exportacion audible WAV alta calidad)

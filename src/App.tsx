@@ -794,6 +794,7 @@ function App() {
             <button
               disabled={!selectedRecordedNote}
               onClick={revertSelectedNoteToLastCommit}
+              title="Vuelve la nota seleccionada a su ultimo estado confirmado en historial."
               type="button"
             >
               Revertir nota

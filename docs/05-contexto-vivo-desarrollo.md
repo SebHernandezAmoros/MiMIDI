@@ -1898,29 +1898,227 @@ Resultado:
 El historial vuelve a registrarse correctamente y `Deshacer/Rehacer` funciona de
 forma estable con botones y teclado.
 
+## Movimiento 35 - Prueba unitaria de useProjectHistory
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `package.json`
+- `vite.config.ts`
+- `src/features/history/useProjectHistory.test.ts`
+
+Intencion:
+
+Blindar el hook de historial para evitar regresiones como las que afectaron
+`Deshacer/Rehacer`.
+
+Como se movio:
+
+- Se agrego script `test` con `vitest run`.
+- Se configuro entorno de test `jsdom` en `vite.config.ts`.
+- Se agrego prueba unitaria para `useProjectHistory` con cobertura de:
+  - registro de historial basico,
+  - `undo` / `redo`,
+  - flujo `transient + commit`,
+  - limite de historial.
+
+Decision tecnica:
+
+Se priorizo test de hook en aislamiento, sin UI, para validar reglas de
+historial como unidad de dominio de estado.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El motor de historial ahora tiene proteccion automatica contra regresiones en
+los casos criticos que ya fallaron en iteraciones previas.
+
+## Movimiento 36 - Consolidacion documental y verificacion de atajos
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Dejar un estado de referencia claro para continuar el desarrollo sin perder
+contexto sobre lo que ya se cerro y como se valida.
+
+Como se movio:
+
+- Se agrego en `04` un bloque de estado consolidado por fases.
+- Se agrego en `04` lista de capacidades activas.
+- Se documento en `04` el estado de atajos:
+  - `Ctrl/Cmd + Z`
+  - `Ctrl/Cmd + Y`
+- Se mantuvo este `05` como bitacora incremental de decisiones tecnicas.
+
+Decision tecnica:
+
+La documentacion de plan (`04`) queda como vista ejecutiva y `05` queda como
+historial detallado de cambios/validaciones.
+
+Validacion:
+
+- Confirmacion de flujo funcional en iteraciones recientes.
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Queda trazabilidad completa y consistente entre plan y bitacora para retomar el
+trabajo en cualquier momento.
+
+## Movimiento 37 - Mapeo de tareas futuras por bloques
+
+Fase: Plan transversal
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+
+Intencion:
+
+Traducir nuevas tareas de producto a una secuencia aplicable con dependencias
+claras y momento de ejecucion recomendado.
+
+Como se movio:
+
+- Se agrego `Mapa Futuro Aplicable (priorizado)` en `04`.
+- Se incluyeron bloques con orden y criterio de aplicacion:
+  - A: cierre de historial (`undo/redo`)
+  - B: modo app + estetica/vistas
+  - C: timeline de tracks
+  - D: FASE 6 plugins
+  - E: FASE 7 sintesis avanzada
+  - F: exportacion audible de alta calidad
+- Se documento recomendacion tecnica de exportacion:
+  - WAV PCM con render offline por `OfflineAudioContext`
+
+Decision tecnica:
+
+Se priorizo cerrar primero estabilidad de edicion/historial y luego escalar UI,
+timeline de pistas y exportacion. Esto reduce riesgo de retrabajo.
+
+Validacion:
+
+- revision documental cruzada entre `04` y `05`
+
+Resultado:
+
+El roadmap futuro queda mapeado con orden de aplicacion y objetivos concretos.
+
+## Movimiento 38 - Test de integracion timeline+historial y tooltip de revertir
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.integration.test.tsx`
+- `src/App.tsx`
+- `docs/04-plan-desarrollo.md`
+
+Intencion:
+
+Cerrar Bloque A con una validacion automatica del flujo real de UI e incorporar
+ayuda contextual en la accion de `Revertir nota`.
+
+Como se movio:
+
+- Se agrego prueba de integracion en `App` que valida:
+  - mover nota en timeline,
+  - cambio de historial,
+  - `Deshacer/Rehacer` por botones,
+  - `Ctrl+Z` y `Ctrl+Y`.
+- Se agrego prueba para tooltip de `Revertir nota`.
+- Se agrego atributo `title` al boton `Revertir nota`.
+- En el plan (`04`) se marco Bloque A como completado.
+
+Decision tecnica:
+
+Se prueban interacciones end-to-end de UI con timeline real para cubrir el punto
+de falla historico que no era detectable solo con test unitario del hook.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Bloque A queda formalmente cerrado: historial estable y cubierto por tests
+unitarios + integracion.
+
+## Movimiento 39 - Estabilizacion de test de integracion en entorno jsdom
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.integration.test.tsx`
+
+Intencion:
+
+Evitar falsos fallos por dependencias de audio del navegador al ejecutar tests
+de integracion en entorno `jsdom`.
+
+Como se movio:
+
+- Se elimino dependencia de `Tocar nota` para preparar escenario de test.
+- Se siembra proyecto inicial en `localStorage` antes de cada test.
+- Los casos de integracion ahora prueban timeline/historial sin invocar
+  `AudioContext`.
+- Se agrego `cleanup` explicito entre casos para evitar interferencias.
+
+Decision tecnica:
+
+En tests de integracion de UI se privilegia controlar estado inicial por datos,
+no por reproduccion de audio, para mantener pruebas deterministas.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La suite de integracion queda estable y repetible en CI/local.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
 
 Siguiente incremento recomendado:
 
-- agregar tooltip corto de ayuda para `Revertir nota`,
-- agregar una prueba unitaria de `useProjectHistory`,
+- iniciar Bloque B (modo app y vistas separadas),
+- definir layout base de tres vistas con navegacion clara,
 - seguir evitando una grilla DAW completa por ahora.
 
 Objetivo:
 
-Pasar de proyecto editable con flujo experto:
+Pasar de laboratorio monovista:
 
 ```ts
-handleHistoryShortcuts(ctrlZ, ctrlShiftZ)
+singleScreenLab()
 ```
 
-a proyecto editable con arquitectura mas limpia:
+a modo app:
 
 ```ts
-useProjectHistory(project, limit)
+appMode({ recordView, editView, projectView })
 ```
 
-Eso reduce complejidad de `App.tsx` sin perder velocidad de edicion ni control
-del historial.
+Eso habilita crecimiento de UI sin apelotonar controles y prepara timeline de
+tracks en la siguiente etapa.
