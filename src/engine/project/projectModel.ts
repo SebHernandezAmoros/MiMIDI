@@ -86,6 +86,65 @@ export function removeNoteFromTrack(
   }
 }
 
+export function updateNoteInTrack(
+  project: MusicalProject,
+  trackId: string,
+  noteId: string,
+  patch: Partial<Pick<MidiRecordedNote, "startTime" | "duration">>,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            notes: track.notes.map((note) =>
+              note.id === noteId
+                ? {
+                    ...note,
+                    ...patch,
+                  }
+                : note,
+            ),
+          }
+        : track,
+    ),
+  }
+}
+
+export function duplicateNoteInTrack(
+  project: MusicalProject,
+  trackId: string,
+  noteId: string,
+  offsetSeconds = 0.05,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) => {
+      if (track.id !== trackId) {
+        return track
+      }
+
+      const sourceNote = track.notes.find((note) => note.id === noteId)
+
+      if (!sourceNote) {
+        return track
+      }
+
+      const copiedNote: MidiRecordedNote = {
+        ...sourceNote,
+        id: `note-${sourceNote.note}-${(sourceNote.startTime + offsetSeconds).toFixed(3)}-${Date.now()}`,
+        startTime: Math.max(0, sourceNote.startTime + offsetSeconds),
+      }
+
+      return {
+        ...track,
+        notes: [copiedNote, ...track.notes],
+      }
+    }),
+  }
+}
+
 export function clearTrackNotes(
   project: MusicalProject,
   trackId: string,
@@ -163,6 +222,29 @@ export function appendTrack(project: MusicalProject): MusicalProject {
   return {
     ...project,
     tracks: [...project.tracks, createProjectTrack(project.tracks.length + 1)],
+  }
+}
+
+export function removeTrack(
+  project: MusicalProject,
+  trackId: string,
+): MusicalProject {
+  if (project.tracks.length <= 1) {
+    return project
+  }
+
+  return {
+    ...project,
+    tracks: project.tracks.filter((track) => track.id !== trackId),
+  }
+}
+
+export function resetProject(project: MusicalProject): MusicalProject {
+  const defaultProject = createDefaultProject()
+
+  return {
+    ...defaultProject,
+    id: project.id,
   }
 }
 

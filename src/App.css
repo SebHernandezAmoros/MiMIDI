@@ -60,7 +60,7 @@ p {
 
 .track-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.75rem;
   align-items: end;
 }
@@ -110,6 +110,97 @@ input[type="text"] {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.note-editor {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #111111;
+}
+
+.note-editor h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.note-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.note-editor-grid > div {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.timeline-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.timeline-snap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #cfcfcf;
+}
+
+.timeline-step-label {
+  font-size: 0.9rem;
+  color: #cfcfcf;
+}
+
+.timeline-tools select {
+  min-width: 5.8rem;
+}
+
+.history-indicator {
+  color: #a8a8a8;
+  font-size: 0.85rem;
+}
+
+.history-shortcuts {
+  color: #b7b7b7;
+  font-size: 0.85rem;
+}
+
+.history-note-status {
+  font-size: 0.85rem;
+}
+
+.history-note-status-modificada {
+  color: #ff9cab;
+}
+
+.history-note-status-sin-cambios {
+  color: #9ecb9f;
+}
+
+.drag-status {
+  color: #9a9a9a;
+  font-size: 0.85rem;
+}
+
+.drag-status-active {
+  color: #ffb0be;
+}
+
+@media (max-width: 720px) {
+  .track-controls,
+  .note-editor-grid,
+  .timeline-tools {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 button:disabled {

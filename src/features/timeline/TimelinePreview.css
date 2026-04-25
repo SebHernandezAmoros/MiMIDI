@@ -24,6 +24,19 @@
   font-size: 0.85rem;
 }
 
+.timeline-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.timeline-actions button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #444444;
+  border-radius: 6px;
+  color: #f5f5f5;
+  background: #171717;
+}
+
 .timeline-lanes {
   display: grid;
   gap: 0.45rem;
@@ -59,6 +72,26 @@
   inset-block: 0.25rem;
   left: calc(var(--note-start) * 100%);
   width: max(calc(var(--note-duration) * 100%), 0.5rem);
+  padding: 0;
+  border: 0;
   border-radius: 4px;
   background: #ff3150;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.timeline-note-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0.4rem;
+  height: 100%;
+  border-left: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.15);
+  cursor: ew-resize;
+}
+
+.timeline-note-block-selected {
+  background: #ff5f79;
+  box-shadow: 0 0 0 1px #ffe1e7 inset;
 }

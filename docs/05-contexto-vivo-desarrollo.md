@@ -1395,30 +1395,532 @@ El selector de tipo de acorde ahora tambien afecta al piano visual cuando el
 modo esta en `Acorde`, y la pista activa ya permite corregir errores borrando
 notas puntuales.
 
+## Movimiento 24 - Reinicio de proyecto, borrado de pista y edicion desde timeline
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/engine/project/projectModel.ts`
+- `src/features/midi-events/RecordedNoteList.tsx`
+- `src/features/midi-events/RecordedNoteList.css`
+- `src/features/timeline/TimelinePreview.tsx`
+- `src/features/timeline/TimelinePreview.css`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Resolver una confusion de UX en la accion `Limpiar` y avanzar la edicion para
+que lista y timeline trabajen juntas sobre la misma nota seleccionada.
+
+Como se movio:
+
+- Se agrego `removeTrack`.
+- Se agrego `resetProject`.
+- `App.tsx` ahora separa:
+  - `Limpiar notas`: borra solo notas/eventos,
+  - `Reiniciar proyecto`: vuelve a una sola pista y nombre por defecto.
+- Se agrego boton `Eliminar pista`.
+- Se protege la regla de negocio: siempre debe quedar al menos una pista.
+- Se agrego `selectedRecordedNoteId` en `App.tsx`.
+- `RecordedNoteList` ahora permite seleccionar nota.
+- `TimelinePreview` ahora permite seleccionar nota con click.
+- `TimelinePreview` agrega `Borrar nota seleccionada`.
+- Lista y timeline comparten seleccion y resaltado visual.
+
+Decision tecnica:
+
+Se mantuvo `Limpiar notas` como accion rapida de sesion y se agrego
+`Reiniciar proyecto` como accion estructural. Asi se evita mezclar dos
+intenciones diferentes en un solo boton.
+
+La seleccion se centralizo en `App.tsx` para no duplicar estado en lista y
+timeline.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La app ahora permite:
+
+- borrar pistas de forma controlada,
+- reiniciar proyecto completo sin ambiguedad,
+- seleccionar la misma nota desde lista y timeline,
+- borrar esa nota desde cualquiera de las dos superficies.
+
+## Movimiento 25 - Edicion de inicio y duracion de nota seleccionada
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/engine/project/projectModel.ts`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Pasar de una edicion basada solo en borrar a una edicion de correccion temporal
+sobre la nota seleccionada.
+
+Como se movio:
+
+- Se agrego `updateNoteInTrack`.
+- `App.tsx` calcula `selectedRecordedNote` desde la pista activa.
+- Se agrego panel `Editar nota seleccionada`.
+- El panel muestra:
+  - nota,
+  - inicio en segundos,
+  - duracion en segundos.
+- Se agregaron handlers:
+  - `updateSelectedNoteStartTime`
+  - `updateSelectedNoteDuration`
+- Se aplican limites:
+  - `startTime >= 0`
+  - `duration >= 0.01`
+- Lista y timeline se actualizan inmediatamente al editar.
+- Se agrego ajuste responsive para que el panel no rompa en movil.
+
+Decision tecnica:
+
+La actualizacion de notas se implemento en el modelo (`projectModel`) para que
+la regla de cambio no quede acoplada a una vista concreta.
+
+El panel vive en `App.tsx` porque todavia estamos en etapa de laboratorio y
+validacion de flujo.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El proyecto ya permite corregir posicion y duracion de notas sin regrabar ni
+recrear la pista.
+
+## Movimiento 26 - Edicion por arrastre en timeline
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/features/timeline/TimelinePreview.tsx`
+- `src/features/timeline/TimelinePreview.css`
+- `src/App.tsx`
+
+Intencion:
+
+Pasar de edicion por inputs a una interaccion directa en timeline para mover y
+redimensionar notas con gestos simples.
+
+Como se movio:
+
+- `TimelinePreview` ahora acepta `onUpdateNote`.
+- Se agrego gesto de arrastre del bloque para mover `startTime`.
+- Se agrego tirador lateral para cambiar `duration`.
+- El movimiento usa conversion pixel-a-segundos segun ancho real del track.
+- Se conservan limites:
+  - `startTime >= 0`
+  - `duration >= 0.01`
+- `App.tsx` centraliza `updateRecordedNote` y lo comparte con:
+  - panel `Editar nota seleccionada`,
+  - timeline por arrastre.
+
+Decision tecnica:
+
+Se reutilizo la misma operacion de dominio (`updateNoteInTrack`) para todas las
+formas de edicion, evitando reglas duplicadas entre vista y modelo.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Las notas ahora pueden ajustarse con interaccion directa sobre la timeline, no
+solo con campos numericos.
+
+## Movimiento 27 - Snap opcional y duplicado de nota
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/engine/project/projectModel.ts`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Agregar precision opcional al editar notas y acelerar iteracion musical con una
+accion rapida de duplicado.
+
+Como se movio:
+
+- Se agrego `duplicateNoteInTrack`.
+- Se agrego switch `Snap` en herramientas de timeline.
+- Se agrego selector de paso en segundos:
+  - `0.05`
+  - `0.10`
+  - `0.25`
+  - `0.50`
+- `updateRecordedNote` ahora aplica cuantizacion cuando `Snap` esta activo.
+- Se agrego boton `Duplicar nota` para la nota seleccionada.
+- El duplicado usa offset corto:
+  - con snap: el paso seleccionado,
+  - sin snap: `0.05s`.
+
+Decision tecnica:
+
+Se mantuvo `Snap` desactivado por defecto para no romper el flujo libre de
+edicion. La cuantizacion se aplica en el mismo punto de actualizacion que usan
+timeline y panel numerico, garantizando consistencia.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La edicion ahora combina libertad y precision: se puede editar libremente o con
+grid temporal, y duplicar notas seleccionadas en un paso.
+
+## Movimiento 28 - Undo/Redo basico con historial acotado
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Permitir recuperar y reaplicar cambios de edicion sin perder progreso,
+manteniendo bajo control el uso de memoria.
+
+Como se movio:
+
+- Se agrego historial en memoria:
+  - `undoStack`
+  - `redoStack`
+- Se agrego limite de historial `HISTORY_LIMIT = 20`.
+- Se agrego helper `applyProjectUpdate` para centralizar mutaciones de proyecto.
+- Las mutaciones del proyecto ahora registran historial y limpian `redo`.
+- Se agregaron acciones:
+  - `undoProjectEdit`
+  - `redoProjectEdit`
+- Se agregaron botones `Deshacer` y `Rehacer` en herramientas de timeline.
+- Al importar proyecto se limpia historial para evitar deshacer sobre otra base.
+
+Decision tecnica:
+
+El historial se guarda por snapshots de `project` para mantener implementacion
+simple y robusta en esta fase de laboratorio. El limite de 20 entradas evita
+crecimiento indefinido.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La app ya permite deshacer y rehacer cambios recientes de proyecto/edicion con
+una UX directa y acotada.
+
+## Movimiento 29 - Undo visible por arrastre + atajos de teclado
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/features/timeline/TimelinePreview.tsx`
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Corregir la sensacion de que `Deshacer/Rehacer` no cambia nada al mover notas en
+timeline y hacer el flujo mas rapido con teclado.
+
+Como se movio:
+
+- La edicion por arrastre ahora distingue dos fases:
+  - `transient`: preview visual durante movimiento,
+  - `commit`: cierre del gesto para historial.
+- Cada arrastre/redimensionado guarda un solo paso de historial.
+- `updateRecordedNote` ahora acepta `historyMode`.
+- Se agregaron atajos:
+  - `Ctrl/Cmd + Z` para deshacer,
+  - `Ctrl/Cmd + Shift + Z` para rehacer.
+- Se ignoran atajos cuando el foco esta en inputs/selects para no romper
+  escritura.
+- Se agrego indicador de historial visible:
+  - `Historial: x/20 | Rehacer: y`.
+- Se ajusto layout de herramientas para evitar controles comprimidos.
+
+Decision tecnica:
+
+Separar preview de commit evita llenar el historial con micro-variaciones del
+puntero y hace que cada click en `Deshacer` produzca un cambio claramente
+visible.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+`Deshacer/Rehacer` ahora es perceptible tras arrastrar notas y el usuario tiene
+feedback claro de cuanto historial queda disponible.
+
+## Movimiento 30 - Commit de drag y atajo Ctrl/Cmd+Y
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Corregir el caso en el que los botones `Deshacer/Rehacer` parecian no mover
+notas tras un arrastre, y alinear el atajo de rehacer a `Ctrl/Cmd + Y`.
+
+Como se movio:
+
+- Se agrego referencia `transientHistoryBaseRef` para capturar estado base al
+  iniciar drag.
+- Durante drag (`transient`) se actualiza la UI sin empujar historial.
+- Al soltar (`commit`) se guarda un solo snapshot en `undoStack`.
+- Se limpia estado transitorio al hacer:
+  - importar proyecto,
+  - limpiar notas,
+  - reiniciar proyecto,
+  - deshacer/rehacer.
+- Se cambio atajo de rehacer a:
+  - `Ctrl/Cmd + Y`
+- Se agrego texto corto de atajos visible en herramientas.
+
+Decision tecnica:
+
+Separar historial transitorio de historial comprometido evita pasos de deshacer
+invisibles y hace que cada click de boton tenga efecto claro.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Los botones `Deshacer/Rehacer` ahora reflejan cambios visibles tras mover notas
+en timeline, igual que los atajos de teclado.
+
+## Movimiento 31 - Revertir nota seleccionada
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.tsx`
+
+Intencion:
+
+Permitir recuperar una nota puntual sin tener que deshacer cambios globales del
+proyecto paso por paso.
+
+Como se movio:
+
+- Se agrego accion `Revertir nota`.
+- La accion busca en `undoStack` el ultimo snapshot donde esa nota existia con
+  `startTime` o `duration` diferentes.
+- Si encuentra candidato:
+  - restaura ese snapshot,
+  - mueve estado actual a `redoStack`,
+  - recorta `undoStack` hasta el punto restaurado.
+- Si no hay candidato, muestra mensaje informativo.
+
+Decision tecnica:
+
+Se implemento como salto controlado de historial para priorizar velocidad de
+edicion focalizada, manteniendo compatibilidad con `Deshacer/Rehacer`.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La nota seleccionada puede volver rapidamente a su ultimo estado comprometido
+sin revertir toda la sesion de edicion.
+
+## Movimiento 32 - Undo robusto, atajos globales y estado de nota
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+
+Intencion:
+
+Corregir casos donde `Deshacer/Rehacer` no mostraba cambios visibles y fortalecer
+atajos de teclado en escenarios con foco dentro de inputs.
+
+Como se movio:
+
+- Se agrego comparador `areProjectsEquivalent`.
+- `undoProjectEdit` ahora salta snapshots equivalentes hasta encontrar un cambio
+  visible.
+- `redoProjectEdit` aplica la misma logica para evitar rehacer no-op.
+- `updateRecordedNote` evita guardar commits sin cambio real.
+- Los atajos `Ctrl/Cmd + Z` y `Ctrl/Cmd + Y` ahora funcionan aunque el foco este
+  en controles de formulario.
+- Se estabilizaron atajos con refs de accion para evitar cierres rotos por
+  orden de declaracion y mantener boton/teclado sincronizados.
+- Se agrego etiqueta visual de nota:
+  - `Nota modificada`
+  - `Nota sin cambios`
+
+Decision tecnica:
+
+Filtrar snapshots equivalentes mejora percepcion de `Undo/Redo` sin romper el
+historial acotado existente.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Los botones y atajos de historial se comportan de forma consistente y con
+feedback visual claro sobre el estado de la nota seleccionada.
+
+## Movimiento 33 - Historial de drag sin no-op + indicador activo
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+- `src/features/timeline/TimelinePreview.tsx`
+
+Intencion:
+
+Corregir casos donde `Deshacer` no parecia actuar y dar visibilidad al estado
+de interaccion durante arrastre en timeline.
+
+Como se movio:
+
+- Se rehizo el commit de edicion de nota para evitar snapshots sin cambio real.
+- Si el commit final no cambia el proyecto, no se agrega historial.
+- Si el resultado final coincide con la base transitoria, no se agrega historial.
+- Se agrego callback `onDragStateChange` desde `TimelinePreview`.
+- Se agrego indicador visual:
+  - `Arrastre activo`
+  - `Arrastre inactivo`
+
+Decision tecnica:
+
+Evitar no-op en historial hace que cada `Deshacer` tenga efecto visible y evita
+botones habilitados con comportamiento confuso.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+`Deshacer/Rehacer` refleja cambios reales tras mover notas y el usuario ve el
+estado de arrastre en tiempo real.
+
+## Movimiento 34 - Historial extraido a hook y recuperacion de Undo/Redo
+
+Fase: FASE 8 - Proyecto musical
+
+Archivos movidos:
+
+- `src/features/history/useProjectHistory.ts`
+- `src/App.tsx`
+
+Intencion:
+
+Eliminar fragilidad del historial embebido en `App.tsx` y recuperar
+confiabilidad de `Deshacer/Rehacer` y atajos en una sola fuente de verdad.
+
+Como se movio:
+
+- Se creo `useProjectHistory`.
+- El hook centraliza:
+  - `undoStack`
+  - `redoStack`
+  - `applyUpdate`
+  - `applyTransientUpdate`
+  - `commitTransientUpdate`
+  - `undo`
+  - `redo`
+  - `replaceState`
+- `App.tsx` dejo de manejar manualmente los setters internos del historial.
+- `updateRecordedNote` ahora usa el flujo del hook para:
+  - preview transitorio de drag,
+  - commit unico por gesto.
+- `Deshacer/Rehacer` (botones y atajos) ahora consumen el mismo motor.
+- `Importar JSON` reemplaza proyecto y limpia historial de forma consistente.
+
+Decision tecnica:
+
+Extraer el historial reduce acoplamiento, hace el comportamiento mas predecible
+y facilita evolucion futura sin romper `App.tsx`.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El historial vuelve a registrarse correctamente y `Deshacer/Rehacer` funciona de
+forma estable con botones y teclado.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
 
 Siguiente incremento recomendado:
 
-- permitir borrar notas directamente desde la timeline,
-- resaltar una nota al seleccionarla en lista y timeline,
-- mantener sincronizada la seleccion con la pista activa,
+- agregar tooltip corto de ayuda para `Revertir nota`,
+- agregar una prueba unitaria de `useProjectHistory`,
 - seguir evitando una grilla DAW completa por ahora.
 
 Objetivo:
 
-Pasar de proyecto corregible:
+Pasar de proyecto editable con flujo experto:
 
 ```ts
-removeNoteFromTrack(project, activeTrackId, noteId)
+handleHistoryShortcuts(ctrlZ, ctrlShiftZ)
 ```
 
-a proyecto seleccionable:
+a proyecto editable con arquitectura mas limpia:
 
 ```ts
-selectNoteInTrack(project, activeTrackId, noteId)
+useProjectHistory(project, limit)
 ```
 
-Eso haria que el proyecto no solo pueda borrar errores, sino empezar a editar
-con mas precision visual.
+Eso reduce complejidad de `App.tsx` sin perder velocidad de edicion ni control
+del historial.
