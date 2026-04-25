@@ -194,10 +194,14 @@ Tareas:
   - Piano/Grabacion
   - Edicion/Timeline
   - Proyecto/Exportacion
+  - Settings
+  - Plugins
 - mejorar estetica y jerarquia visual:
   - layout en columnas/paneles
   - espaciado y densidad
   - toolbar estable
+- agregar menu dedicado de SMC Pad
+- agregar selector de octavas para definir rango de teclas visibles/tocables
 
 Cuando aplicarlo:
 - despues de cerrar Bloque A
@@ -258,6 +262,24 @@ Estrategia tecnica:
 Cuando aplicarlo:
 - despues de Bloque C (ideal con modo app + track timeline listos)
 
+### Bloque G - Sampler (menu separado)
+
+Objetivo:
+- incorporar sampler como capacidad opcional en un menu propio, sin mezclarlo
+  con el core matematico.
+
+Tareas:
+- menu de Sampler en modo app
+- grabar audio desde entrada del usuario
+- catalogar samples en lista/banco
+- disparo de samples desde interfaz dedicada
+
+Regla de arquitectura:
+- el sampler vive como modulo separado del core de sintesis matematica.
+
+Cuando aplicarlo:
+- despues de Bloque B (modo app) y en paralelo con Bloque C/D
+
 ---
 
 ## Resumen de Aplicacion
@@ -267,6 +289,7 @@ Orden recomendado:
 1. Bloque A (cerrar historial)
 2. Bloque B (modo app + estetica)
 3. Bloque C (timeline de tracks)
-4. Bloque D (FASE 6 plugins)
-5. Bloque E (FASE 7 sintesis avanzada)
-6. Bloque F (exportacion audible WAV alta calidad)
+4. Bloque G (sampler en menu separado)
+5. Bloque D (FASE 6 plugins)
+6. Bloque E (FASE 7 sintesis avanzada)
+7. Bloque F (exportacion audible WAV alta calidad)

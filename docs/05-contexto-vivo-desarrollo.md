@@ -2096,6 +2096,48 @@ Resultado:
 
 La suite de integracion queda estable y repetible en CI/local.
 
+## Movimiento 40 - Mapeo ampliado de menus y capacidades futuras
+
+Fase: Plan transversal
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+
+Intencion:
+
+Incorporar nuevas tareas de producto al roadmap con momento de aplicacion y
+dependencias claras, ya con `Deshacer/Rehacer` considerado bloque cerrado.
+
+Como se movio:
+
+- Se expandio Bloque B (modo app/vistas) con menus:
+  - Settings
+  - Plugins
+- Se agregaron tareas funcionales en Bloque B:
+  - menu dedicado SMC Pad
+  - selector de octavas
+- Se agrego Bloque G para Sampler como menu separado:
+  - grabar audio
+  - banco/listado de samples
+  - disparo de samples
+- Se ajusto el orden recomendado para incluir Sampler antes de Plugins/Sintesis
+  avanzada.
+
+Decision tecnica:
+
+Sampler se mantiene separado del core de instrumentos matematicos para respetar
+restricciones arquitectonicas del proyecto.
+
+Validacion:
+
+- revision documental cruzada (`04` y `05`)
+
+Resultado:
+
+El roadmap ahora refleja de forma explicita menus, vistas y modulos faltantes
+para la siguiente etapa de producto.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
@@ -2103,7 +2145,7 @@ Avanzar a FASE 8 - Proyecto musical.
 Siguiente incremento recomendado:
 
 - iniciar Bloque B (modo app y vistas separadas),
-- definir layout base de tres vistas con navegacion clara,
+- definir layout base de menus: Grabacion, Edicion, Proyecto, Settings, Plugins,
 - seguir evitando una grilla DAW completa por ahora.
 
 Objetivo:
