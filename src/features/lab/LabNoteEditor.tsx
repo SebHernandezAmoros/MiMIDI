@@ -1,4 +1,4 @@
-import type { MidiRecordedNote } from "../../engine/midi/events"
+import { isSmcPadRecordedNote, type MidiRecordedNote } from "../../engine/midi/events"
 
 type LabNoteEditorProps = {
   canRedo: boolean
@@ -43,6 +43,8 @@ export function LabNoteEditor({
   timelineSnapStep,
   undoCount,
 }: LabNoteEditorProps) {
+  const isDurationLocked = selectedRecordedNote ? isSmcPadRecordedNote(selectedRecordedNote) : false
+
   return (
     <section className="note-editor" aria-label="Editar nota seleccionada">
       <h2>Editar nota seleccionada</h2>
@@ -127,6 +129,7 @@ export function LabNoteEditor({
           <div className="control-group">
             <label htmlFor="note-duration">Duracion (s)</label>
             <input
+              disabled={isDurationLocked}
               id="note-duration"
               min="0.01"
               step="0.01"
@@ -136,6 +139,11 @@ export function LabNoteEditor({
                 onSelectedNoteDurationChange(Number(event.target.value))
               }
             />
+            {isDurationLocked ? (
+              <span className="project-label">
+                Los golpes SMC Pad se pueden mover, pero no redimensionar.
+              </span>
+            ) : null}
           </div>
         </div>
       ) : (

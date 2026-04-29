@@ -216,11 +216,12 @@ Estado parcial:
   - extraccion de panel de proyecto, controles de sonido, acciones y editor de
     nota
   - selector de octavas para controlar rango visible/tocable del piano
+  - `noise generator` base en el motor de audio
+  - mini `SMC Pad` de prueba dentro del laboratorio actual
 - pendiente:
   - mejora visual/jerarquia del laboratorio
   - menu dedicado de SMC Pad
   - baterias matematicas para SMC Pad
-  - `noise generator`
 
 ### Bloque C - FASE 7 Sintesis avanzada (retomar fase faltante)
 

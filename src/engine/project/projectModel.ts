@@ -261,7 +261,15 @@ function isRecordedNote(value: unknown): value is MidiRecordedNote {
     typeof note.startTime === "number" &&
     typeof note.duration === "number" &&
     typeof note.velocity === "number" &&
-    (typeof note.instrumentId === "string" || typeof note.instrumentId === "undefined")
+    (typeof note.instrumentId === "string" || typeof note.instrumentId === "undefined") &&
+    (note.playbackSource === undefined ||
+      note.playbackSource === "note" ||
+      note.playbackSource === "smc-pad") &&
+    (note.smcPadSoundId === undefined ||
+      note.smcPadSoundId === "kick" ||
+      note.smcPadSoundId === "snare" ||
+      note.smcPadSoundId === "hat" ||
+      note.smcPadSoundId === "clap")
   )
 }
 
@@ -290,6 +298,14 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
       ...note,
       note: note.note as MusicalNote,
       instrumentId: (note.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
+      playbackSource: note.playbackSource === "smc-pad" ? "smc-pad" : "note",
+      smcPadSoundId:
+        note.smcPadSoundId === "kick" ||
+        note.smcPadSoundId === "snare" ||
+        note.smcPadSoundId === "hat" ||
+        note.smcPadSoundId === "clap"
+          ? note.smcPadSoundId
+          : undefined,
     })),
   }
 }

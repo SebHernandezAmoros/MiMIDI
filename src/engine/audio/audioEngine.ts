@@ -14,10 +14,12 @@ export type PlayFrequencyOptions = {
   envelope?: Partial<ADSREnvelope>
 }
 
+export type PlayNoiseOptions = Omit<PlayFrequencyOptions, "waveform">
+
 export type VoiceId = string
 
 type ActiveVoice = {
-  oscillator: OscillatorNode
+  source: OscillatorNode | AudioBufferSourceNode
   gainNode: GainNode
   envelope: ADSREnvelope
   sustainVolume: number
@@ -32,6 +34,7 @@ const DEFAULT_ENVELOPE: ADSREnvelope = {
 
 let audioContext: AudioContext | null = null
 let masterGainNode: GainNode | null = null
+let whiteNoiseBuffer: AudioBuffer | null = null
 let voiceCounter = 0
 
 const activeVoices = new Map<VoiceId, ActiveVoice>()
@@ -69,6 +72,24 @@ function resolveEnvelope(envelope?: Partial<ADSREnvelope>) {
   }
 }
 
+function getWhiteNoiseBuffer(ctx: AudioContext) {
+  if (whiteNoiseBuffer) {
+    return whiteNoiseBuffer
+  }
+
+  const bufferSize = ctx.sampleRate * 2
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+  const channelData = buffer.getChannelData(0)
+
+  for (let sampleIndex = 0; sampleIndex < bufferSize; sampleIndex += 1) {
+    channelData[sampleIndex] = Math.random() * 2 - 1
+  }
+
+  whiteNoiseBuffer = buffer
+
+  return whiteNoiseBuffer
+}
+
 function scheduleVoiceStart(
   ctx: AudioContext,
   gainNode: GainNode,
@@ -100,7 +121,48 @@ function scheduleVoiceStop(voiceId: VoiceId, releaseStartTime: number) {
   voice.gainNode.gain.cancelScheduledValues(releaseStartTime)
   voice.gainNode.gain.setValueAtTime(voice.sustainVolume, releaseStartTime)
   voice.gainNode.gain.linearRampToValueAtTime(0.0001, releaseEndTime)
-  voice.oscillator.stop(releaseEndTime)
+  voice.source.stop(releaseEndTime)
+}
+
+function registerActiveVoice(
+  voiceId: VoiceId,
+  source: OscillatorNode | AudioBufferSourceNode,
+  gainNode: GainNode,
+  envelope: ADSREnvelope,
+  sustainVolume: number,
+) {
+  activeVoices.set(voiceId, {
+    source,
+    gainNode,
+    envelope,
+    sustainVolume,
+  })
+
+  source.onended = () => {
+    source.disconnect()
+    gainNode.disconnect()
+    activeVoices.delete(voiceId)
+  }
+}
+
+function startSourceVoice(
+  source: OscillatorNode | AudioBufferSourceNode,
+  options: Pick<PlayFrequencyOptions, "volume" | "envelope"> = {},
+) {
+  const ctx = getAudioContext()
+  const gainNode = ctx.createGain()
+  const envelope = resolveEnvelope(options.envelope)
+  const volume = clamp(options.volume ?? 0.2, 0, 1)
+  const voiceId = `voice-${voiceCounter++}`
+  const sustainVolume = scheduleVoiceStart(ctx, gainNode, volume, envelope)
+
+  source.connect(gainNode)
+  gainNode.connect(getMasterGainNode(ctx))
+
+  registerActiveVoice(voiceId, source, gainNode, envelope, sustainVolume)
+  source.start()
+
+  return voiceId
 }
 
 export function setMasterVolume(volume: number) {
@@ -117,35 +179,21 @@ export function startFrequency(
 ) {
   const ctx = getAudioContext()
   const oscillator = ctx.createOscillator()
-  const gainNode = ctx.createGain()
-  const envelope = resolveEnvelope(options.envelope)
-  const volume = clamp(options.volume ?? 0.2, 0, 1)
-  const voiceId = `voice-${voiceCounter++}`
 
   oscillator.type = options.waveform ?? "sine"
   oscillator.frequency.setValueAtTime(frequency, ctx.currentTime)
 
-  const sustainVolume = scheduleVoiceStart(ctx, gainNode, volume, envelope)
+  return startSourceVoice(oscillator, options)
+}
 
-  oscillator.connect(gainNode)
-  gainNode.connect(getMasterGainNode(ctx))
+export function startNoise(options: PlayNoiseOptions = {}) {
+  const ctx = getAudioContext()
+  const noiseSource = ctx.createBufferSource()
 
-  activeVoices.set(voiceId, {
-    oscillator,
-    gainNode,
-    envelope,
-    sustainVolume,
-  })
+  noiseSource.buffer = getWhiteNoiseBuffer(ctx)
+  noiseSource.loop = true
 
-  oscillator.onended = () => {
-    oscillator.disconnect()
-    gainNode.disconnect()
-    activeVoices.delete(voiceId)
-  }
-
-  oscillator.start()
-
-  return voiceId
+  return startSourceVoice(noiseSource, options)
 }
 
 export function stopVoice(voiceId: VoiceId) {
@@ -169,6 +217,15 @@ export function playFrequency(
 ) {
   const ctx = getAudioContext()
   const voiceId = startFrequency(frequency, options)
+
+  scheduleVoiceStop(voiceId, ctx.currentTime + duration)
+
+  return voiceId
+}
+
+export function playNoise(duration = 1, options: PlayNoiseOptions = {}) {
+  const ctx = getAudioContext()
+  const voiceId = startNoise(options)
 
   scheduleVoiceStop(voiceId, ctx.currentTime + duration)
 

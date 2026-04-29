@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react"
-import type { MidiRecordedNote } from "../../engine/midi/events"
+import { isSmcPadRecordedNote, type MidiRecordedNote } from "../../engine/midi/events"
 import { noteToMidiNumber } from "../../engine/midi/notes"
 import type { MusicalNote } from "../../engine/midi/notes"
 import "./TimelinePreview.css"
@@ -69,6 +69,10 @@ export function TimelinePreview({
     mode: "move" | "resize",
   ) {
     if (!onUpdateNote) {
+      return
+    }
+
+    if (mode === "resize" && isSmcPadRecordedNote(note)) {
       return
     }
 
@@ -170,10 +174,12 @@ export function TimelinePreview({
                       } as TimelineNoteStyle
                     }
                   >
-                    <span
-                      className="timeline-note-handle"
-                      onPointerDown={(event) => startNoteDrag(event, note, "resize")}
-                    />
+                    {isSmcPadRecordedNote(note) ? null : (
+                      <span
+                        className="timeline-note-handle"
+                        onPointerDown={(event) => startNoteDrag(event, note, "resize")}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

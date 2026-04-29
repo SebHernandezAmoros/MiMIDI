@@ -2353,6 +2353,219 @@ Resultado:
 El laboratorio ya permite desplazar el rango del piano por octavas visibles,
 preparando mejor la base para futuras mejoras de interpretacion y SMC Pad.
 
+## Movimiento 46 - Noise generator base en el motor de audio
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/engine/audio/audioEngine.ts`
+
+Intencion:
+
+Agregar una base reutilizable de ruido blanco dentro del core matematico para
+preparar percusion sintetica futura sin introducir samples ni librerias
+externas.
+
+Como se movio:
+
+- Se agrego buffer cacheado de ruido blanco en `audioEngine`.
+- Se unifico el flujo de voces para soportar tanto osciladores como
+  `AudioBufferSourceNode`.
+- Se agregaron APIs:
+  - `startNoise`
+  - `playNoise`
+- El ruido usa el mismo sistema de:
+  - volumen maestro
+  - ADSR
+  - parada de voces
+  - limpieza de recursos
+
+Decision tecnica:
+
+Se mantuvo el `noise generator` dentro del motor de audio como primitiva base,
+sin UI todavia, para que luego pueda reutilizarse en `snare`, `hat`, `clap` y
+futuras baterias matematicas del `SMC Pad`.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El core ya cuenta con una fuente de ruido blanco lista para usarse en
+instrumentos y percusion matematica, manteniendo la restriccion de no usar
+samples en el core.
+
+## Movimiento 47 - Mini SMC Pad audible dentro del laboratorio
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/application/use-cases/playSmcPadHit.ts`
+- `src/features/smc-pad/MiniSmcPad.tsx`
+- `src/features/smc-pad/MiniSmcPad.css`
+
+Intencion:
+
+Dar una prueba funcional audible del `noise generator` y de percusion
+matematica basica sin esperar al menu final de `SMC Pad`.
+
+Como se movio:
+
+- Se creo un mini `SMC Pad` embebido dentro del laboratorio actual.
+- Se agregaron cuatro golpes de prueba:
+  - `Kick`
+  - `Snare`
+  - `Hat`
+  - `Clap`
+- Se combinaron seno, triangulo y ruido blanco con envelopes cortos para
+  obtener percusion matematica inicial.
+- El pad vive como superficie de prueba, no como menu final ni como modulo
+  aislado completo todavia.
+
+Decision tecnica:
+
+Se priorizo una validacion audible pequena y directa para probar el motor de
+audio expandido antes de invertir en la version final de `SMC Pad`.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El laboratorio ya incluye una superficie minima para probar percusion
+matematica y validar en la practica la nueva base de ruido blanco del motor.
+
+## Movimiento 48 - Registro del mini SMC Pad en timeline
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/application/use-cases/playSmcPadHit.ts`
+- `src/features/smc-pad/MiniSmcPad.tsx`
+
+Intencion:
+
+Hacer que la prueba audible del mini `SMC Pad` tambien participe del flujo de
+grabacion del proyecto, para que sus golpes aparezcan en la timeline.
+
+Como se movio:
+
+- Se asigno a cada pad una nota MIDI representativa y una duracion corta.
+- El mini `SMC Pad` mantiene el disparo de audio, pero ahora tambien notifica a
+  `App` que hubo un golpe.
+- `App` registra ese golpe en la pista activa usando el mismo flujo de
+  grabacion rapida del laboratorio.
+
+Decision tecnica:
+
+Se eligio una representacion MIDI simple por pad para validar integracion con
+timeline sin esperar aun un sistema de percusion/pistas dedicado ni una
+calibracion final del mapeo sonoro.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Los pads `Kick`, `Snare`, `Hat` y `Clap` ya no solo suenan: tambien generan una
+nota grabada en la pista activa y aparecen en la timeline del proyecto.
+
+## Movimiento 49 - Reproduccion correcta de golpes SMC Pad desde timeline
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/engine/midi/events.ts`
+- `src/engine/project/projectModel.ts`
+
+Intencion:
+
+Corregir el caso donde los golpes grabados del mini `SMC Pad` aparecian en
+timeline pero, al reproducirse, sonaban como notas de piano en lugar de volver
+como percusion matematica.
+
+Como se movio:
+
+- Se agrego metadata de reproduccion en `MidiRecordedNote`.
+- Los golpes del mini `SMC Pad` ahora se guardan con:
+  - `playbackSource: "smc-pad"`
+  - `smcPadSoundId`
+- `playRecordedNotes` detecta esa metadata y reenruta la reproduccion hacia
+  `playSmcPadHit` en vez de `playNote`.
+- Se mantuvo compatibilidad con notas musicales normales y con proyectos
+  existentes, usando `playbackSource: "note"` como default.
+
+Decision tecnica:
+
+Se distinguio el origen/reproductor de cada nota grabada para no mezclar
+material melodico con percusion sintetica, sin romper la representacion comun en
+timeline durante esta etapa de laboratorio.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Los golpes del mini `SMC Pad` ya aparecen en timeline y, al reproducir la
+grabacion, vuelven a sonar como `Kick`, `Snare`, `Hat` o `Clap` en vez de como
+notas de piano.
+
+## Movimiento 50 - Golpes SMC Pad sin resize en timeline
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/engine/midi/events.ts`
+- `src/features/lab/LabNoteEditor.tsx`
+- `src/features/timeline/TimelinePreview.tsx`
+
+Intencion:
+
+Respetar la naturaleza percutiva de los golpes del mini `SMC Pad`, evitando que
+puedan alargarse o acortarse como si fueran notas sostenidas.
+
+Como se movio:
+
+- Se agrego helper para detectar notas grabadas provenientes de `smc-pad`.
+- Se oculto el handle de resize en timeline para esos golpes.
+- Se deshabilito la edicion manual de duracion en el panel cuando la nota
+  seleccionada viene del mini `SMC Pad`.
+- `App` bloquea ademas cambios programaticos de duracion sobre esos eventos.
+
+Decision tecnica:
+
+Los golpes del mini `SMC Pad` se tratan como triggers movibles en el tiempo,
+pero no escalables en duracion, manteniendo una semantica mas cercana a bateria
+que a nota melodica sostenida.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Los golpes del mini `SMC Pad` ya se pueden mover dentro de la timeline, pero no
+redimensionar ni editar su duracion manualmente.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
@@ -2361,8 +2574,8 @@ Siguiente incremento recomendado:
 
 - continuar Bloque B sobre la base ya extraida desde `App.tsx`,
 - priorizar las piezas mas concretas y de menor riesgo dentro del laboratorio:
-  - `noise generator`
   - primera mejora de jerarquia visual
+  - consolidar esta prueba hacia un `SMC Pad` mas completo
 - despues de eso, pasar a Bloque C:
   - sintesis avanzada
 

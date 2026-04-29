@@ -12,6 +12,7 @@ import {
 import {
   createMidiRecordedNote,
   createMidiNoteEvent,
+  isSmcPadRecordedNote,
   type MidiNoteEvent,
   type MidiNoteEventType,
 } from "./engine/midi/events"
@@ -44,12 +45,17 @@ import { LabActions } from "./features/lab/LabActions"
 import { LabNoteEditor } from "./features/lab/LabNoteEditor"
 import { LabProjectPanel } from "./features/lab/LabProjectPanel"
 import { LabSoundControls } from "./features/lab/LabSoundControls"
+import {
+  getSmcPadSoundDescriptor,
+  type SmcPadSoundId,
+} from "./application/use-cases/playSmcPadHit"
 import { MidiEventLog } from "./features/midi-events/MidiEventLog"
 import { RecordedNoteList } from "./features/midi-events/RecordedNoteList"
 import {
   PianoPreview,
   type PianoInteractionMode,
 } from "./features/piano/PianoPreview"
+import { MiniSmcPad } from "./features/smc-pad/MiniSmcPad"
 import { TimelinePreview } from "./features/timeline/TimelinePreview"
 import { useProjectHistory } from "./features/history/useProjectHistory"
 import { usePlaybackTransport } from "./features/transport/usePlaybackTransport"
@@ -274,6 +280,28 @@ function App() {
     playbackTransport.play(allRecordedNotes, playOptions)
   }
 
+  function triggerSmcPad(soundId: SmcPadSoundId) {
+    const sound = getSmcPadSoundDescriptor(soundId)
+    const startTime = getCurrentRecordTime()
+
+    applyUpdate((currentProject) =>
+      appendNoteToTrack(
+        currentProject,
+        primaryTrack.id,
+        createMidiRecordedNote(
+          createMidiNoteEvent("note-on", sound.note, startTime, 1),
+          startTime + sound.duration,
+          primaryTrack.instrumentId,
+          {
+            playbackSource: "smc-pad",
+            smcPadSoundId: sound.id,
+          },
+        ),
+      ),
+    )
+    setProjectMessage(`${sound.label} grabado en ${primaryTrack.name}.`)
+  }
+
   function addTrack() {
     applyUpdate((currentProject) => {
       const nextProject = appendTrack(currentProject)
@@ -342,6 +370,19 @@ function App() {
     patch: Partial<{ startTime: number; duration: number }>,
     historyMode: "transient" | "commit" = "commit",
   ) {
+    const noteToUpdate = primaryTrack.notes.find((note) => note.id === noteId)
+
+    if (!noteToUpdate) {
+      return
+    }
+
+    if (typeof patch.duration === "number" && isSmcPadRecordedNote(noteToUpdate)) {
+      if (historyMode === "commit") {
+        setProjectMessage("Los golpes SMC Pad se pueden mover, pero no redimensionar.")
+      }
+      return
+    }
+
     const quantize = (value: number) =>
       timelineSnapEnabled ? Math.round(value / timelineSnapStep) * timelineSnapStep : value
     const safePatch: Partial<{ startTime: number; duration: number }> = {}
@@ -481,6 +522,11 @@ function App() {
 
   function updateSelectedNoteDuration(value: number) {
     if (!selectedRecordedNote) {
+      return
+    }
+
+    if (isSmcPadRecordedNote(selectedRecordedNote)) {
+      setProjectMessage("Los golpes SMC Pad se pueden mover, pero no redimensionar.")
       return
     }
 
@@ -648,6 +694,8 @@ function App() {
           playOptions={playOptions}
           selectedNote={selectedNote}
         />
+
+        <MiniSmcPad onTrigger={triggerSmcPad} />
 
         <LabActions
           canPlayRecording={allRecordedNotes.length > 0}

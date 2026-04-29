@@ -1,5 +1,6 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
+import { playSmcPadHit } from "./playSmcPadHit"
 import {
   createPlayOptions,
   findMathematicalInstrument,
@@ -40,6 +41,11 @@ export function playRecordedNotes(
   const timerIds = recordedNotes.map((recordedNote) =>
     window.setTimeout(() => {
       if (isCancelled) {
+        return
+      }
+
+      if (recordedNote.playbackSource === "smc-pad" && recordedNote.smcPadSoundId) {
+        playSmcPadHit(recordedNote.smcPadSoundId)
         return
       }
 

@@ -18,6 +18,12 @@ export type MidiRecordedNote = {
   duration: number
   velocity: number
   instrumentId: MathematicalInstrumentId
+  playbackSource?: "note" | "smc-pad"
+  smcPadSoundId?: "kick" | "snare" | "hat" | "clap"
+}
+
+export function isSmcPadRecordedNote(note: MidiRecordedNote) {
+  return note.playbackSource === "smc-pad"
 }
 
 export function createMidiNoteEvent(
@@ -39,6 +45,7 @@ export function createMidiRecordedNote(
   noteOnEvent: MidiNoteEvent,
   noteOffTime: number,
   instrumentId: MathematicalInstrumentId,
+  options: Partial<Pick<MidiRecordedNote, "playbackSource" | "smcPadSoundId">> = {},
 ): MidiRecordedNote {
   return {
     id: `note-${noteOnEvent.note}-${noteOnEvent.time.toFixed(3)}-${noteOffTime.toFixed(3)}`,
@@ -47,5 +54,7 @@ export function createMidiRecordedNote(
     duration: Math.max(noteOffTime - noteOnEvent.time, 0),
     velocity: noteOnEvent.velocity,
     instrumentId,
+    playbackSource: options.playbackSource ?? "note",
+    smcPadSoundId: options.smcPadSoundId,
   }
 }
