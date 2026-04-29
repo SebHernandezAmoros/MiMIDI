@@ -18,8 +18,12 @@ export function MiniSmcPad({ onTrigger }: MiniSmcPadProps) {
   return (
     <section className="smc-pad" aria-label="Mini SMC Pad">
       <div className="smc-pad-header">
-        <h2>Mini SMC Pad</h2>
-        <p>Prueba rapida de percusion matematica sobre el laboratorio actual.</p>
+        <div className="smc-pad-eyebrow">Laboratorio de percusion</div>
+        <div className="smc-pad-header-row">
+          <h2>Mini SMC Pad</h2>
+          <span className="smc-pad-badge">Noise + sintesis</span>
+        </div>
+        <p>Prueba rapida de golpes matematicos grabables dentro del flujo actual.</p>
       </div>
 
       <div className="smc-pad-grid">

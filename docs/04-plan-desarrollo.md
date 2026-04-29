@@ -222,6 +222,8 @@ Estado parcial:
   - mejora visual/jerarquia del laboratorio
   - menu dedicado de SMC Pad
   - baterias matematicas para SMC Pad
+  - refinamiento serio de sonido/UX del `SMC Pad` cuando exista su vista
+    dedicada
 
 ### Bloque C - FASE 7 Sintesis avanzada (retomar fase faltante)
 

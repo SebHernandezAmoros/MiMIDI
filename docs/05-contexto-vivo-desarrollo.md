@@ -2566,6 +2566,57 @@ Resultado:
 Los golpes del mini `SMC Pad` ya se pueden mover dentro de la timeline, pero no
 redimensionar ni editar su duracion manualmente.
 
+## Movimiento 51 - Calibracion rapida y mejora visual del mini SMC Pad
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/application/use-cases/playSmcPadHit.ts`
+- `src/features/smc-pad/MiniSmcPad.tsx`
+- `src/features/smc-pad/MiniSmcPad.css`
+
+Intencion:
+
+Hacer que la prueba del mini `SMC Pad` se sienta menos provisional mediante una
+calibracion corta de sonido y una jerarquia visual mas clara dentro del
+laboratorio.
+
+Como se movio:
+
+- Se recalibraron `Kick`, `Snare`, `Hat` y `Clap` con envelopes y balances mas
+  cortos/claros.
+- Se ajustaron descripciones y duraciones representativas de cada golpe.
+- Se mejoro la cabecera del pad con:
+  - eyebrow contextual
+  - badge tecnico
+  - copy mas clara
+- Se reforzo la presencia visual de los pads con mejor fondo, relieve y
+  acentos por color.
+
+Decision tecnica:
+
+Se eligio una calibracion rapida de laboratorio en vez de un rediseño grande
+para mantener el foco en validacion funcional y preparar una transicion mas sana
+hacia sintesis avanzada.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El mini `SMC Pad` queda mas legible visualmente y con golpes mas distinguibles,
+aunque la afinacion final de percusion siga abierta para iteraciones futuras.
+
+Nota de continuidad:
+
+El mini `SMC Pad` se considera suficiente como validacion funcional dentro del
+laboratorio monovista, pero su refinamiento fuerte de sonido, identidad visual y
+UX se difiere para cuando exista una vista dedicada de `SMC Pad`. No se fuerza
+su cierre total dentro de la pantalla monovista actual.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
