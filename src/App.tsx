@@ -34,6 +34,10 @@ import {
   updateTrackInstrument,
 } from "./engine/project/projectModel"
 import { loadStoredProject, saveProject } from "./engine/project/projectStorage"
+import { LabActions } from "./features/lab/LabActions"
+import { LabNoteEditor } from "./features/lab/LabNoteEditor"
+import { LabProjectPanel } from "./features/lab/LabProjectPanel"
+import { LabSoundControls } from "./features/lab/LabSoundControls"
 import { MidiEventLog } from "./features/midi-events/MidiEventLog"
 import { RecordedNoteList } from "./features/midi-events/RecordedNoteList"
 import {
@@ -579,148 +583,35 @@ function App() {
           type="file"
         />
 
-        <div className="project-summary" aria-label="Proyecto actual">
-          <div>
-            <span className="project-label">Proyecto</span>
-            <strong>{project.name}</strong>
-          </div>
-          <div>
-            <span className="project-label">Pista</span>
-            <strong>{primaryTrack.name}</strong>
-          </div>
-          <div>
-            <span className="project-label">Notas</span>
-            <strong>{noteCount}</strong>
-          </div>
-          <div>
-            <span className="project-label">Pistas</span>
-            <strong>{project.tracks.length}</strong>
-          </div>
-        </div>
+        <LabProjectPanel
+          instrumentOptions={mathematicalInstruments}
+          noteCount={noteCount}
+          onAddTrack={addTrack}
+          onProjectNameChange={updateProjectName}
+          onRemoveActiveTrack={removeActiveTrack}
+          onSwitchActiveTrack={switchActiveTrack}
+          onTrackInstrumentChange={updateTrackInstrumentId}
+          onTrackNameChange={updateTrackName}
+          primaryTrackId={primaryTrack.id}
+          primaryTrackInstrumentId={primaryTrack.instrumentId}
+          primaryTrackName={primaryTrack.name}
+          projectMessage={projectMessage}
+          projectName={project.name}
+          trackCount={project.tracks.length}
+          tracks={project.tracks}
+        />
 
-        {projectMessage ? <p className="project-message">{projectMessage}</p> : null}
-
-        <div className="project-editors">
-          <div className="control-group">
-            <label htmlFor="project-name">Nombre del proyecto</label>
-            <input
-              id="project-name"
-              type="text"
-              value={project.name}
-              onChange={(event) => updateProjectName(event.target.value)}
-            />
-          </div>
-
-          <div className="control-group">
-            <label htmlFor="track-name">Nombre de la pista</label>
-            <input
-              id="track-name"
-              type="text"
-              value={primaryTrack.name}
-              onChange={(event) => updateTrackName(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="track-controls">
-          <div className="control-group">
-            <label htmlFor="active-track">Pista activa</label>
-            <select
-              id="active-track"
-              value={primaryTrack.id}
-              onChange={(event) => switchActiveTrack(event.target.value)}
-            >
-              {project.tracks.map((track) => (
-                <option key={track.id} value={track.id}>
-                  {track.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button onClick={addTrack}>Nueva pista</button>
-          <button onClick={removeActiveTrack}>Eliminar pista</button>
-        </div>
-
-        <div className="control-group">
-          <label htmlFor="instrument">Instrumento matematico</label>
-          <select
-            id="instrument"
-            value={primaryTrack.instrumentId}
-            onChange={(event) =>
-              updateTrackInstrumentId(event.target.value as MathematicalInstrumentId)
-            }
-          >
-            {mathematicalInstruments.map((instrument) => (
-              <option key={instrument.id} value={instrument.id}>
-                {instrument.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="control-group">
-          <label>Modo del piano</label>
-          <div className="mode-switch" aria-label="Modo del piano">
-            <button
-              className={pianoMode === "note" ? "mode-switch-active" : ""}
-              onClick={() => setPianoMode("note")}
-              type="button"
-            >
-              Nota
-            </button>
-            <button
-              className={pianoMode === "chord" ? "mode-switch-active" : ""}
-              onClick={() => setPianoMode("chord")}
-              type="button"
-            >
-              Acorde
-            </button>
-          </div>
-        </div>
-
-        <div className="control-group">
-          <label htmlFor="note">Nota musical</label>
-          <select
-            id="note"
-            value={selectedNote}
-            onChange={(event) =>
-              setSelectedNote(event.target.value as MusicalNote)
-            }
-          >
-            {availableNotes.map((note) => (
-              <option key={note} value={note}>
-                {note}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="control-group">
-          <label htmlFor="chord-type">Tipo de acorde</label>
-          <select
-            id="chord-type"
-            value={selectedChordType}
-            onChange={(event) => setSelectedChordType(event.target.value as ChordType)}
-          >
-            <option value="major">Mayor</option>
-            <option value="minor">Menor</option>
-            <option value="power">Power</option>
-          </select>
-        </div>
-
-        <div className="control-group">
-          <label htmlFor="volume">Volumen maestro</label>
-          <input
-            id="volume"
-            max="1"
-            min="0"
-            step="0.01"
-            type="range"
-            value={volume}
-            onChange={(event) => updateVolume(Number(event.target.value))}
-          />
-        </div>
+        <LabSoundControls
+          availableNotes={availableNotes}
+          onChordTypeChange={setSelectedChordType}
+          onNoteChange={setSelectedNote}
+          onPianoModeChange={setPianoMode}
+          onVolumeChange={updateVolume}
+          pianoMode={pianoMode}
+          selectedChordType={selectedChordType}
+          selectedNote={selectedNote}
+          volume={volume}
+        />
 
         <PianoPreview
           getPlayableNotes={getPianoPlayableNotes}
@@ -733,23 +624,18 @@ function App() {
           selectedNote={selectedNote}
         />
 
-        <div className="actions">
-          <button onClick={playTestNote}>Tocar nota</button>
-          <button onClick={playTestChord}>Tocar acorde</button>
-          <button
-            disabled={allRecordedNotes.length === 0 || playbackTransport.isPlaying}
-            onClick={playRecording}
-          >
-            {playbackTransport.isPlaying
-              ? "Reproduciendo"
-              : "Reproducir grabacion"}
-          </button>
-          <button onClick={playbackTransport.stop}>Detener</button>
-          <button onClick={clearSession}>Limpiar notas</button>
-          <button onClick={restartProject}>Reiniciar proyecto</button>
-          <button onClick={openImportDialog}>Importar JSON</button>
-          <button onClick={exportProject}>Exportar JSON</button>
-        </div>
+        <LabActions
+          canPlayRecording={allRecordedNotes.length > 0}
+          isPlaying={playbackTransport.isPlaying}
+          onClearSession={clearSession}
+          onExportProject={exportProject}
+          onImportProject={openImportDialog}
+          onPlayRecording={playRecording}
+          onPlayTestChord={playTestChord}
+          onPlayTestNote={playTestNote}
+          onRestartProject={restartProject}
+          onStopPlayback={playbackTransport.stop}
+        />
 
         <MidiEventLog events={midiEvents} />
         <RecordedNoteList
@@ -758,118 +644,27 @@ function App() {
           onSelectNote={selectRecordedNote}
           selectedNoteId={selectedRecordedNoteId}
         />
-        <section className="note-editor" aria-label="Editar nota seleccionada">
-          <h2>Editar nota seleccionada</h2>
-
-          <div className="timeline-tools" aria-label="Herramientas de timeline">
-            <label className="timeline-snap-toggle">
-              <input
-                checked={timelineSnapEnabled}
-                type="checkbox"
-                onChange={(event) => setTimelineSnapEnabled(event.target.checked)}
-              />
-              Snap
-            </label>
-            <label className="timeline-step-label" htmlFor="timeline-snap-step">
-              Paso (s)
-            </label>
-            <select
-              disabled={!timelineSnapEnabled}
-              id="timeline-snap-step"
-              value={timelineSnapStep}
-              onChange={(event) => setTimelineSnapStep(Number(event.target.value))}
-            >
-              <option value={0.05}>0.05s</option>
-              <option value={0.1}>0.10s</option>
-              <option value={0.25}>0.25s</option>
-              <option value={0.5}>0.50s</option>
-            </select>
-            <button
-              disabled={!selectedRecordedNote}
-              onClick={duplicateSelectedRecordedNote}
-              type="button"
-            >
-              Duplicar nota
-            </button>
-            <button
-              disabled={!selectedRecordedNote}
-              onClick={revertSelectedNoteToLastCommit}
-              title="Vuelve la nota seleccionada a su ultimo estado confirmado en historial."
-              type="button"
-            >
-              Revertir nota
-            </button>
-            <button
-              disabled={!canUndo}
-              onClick={undoProjectEdit}
-              type="button"
-            >
-              Deshacer
-            </button>
-            <button
-              disabled={!canRedo}
-              onClick={redoProjectEdit}
-              type="button"
-            >
-              Rehacer
-            </button>
-            <span className="history-shortcuts" title={`Atajos: ${shortcutHint}`}>
-              Atajos: {shortcutHint}
-            </span>
-            <span className="history-indicator">
-              Historial: {undoStack.length}/{HISTORY_LIMIT} | Rehacer: {redoStack.length}
-            </span>
-            <span className={`drag-status ${isTimelineDragging ? "drag-status-active" : ""}`}>
-              {isTimelineDragging ? "Arrastre activo" : "Arrastre inactivo"}
-            </span>
-            {selectedNoteHistoryStatus ? (
-              <span
-                className={`history-note-status history-note-status-${selectedNoteHistoryStatus}`}
-              >
-                Nota {selectedNoteHistoryStatus === "modificada" ? "modificada" : "sin cambios"}
-              </span>
-            ) : null}
-          </div>
-
-          {selectedRecordedNote ? (
-            <div className="note-editor-grid">
-              <div>
-                <span className="project-label">Nota</span>
-                <strong>{selectedRecordedNote.note}</strong>
-              </div>
-              <div className="control-group">
-                <label htmlFor="note-start-time">Inicio (s)</label>
-                <input
-                  id="note-start-time"
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  value={selectedRecordedNote.startTime.toFixed(2)}
-                  onChange={(event) =>
-                    updateSelectedNoteStartTime(Number(event.target.value))
-                  }
-                />
-              </div>
-              <div className="control-group">
-                <label htmlFor="note-duration">Duracion (s)</label>
-                <input
-                  id="note-duration"
-                  min="0.01"
-                  step="0.01"
-                  type="number"
-                  value={selectedRecordedNote.duration.toFixed(2)}
-                  onChange={(event) =>
-                    updateSelectedNoteDuration(Number(event.target.value))
-                  }
-                />
-              </div>
-            </div>
-          ) : (
-            <p className="project-message">
-              Selecciona una nota en la lista o la timeline para editarla.
-            </p>
-          )}
-        </section>
+        <LabNoteEditor
+          canRedo={canRedo}
+          canUndo={canUndo}
+          historyLimit={HISTORY_LIMIT}
+          isTimelineDragging={isTimelineDragging}
+          onDuplicateSelectedNote={duplicateSelectedRecordedNote}
+          onRedo={redoProjectEdit}
+          onRevertSelectedNote={revertSelectedNoteToLastCommit}
+          onSelectedNoteDurationChange={updateSelectedNoteDuration}
+          onSelectedNoteStartTimeChange={updateSelectedNoteStartTime}
+          onTimelineSnapStepChange={setTimelineSnapStep}
+          onToggleTimelineSnap={setTimelineSnapEnabled}
+          onUndo={undoProjectEdit}
+          redoCount={redoStack.length}
+          selectedNoteHistoryStatus={selectedNoteHistoryStatus}
+          selectedRecordedNote={selectedRecordedNote}
+          shortcutHint={shortcutHint}
+          timelineSnapEnabled={timelineSnapEnabled}
+          timelineSnapStep={timelineSnapStep}
+          undoCount={undoStack.length}
+        />
         <TimelinePreview
           notes={primaryTrack.notes}
           onRemoveSelectedNote={removeRecordedNote}

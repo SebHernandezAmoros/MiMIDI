@@ -2268,21 +2268,65 @@ El roadmap queda alineado con la estrategia actual: primero ordenar internamente
 el laboratorio, luego cerrar capacidades core pendientes, y solo al final pasar
 a modo app con vistas separadas.
 
+## Movimiento 44 - Extraccion de secciones del laboratorio desde App
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/features/lab/LabActions.tsx`
+- `src/features/lab/LabNoteEditor.tsx`
+- `src/features/lab/LabProjectPanel.tsx`
+- `src/features/lab/LabSoundControls.tsx`
+
+Intencion:
+
+Reducir el apelotonamiento de `App.tsx` sin cambiar todavia la experiencia
+visible del laboratorio ni abrir el modo app con vistas separadas.
+
+Como se movio:
+
+- Se extrajeron secciones de render del laboratorio a componentes pequenos:
+  - proyecto/pistas/instrumento
+  - controles de sonido
+  - acciones del laboratorio
+  - editor de nota e historial
+- `App.tsx` se mantuvo como ensamblador principal del flujo.
+- Se conservaron las mismas clases CSS y los mismos handlers de negocio para no
+  alterar comportamiento visible.
+- No se movio aun la logica musical sensible a nuevos hooks de dominio; esta
+  iteracion se enfoco en estructura de UI y claridad del archivo principal.
+
+Decision tecnica:
+
+Antes de seguir con sintesis avanzada y exportacion audible, se prioriza bajar
+complejidad superficial de `App.tsx` para que el laboratorio soporte mejor las
+proximas capacidades sin mezclar mas render y coordinacion en una sola vista.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+`App.tsx` queda mas corto y legible, mientras el laboratorio conserva el mismo
+flujo funcional y queda mejor preparado para continuar Bloque B.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
 
 Siguiente incremento recomendado:
 
-- iniciar Bloque B como orden interno del laboratorio monovista,
-- dividir internamente `App.tsx` en piezas mas claras sin cambiar todavia a
-  vistas separadas,
-- preparar terreno para cerrar primero:
+- continuar Bloque B sobre la base ya extraida desde `App.tsx`,
+- priorizar las piezas mas concretas y de menor riesgo dentro del laboratorio:
+  - selector de octavas
+  - `noise generator`
+  - primera mejora de jerarquia visual
+- despues de eso, pasar a Bloque C:
   - sintesis avanzada
-  - exportacion audible
-  - arpegiador
-  - timeline de tracks
-  - plugins
 
 Objetivo:
 
