@@ -15,7 +15,13 @@ import {
   type MidiNoteEvent,
   type MidiNoteEventType,
 } from "./engine/midi/events"
-import { availableNotes, transposeNote, type MusicalNote } from "./engine/midi/notes"
+import {
+  createPianoPreviewNotes,
+  previewOctaveOptions,
+  transposeNote,
+  type MusicalNote,
+  type Octave,
+} from "./engine/midi/notes"
 import {
   appendNoteToTrack,
   appendNotesToTrack,
@@ -95,6 +101,7 @@ function App() {
   const [selectedNote, setSelectedNote] = useState<MusicalNote>("A4")
   const [selectedChordType, setSelectedChordType] = useState<ChordType>("major")
   const [pianoMode, setPianoMode] = useState<PianoInteractionMode>("note")
+  const [previewOctave, setPreviewOctave] = useState<Octave>(4)
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
   const [isTimelineDragging, setIsTimelineDragging] = useState(false)
@@ -130,6 +137,7 @@ function App() {
   const primaryTrack =
     project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0]
   const selectedInstrument = findMathematicalInstrument(primaryTrack.instrumentId)
+  const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
   const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
   const playOptions = createPlayOptions(selectedInstrument)
   const noteCount = primaryTrack.notes.length
@@ -197,6 +205,20 @@ function App() {
   function updateVolume(nextVolume: number) {
     setVolume(nextVolume)
     setMasterVolume(nextVolume)
+  }
+
+  function updatePreviewOctave(nextOctave: Octave) {
+    const nextVisibleNotes = createPianoPreviewNotes(nextOctave)
+
+    setPreviewOctave(nextOctave)
+
+    if (!nextVisibleNotes.includes(selectedNote)) {
+      const fallbackNote = `A${nextOctave}` as MusicalNote
+
+      setSelectedNote(
+        nextVisibleNotes.includes(fallbackNote) ? fallbackNote : nextVisibleNotes[0],
+      )
+    }
   }
 
   function getCurrentRecordTime() {
@@ -602,12 +624,15 @@ function App() {
         />
 
         <LabSoundControls
-          availableNotes={availableNotes}
+          availableNotes={visibleNotes}
           onChordTypeChange={setSelectedChordType}
           onNoteChange={setSelectedNote}
+          onPreviewOctaveChange={updatePreviewOctave}
           onPianoModeChange={setPianoMode}
           onVolumeChange={updateVolume}
           pianoMode={pianoMode}
+          previewOctave={previewOctave}
+          previewOctaveOptions={previewOctaveOptions}
           selectedChordType={selectedChordType}
           selectedNote={selectedNote}
           volume={volume}
@@ -616,7 +641,7 @@ function App() {
         <PianoPreview
           getPlayableNotes={getPianoPlayableNotes}
           interactionMode={pianoMode}
-          notes={availableNotes}
+          notes={visibleNotes}
           onNoteOff={(note) => registerMidiEvent("note-off", note)}
           onNoteOn={(note) => registerMidiEvent("note-on", note)}
           onSelectNote={setSelectedNote}

@@ -215,12 +215,12 @@ Estado parcial:
   - division inicial de `App.tsx` en secciones del laboratorio
   - extraccion de panel de proyecto, controles de sonido, acciones y editor de
     nota
+  - selector de octavas para controlar rango visible/tocable del piano
 - pendiente:
   - mejora visual/jerarquia del laboratorio
   - menu dedicado de SMC Pad
   - baterias matematicas para SMC Pad
   - `noise generator`
-  - selector de octavas
 
 ### Bloque C - FASE 7 Sintesis avanzada (retomar fase faltante)
 

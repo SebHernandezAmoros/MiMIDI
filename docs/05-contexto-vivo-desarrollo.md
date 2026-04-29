@@ -2314,6 +2314,45 @@ Resultado:
 `App.tsx` queda mas corto y legible, mientras el laboratorio conserva el mismo
 flujo funcional y queda mejor preparado para continuar Bloque B.
 
+## Movimiento 45 - Selector de octavas para el piano de laboratorio
+
+Fase: Bloque B - Orden interno del laboratorio monovista
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/engine/midi/notes.ts`
+- `src/features/lab/LabSoundControls.tsx`
+
+Intencion:
+
+Agregar control directo sobre el rango visible y tocable del piano sin abrir
+todavia nuevas vistas ni tocar la logica avanzada de sintesis.
+
+Como se movio:
+
+- Se agrego generacion dinamica de notas de preview por octava.
+- Se agrego lista de opciones de octava visible para el laboratorio.
+- El selector de nota y el piano visual ahora comparten el mismo rango visible.
+- Al cambiar de octava, la nota seleccionada se reajusta solo si queda fuera del
+  nuevo rango visible.
+
+Decision tecnica:
+
+Se eligio un selector de octava visible como paso pequeno y seguro dentro de
+Bloque B porque mejora usabilidad del piano sin acoplar aun nuevas
+responsabilidades al motor de audio.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El laboratorio ya permite desplazar el rango del piano por octavas visibles,
+preparando mejor la base para futuras mejoras de interpretacion y SMC Pad.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
@@ -2322,7 +2361,6 @@ Siguiente incremento recomendado:
 
 - continuar Bloque B sobre la base ya extraida desde `App.tsx`,
 - priorizar las piezas mas concretas y de menor riesgo dentro del laboratorio:
-  - selector de octavas
   - `noise generator`
   - primera mejora de jerarquia visual
 - despues de eso, pasar a Bloque C:

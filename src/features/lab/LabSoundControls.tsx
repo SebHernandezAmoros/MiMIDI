@@ -1,4 +1,4 @@
-import type { MusicalNote } from "../../engine/midi/notes"
+import type { MusicalNote, Octave } from "../../engine/midi/notes"
 import type { PianoInteractionMode } from "../piano/PianoPreview"
 
 type ChordType = "major" | "minor" | "power"
@@ -7,9 +7,12 @@ type LabSoundControlsProps = {
   availableNotes: MusicalNote[]
   onChordTypeChange: (chordType: ChordType) => void
   onNoteChange: (note: MusicalNote) => void
+  onPreviewOctaveChange: (octave: Octave) => void
   onPianoModeChange: (mode: PianoInteractionMode) => void
   onVolumeChange: (volume: number) => void
   pianoMode: PianoInteractionMode
+  previewOctave: Octave
+  previewOctaveOptions: Octave[]
   selectedChordType: ChordType
   selectedNote: MusicalNote
   volume: number
@@ -19,9 +22,12 @@ export function LabSoundControls({
   availableNotes,
   onChordTypeChange,
   onNoteChange,
+  onPreviewOctaveChange,
   onPianoModeChange,
   onVolumeChange,
   pianoMode,
+  previewOctave,
+  previewOctaveOptions,
   selectedChordType,
   selectedNote,
   volume,
@@ -46,6 +52,21 @@ export function LabSoundControls({
             Acorde
           </button>
         </div>
+      </div>
+
+      <div className="control-group">
+        <label htmlFor="preview-octave">Octava visible</label>
+        <select
+          id="preview-octave"
+          value={previewOctave}
+          onChange={(event) => onPreviewOctaveChange(Number(event.target.value) as Octave)}
+        >
+          {previewOctaveOptions.map((octave) => (
+            <option key={octave} value={octave}>
+              C{octave} - C{octave + 1}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="control-group">

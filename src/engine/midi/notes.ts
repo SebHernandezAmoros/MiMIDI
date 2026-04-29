@@ -45,23 +45,19 @@ export const chromaticNoteNames: NoteName[] = [
   "B",
 ]
 
-export const pianoPreviewNotes: MusicalNote[] = [
-  "C4",
-  "C#4",
-  "D4",
-  "D#4",
-  "E4",
-  "F4",
-  "F#4",
-  "G4",
-  "G#4",
-  "A4",
-  "A#4",
-  "B4",
-  "C5",
-]
+export function createPianoPreviewNotes(octave: Octave): MusicalNote[] {
+  const chromaticRange = chromaticNoteNames.map(
+    (noteName) => `${noteName}${octave}` as MusicalNote,
+  )
+
+  return [...chromaticRange, `C${Math.min(octave + 1, 8)}` as MusicalNote]
+}
+
+export const pianoPreviewNotes: MusicalNote[] = createPianoPreviewNotes(4)
 
 export const availableNotes = pianoPreviewNotes
+
+export const previewOctaveOptions: Octave[] = [2, 3, 4, 5, 6]
 
 export function noteToMidiNumber(note: MusicalNote) {
   const [, noteName, octaveText] = note.match(/^([A-G]#?)([0-8])$/) ?? []
