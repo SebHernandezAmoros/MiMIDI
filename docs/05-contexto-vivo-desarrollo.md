@@ -2138,29 +2138,171 @@ Resultado:
 El roadmap ahora refleja de forma explicita menus, vistas y modulos faltantes
 para la siguiente etapa de producto.
 
+## Movimiento 41 - Mapeo de modo arpegiador en roadmap
+
+Fase: Plan transversal
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+
+Intencion:
+
+Agregar el modo arpegiador como capacidad futura explicita para notas/acordes,
+con controles musicales y orden de aplicacion definido.
+
+Como se movio:
+
+- Se agrego Bloque H `Modo Arpegiador`.
+- Se definieron patrones iniciales:
+  - Up
+  - Down
+  - Up/Down
+  - Random
+  - Chord
+- Se definieron controles minimos:
+  - rate
+  - gate
+  - octave range
+  - latch
+- Se ubicó aplicacion despues de Bloque C (timeline de tracks).
+- Se actualizo el orden general de aplicacion para incluir Bloque H.
+
+Decision tecnica:
+
+Se prioriza integrar arpegiador cuando exista timeline de tracks para registrar
+resultado arpegiado como notas/eventos editables y no como efecto efimero.
+
+Validacion:
+
+- revision documental de coherencia entre fases y bloques.
+
+Resultado:
+
+El roadmap ya contempla arpegiador como modulo de producto con entrada y salida
+musical clara.
+
+## Movimiento 42 - Requisito de noise generator para SMC Pad
+
+Fase: Plan transversal
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+
+Intencion:
+
+Aterrizar el enfoque tecnico de baterias matematicas para `SMC Pad` sin usar
+samples en el core.
+
+Como se movio:
+
+- Se agrego en Bloque B requisito de diseno de baterias matematicas:
+  - kick por seno + pitch envelope
+  - snare/hat/clap por ruido filtrado
+- Se agrego requisito de `noise generator` en motor de audio (white noise
+  inicial).
+
+Decision tecnica:
+
+El `noise generator` se define como bloque base para percusion matematica y se
+mantiene alineado con la restriccion de no usar samples.
+
+Validacion:
+
+- revision documental de coherencia con restricciones de `03-contexto-y-metas`.
+
+Resultado:
+
+El roadmap de SMC Pad ya incluye requisito tecnico minimo para construir
+percusion sintetica realista dentro del core.
+
+## Movimiento 43 - Reordenamiento del roadmap para mantener laboratorio monovista
+
+Fase: Plan transversal
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Consolidar la decision de mantener el laboratorio monovista como experiencia
+visible durante el cierre de capacidades core pendientes, dejando el modo app
+con vistas separadas para la etapa final.
+
+Como se movio:
+
+- Se redefinio Bloque B para priorizar orden interno del laboratorio monovista.
+- Se documento que `App.tsx` debe dividirse internamente por responsabilidades
+  antes de cambiar la navegacion visible.
+- Se dejo explicito que ese orden interno de `App.tsx` debera retomarse y
+  completarse antes de abrir el modo app final, aunque la idea aparezca
+  repetida en el roadmap.
+- Se reordeno el roadmap funcional de menor friccion a mayor complejidad:
+  - sintesis avanzada
+  - exportacion audible
+  - arpegiador
+  - timeline de tracks
+  - plugins
+- Se movio `modo app y vistas separadas` al final como bloque posterior al
+  cierre de capacidades principales.
+- Se mantuvo el sampler como modulo separado del core matematico.
+
+Decision tecnica:
+
+Se evita abrir la reorganizacion visible de la app antes de cerrar funciones
+core que todavia necesitan validacion en el laboratorio. La prioridad pasa a
+ser reducir acoplamiento interno sin cambiar aun la experiencia monovista.
+
+Validacion:
+
+- revision documental cruzada entre `04` y `05`
+- alineacion con reglas de Screaming Architecture y con la restriccion de no
+  mezclar prematuramente navegacion nueva con funcionalidades aun inestables
+
+Resultado:
+
+El roadmap queda alineado con la estrategia actual: primero ordenar internamente
+el laboratorio, luego cerrar capacidades core pendientes, y solo al final pasar
+a modo app con vistas separadas.
+
 ## Proximo paso recomendado
 
 Avanzar a FASE 8 - Proyecto musical.
 
 Siguiente incremento recomendado:
 
-- iniciar Bloque B (modo app y vistas separadas),
-- definir layout base de menus: Grabacion, Edicion, Proyecto, Settings, Plugins,
-- seguir evitando una grilla DAW completa por ahora.
+- iniciar Bloque B como orden interno del laboratorio monovista,
+- dividir internamente `App.tsx` en piezas mas claras sin cambiar todavia a
+  vistas separadas,
+- preparar terreno para cerrar primero:
+  - sintesis avanzada
+  - exportacion audible
+  - arpegiador
+  - timeline de tracks
+  - plugins
 
 Objetivo:
 
-Pasar de laboratorio monovista:
+Mantener por ahora laboratorio monovista:
 
 ```ts
 singleScreenLab()
 ```
 
-a modo app:
+y evolucionar primero hacia:
+
+```ts
+singleScreenLab({ internalSections: true, stableCoreFeatures: true })
+```
+
+Luego, cuando las capacidades principales ya esten estables, pasar a:
 
 ```ts
 appMode({ recordView, editView, projectView })
 ```
 
-Eso habilita crecimiento de UI sin apelotonar controles y prepara timeline de
-tracks en la siguiente etapa.
+Eso reduce riesgo de retrabajo, evita romper flujo actual demasiado pronto y
+deja el modo app como reorganizacion final sobre un core mas completo.

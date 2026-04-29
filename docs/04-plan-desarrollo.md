@@ -183,56 +183,34 @@ Cuando aplicarlo:
 Estado:
 - completado
 
-### Bloque B - Modo App y vistas (medio plazo)
+### Bloque B - Orden interno del laboratorio monovista (medio plazo)
 
 Objetivo:
-- dejar de tener todo en una sola vista "apelotonada" y pasar a estructura de
-  app con navegacion clara.
+- mantener el laboratorio monovista como experiencia visible mientras se reduce
+  el acoplamiento interno y se prepara el crecimiento sin romper flujo actual.
 
 Tareas:
-- separar vistas por contexto:
-  - Piano/Grabacion
-  - Edicion/Timeline
-  - Proyecto/Exportacion
-  - Settings
-  - Plugins
+- dividir internamente `App.tsx` en piezas mas claras por responsabilidades
+- mover coordinacion de UI a features/secciones mas chicas sin cambiar todavia
+  a modo app
+- este orden interno debera retomarse otra vez como paso obligatorio antes de
+  ejecutar el Bloque I, aunque la implementacion visible de vistas separadas se
+  deje para el final
 - mejorar estetica y jerarquia visual:
   - layout en columnas/paneles
   - espaciado y densidad
   - toolbar estable
 - agregar menu dedicado de SMC Pad
+- diseno de baterias matematicas para SMC Pad:
+  - kick por seno + pitch envelope
+  - snare/hat/clap por capas de ruido filtrado
+  - `noise generator` (white noise inicial) en motor de audio
 - agregar selector de octavas para definir rango de teclas visibles/tocables
 
 Cuando aplicarlo:
 - despues de cerrar Bloque A
 
-### Bloque C - Timeline de tracks (alto valor)
-
-Objetivo:
-- sumar timeline por pistas ademas del timeline de notas.
-
-Tareas:
-- vista de tracks (lanes por pista)
-- seleccion de pista desde timeline de tracks
-- sincronizacion track timeline <-> note timeline
-
-Cuando aplicarlo:
-- despues del Bloque B (ya con modo app)
-
-### Bloque D - FASE 6 Plugins (retomar fase faltante)
-
-Objetivo:
-- definir extensibilidad real del core.
-
-Tareas:
-- contrato minimo de plugin
-- carga/registro de plugins internos
-- primer plugin de ejemplo sin samples
-
-Cuando aplicarlo:
-- despues de Bloque C
-
-### Bloque E - FASE 7 Sintesis avanzada (retomar fase faltante)
+### Bloque C - FASE 7 Sintesis avanzada (retomar fase faltante)
 
 Objetivo:
 - enriquecer sonido manteniendo instrumentos matematicos.
@@ -243,9 +221,9 @@ Tareas:
 - parametros automatizables basicos
 
 Cuando aplicarlo:
-- en paralelo tardio con FASE 6 o despues de FASE 6
+- despues de Bloque B
 
-### Bloque F - Exportacion audible (alta prioridad de producto)
+### Bloque D - Exportacion audible (alta prioridad de producto)
 
 Objetivo:
 - exportar audio de buena calidad del proyecto.
@@ -260,16 +238,64 @@ Estrategia tecnica:
 - exportador WAV en infraestructura
 
 Cuando aplicarlo:
-- despues de Bloque C (ideal con modo app + track timeline listos)
+- despues de Bloque C
 
-### Bloque G - Sampler (menu separado)
+### Bloque E - Modo Arpegiador (notas y acordes)
 
 Objetivo:
-- incorporar sampler como capacidad opcional en un menu propio, sin mezclarlo
-  con el core matematico.
+- convertir acordes/sostenidos en patrones ritmicos MIDI controlables.
 
 Tareas:
-- menu de Sampler en modo app
+- integrar arpegiador dentro del laboratorio actual antes del modo app
+- modos de patron:
+  - Up
+  - Down
+  - Up/Down
+  - Random
+  - Chord (referencia)
+- controles minimos:
+  - rate (1/4, 1/8, 1/16, triplet)
+  - gate
+  - octave range
+  - latch
+- grabacion del resultado en timeline como eventos/notas reales
+
+Cuando aplicarlo:
+- despues de Bloque D
+
+### Bloque F - Timeline de tracks (alto valor)
+
+Objetivo:
+- sumar timeline por pistas ademas del timeline de notas.
+
+Tareas:
+- vista de tracks (lanes por pista)
+- seleccion de pista desde timeline de tracks
+- sincronizacion track timeline <-> note timeline
+
+Cuando aplicarlo:
+- despues de Bloque E
+
+### Bloque G - FASE 6 Plugins (retomar fase faltante)
+
+Objetivo:
+- definir extensibilidad real del core.
+
+Tareas:
+- contrato minimo de plugin
+- carga/registro de plugins internos
+- primer plugin de ejemplo sin samples
+
+Cuando aplicarlo:
+- despues de Bloque F
+
+### Bloque H - Sampler (menu separado)
+
+Objetivo:
+- incorporar sampler como capacidad opcional y separada del core matematico.
+
+Tareas:
+- integrar sampler como modulo aislado aunque el laboratorio siga monovista
 - grabar audio desde entrada del usuario
 - catalogar samples en lista/banco
 - disparo de samples desde interfaz dedicada
@@ -278,7 +304,31 @@ Regla de arquitectura:
 - el sampler vive como modulo separado del core de sintesis matematica.
 
 Cuando aplicarlo:
-- despues de Bloque B (modo app) y en paralelo con Bloque C/D
+- despues de Bloque G o en paralelo tardio con Bloque G
+
+### Bloque I - Modo App y vistas separadas (etapa final de reorganizacion)
+
+Objetivo:
+- pasar del laboratorio monovista a una estructura de app con navegacion clara
+  cuando las capacidades core pendientes ya esten estables.
+
+Prerequisito explicito:
+- antes de abrir este bloque, debe haberse completado el orden interno de
+  `App.tsx` y la separacion interna de responsabilidades definida en Bloque B,
+  aunque esa tarea ya haya sido mencionada anteriormente
+
+Tareas:
+- separar vistas por contexto:
+  - Piano/Grabacion
+  - Edicion/Timeline
+  - Proyecto/Exportacion
+  - Settings
+  - Plugins
+- convertir la division interna previa en navegacion visible de app
+- redistribuir herramientas sin apelotonar controles
+
+Cuando aplicarlo:
+- al final, despues de cerrar los bloques funcionales principales
 
 ---
 
@@ -287,9 +337,11 @@ Cuando aplicarlo:
 Orden recomendado:
 
 1. Bloque A (cerrar historial)
-2. Bloque B (modo app + estetica)
-3. Bloque C (timeline de tracks)
-4. Bloque G (sampler en menu separado)
-5. Bloque D (FASE 6 plugins)
-6. Bloque E (FASE 7 sintesis avanzada)
-7. Bloque F (exportacion audible WAV alta calidad)
+2. Bloque B (orden interno del laboratorio monovista)
+3. Bloque C (FASE 7 sintesis avanzada)
+4. Bloque D (exportacion audible WAV alta calidad)
+5. Bloque E (modo arpegiador)
+6. Bloque F (timeline de tracks)
+7. Bloque G (FASE 6 plugins)
+8. Bloque H (sampler en menu separado)
+9. Bloque I (modo app y vistas separadas)
