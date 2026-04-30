@@ -1,7 +1,10 @@
 type LabActionsProps = {
   canPlayRecording: boolean
+  canExportAudio: boolean
   isPlaying: boolean
+  isExportingAudio: boolean
   onClearSession: () => void
+  onExportAudio: () => void
   onExportProject: () => void
   onImportProject: () => void
   onPlayRecording: () => void
@@ -13,8 +16,11 @@ type LabActionsProps = {
 
 export function LabActions({
   canPlayRecording,
+  canExportAudio,
   isPlaying,
+  isExportingAudio,
   onClearSession,
+  onExportAudio,
   onExportProject,
   onImportProject,
   onPlayRecording,
@@ -33,6 +39,9 @@ export function LabActions({
       </button>
       <button disabled={!canPlayRecording || isPlaying} onClick={onPlayRecording} type="button">
         {isPlaying ? "Reproduciendo" : "Reproducir grabacion"}
+      </button>
+      <button disabled={!canExportAudio || isExportingAudio} onClick={onExportAudio} type="button">
+        {isExportingAudio ? "Exportando audio..." : "Exportar WAV"}
       </button>
       <button onClick={onStopPlayback} type="button">
         Detener

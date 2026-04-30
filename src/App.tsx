@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import "./App.css"
+import { exportProjectAudio as exportProjectAudioUseCase } from "./application/use-cases/exportProjectAudio"
 import { playNote, playNotes } from "./application/use-cases/playNote"
 import { setMasterVolume, type ADSREnvelope } from "./engine/audio/audioEngine"
 import {
@@ -137,6 +138,7 @@ function App() {
     null,
   )
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
+  const [isExportingAudio, setIsExportingAudio] = useState(false)
   const {
     state: project,
     undoStack,
@@ -708,6 +710,39 @@ function App() {
     setProjectMessage("Proyecto exportado a JSON.")
   }
 
+  async function exportProjectAudio() {
+    if (allRecordedNotes.length === 0 || isExportingAudio) {
+      return
+    }
+
+    if (typeof OfflineAudioContext === "undefined") {
+      setProjectMessage("Este navegador no soporta exportacion offline de audio.")
+      return
+    }
+
+    setIsExportingAudio(true)
+
+    try {
+      const { blob, duration, fileName } = await exportProjectAudioUseCase(project, {
+        bitDepth: 32,
+        float: true,
+        masterVolume: volume,
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+
+      link.href = url
+      link.download = fileName
+      link.click()
+      window.URL.revokeObjectURL(url)
+      setProjectMessage(`Audio exportado a WAV (${duration.toFixed(2)}s).`)
+    } catch {
+      setProjectMessage("No se pudo exportar el audio del proyecto.")
+    } finally {
+      setIsExportingAudio(false)
+    }
+  }
+
   function openImportDialog() {
     importInputRef.current?.click()
   }
@@ -890,9 +925,12 @@ function App() {
         <MiniSmcPad onTrigger={triggerSmcPad} />
 
         <LabActions
+          canExportAudio={allRecordedNotes.length > 0}
           canPlayRecording={allRecordedNotes.length > 0}
+          isExportingAudio={isExportingAudio}
           isPlaying={playbackTransport.isPlaying}
           onClearSession={clearSession}
+          onExportAudio={exportProjectAudio}
           onExportProject={exportProject}
           onImportProject={openImportDialog}
           onPlayRecording={playRecording}

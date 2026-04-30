@@ -2885,15 +2885,229 @@ Pruebas manuales diferidas:
 - validar automatizacion basica de volumen en reproduccion real
 - repetir pruebas de mezcla tambien sobre el mini `SMC Pad`
 
+## Movimiento 57 - Plan detallado para Bloque D de exportacion audible
+
+Fase: Bloque D - Exportacion audible
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Dejar completamente aterrizado el siguiente gran movimiento del proyecto antes
+de tocar codigo, para que la exportacion audible entre como un bloque coherente
+en vez de una suma de cambios sueltos.
+
+Como se movio:
+
+- Se definio un checklist completo para Bloque D.
+- Se dejo explicito que el render debe cubrir:
+  - notas melodicas
+  - mini `SMC Pad`
+  - ADSR
+  - mezcla por pista
+  - panorama
+  - automatizacion basica de volumen
+- Se fijo como primer objetivo de formato:
+  - `WAV PCM 32-bit float`
+- Se ordeno la implementacion en una secuencia concreta:
+  - renderer offline base
+  - mezcla offline
+  - automatizacion offline
+  - encoder WAV
+  - caso de uso de exportacion
+  - UI minima
+- Se documentaron validaciones esperadas para no perder el criterio de
+  aceptacion del bloque.
+
+Decision tecnica:
+
+La exportacion audible no debe nacer acoplada a la reproduccion realtime del
+laboratorio. Se planea como un renderer offline propio, reutilizando el dominio
+musical y la mezcla por pista, pero sin depender del transporte visual actual.
+
+Validacion:
+
+- revision documental cruzada entre `04` y `05`
+- coherencia con el roadmap posterior a Bloque C
+
+Resultado:
+
+Bloque D queda listo para ejecutarse como un solo movimiento grande con alcance,
+orden interno y criterios de prueba ya establecidos.
+
+## Movimiento 58 - Exportacion audible MVP con renderer offline y WAV
+
+Fase: Bloque D - Exportacion audible
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/application/use-cases/exportProjectAudio.ts`
+- `src/engine/audio/offlineAudioRenderer.ts`
+- `src/engine/audio/wavEncoder.ts`
+- `src/features/lab/LabActions.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Convertir el proyecto musical en un archivo audible real, reutilizando el
+material ya grabado en timeline y la mezcla por pista construida en Bloque C.
+
+Como se movio:
+
+- Se creo un renderer offline basado en `OfflineAudioContext`.
+- El renderer ahora exporta:
+  - notas melodicas
+  - golpes del mini `SMC Pad`
+  - ADSR por nota
+  - instrumento matematico correspondiente
+  - mezcla por pista
+  - `mute`
+  - `solo`
+  - `pan`
+  - automatizacion basica de volumen
+- Se agrego un encoder `WAV` en infraestructura.
+- La primera salida oficial queda en:
+  - `WAV PCM 32-bit float`
+- Se creo un caso de uso dedicado para exportar audio del proyecto.
+- El laboratorio actual suma un boton `Exportar WAV`.
+- La exportacion descarga un archivo `.wav` usando el nombre del proyecto.
+
+Decision tecnica:
+
+La exportacion audible se resolvio fuera del transporte realtime del
+laboratorio. El renderer offline reutiliza el dominio musical y la mezcla por
+pista, pero no depende del scheduling visual actual ni de reproducir en tiempo
+real para construir el audio final.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya puede convertir un proyecto grabado en un archivo `WAV` audible desde
+el propio laboratorio monovista, cubriendo el alcance MVP real de Bloque D.
+
+Limitaciones actuales:
+
+- la UI todavia no expone selector de profundidad `24-bit` / `16-bit`
+- la validacion manual profunda sobre proyectos multipista grandes sigue
+  pendiente
+- la experiencia de exportacion aun vive en la monovista actual y no en una
+  vista dedicada de proyecto/exportacion
+
+Nota de validacion diferida:
+
+Aunque la exportacion `WAV` funciona a nivel tecnico y el flujo de descarga ya
+esta integrado, varias pruebas manuales finas se difieren para una etapa
+posterior porque hoy resulta incomodo recorrer el laboratorio monovista y
+confirmar con claridad escenarios multipista complejos.
+
+Pruebas manuales diferidas de exportacion audible:
+
+- comprobar exportacion usando `mute` antes de render
+- comprobar exportacion usando `solo` antes de render
+- comprobar panorama izquierdo/derecho en el archivo final
+- comprobar automatizacion basica de volumen en el audio exportado
+- repetir la validacion anterior incluyendo golpes del mini `SMC Pad`
+
+Guia exacta para retomar esas pruebas luego:
+
+1. crear dos pistas con material audible distinto
+2. en la pista 1 grabar varias notas melodicas cortas
+3. en la pista 2 grabar otras notas o golpes del mini `SMC Pad`
+4. exportar un `WAV` base sin tocar mezcla y guardarlo como referencia
+5. activar `mute` en la pista 2
+6. exportar un segundo `WAV`
+7. abrir ambos archivos y confirmar que en el segundo la pista 2 desaparece
+8. desactivar `mute` y activar `solo` en la pista 1
+9. exportar un tercer `WAV`
+10. abrirlo y confirmar que solo queda audible la pista 1
+11. mover `pan` de una pista totalmente a la izquierda o derecha
+12. exportar otro `WAV`
+13. escuchar con audifonos o abrir en un DAW para confirmar panorama
+14. activar automatizacion de volumen por pista
+15. definir por ejemplo:
+    - volumen inicial `0.20`
+    - tiempo final `4.0`
+    - volumen final `1.20`
+16. exportar otro `WAV`
+17. confirmar que el audio arranca mas bajo y sube de volumen hacia el final
+18. repetir el mismo flujo incluyendo al menos un patron del mini `SMC Pad`
+19. anotar cualquier diferencia entre reproduccion realtime y audio exportado
+
+## Movimiento 59 - Plan detallado para Bloque E de arpegiador
+
+Fase: Bloque E - Modo Arpegiador
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Dejar el siguiente bloque funcional completamente planeado antes de tocar
+codigo, igual que se hizo con la exportacion audible, para que el arpegiador
+entre como un movimiento grande y controlado.
+
+Como se movio:
+
+- Se documento el alcance completo del arpegiador MVP.
+- Se fijo que debe cubrir:
+  - nota unica
+  - acorde
+  - modos de patron
+  - `rate`
+  - `gate`
+  - `octave range`
+  - `latch`
+- Se dejo explicito que el resultado debe poder:
+  - sonar en realtime
+  - grabarse como notas reales
+  - reproducirse luego desde timeline
+  - convivir con exportacion audible
+- Se ordeno una secuencia concreta de implementacion:
+  - modelo
+  - generador de patron
+  - scheduler realtime
+  - integracion con pista activa
+  - grabacion
+  - UI minima
+  - validacion final
+- Se registraron criterios de prueba esperados del bloque.
+
+Decision tecnica:
+
+El arpegiador no se plantea como un efecto opaco de audio, sino como una capa
+musical que genera notas reales. Eso mantiene coherencia con la separacion
+MIDI/audio del proyecto y facilita timeline, edicion y exportacion posterior.
+
+Validacion:
+
+- revision documental cruzada entre `04` y `05`
+- coherencia con la estrategia posterior a Bloque D
+
+Resultado:
+
+Bloque E queda listo para ejecutarse despues como un movimiento unico, con
+alcance, orden y criterios de validacion ya definidos.
+
 ## Proximo paso recomendado
 
-Avanzar a Bloque D - Exportacion audible.
+Avanzar a Bloque E - Modo Arpegiador.
 
 Siguiente incremento recomendado:
 
-- render offline del proyecto con `OfflineAudioContext`
-- mezcla por pistas durante render offline
-- exportador `WAV` como primera salida audible del proyecto
+- integrar arpegiador dentro del laboratorio actual
+- convertir acordes o notas sostenidas en patron ritmico controlable
+- grabar el resultado arpegiado como notas reales en timeline
 
 Objetivo:
 

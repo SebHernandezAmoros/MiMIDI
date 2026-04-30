@@ -262,8 +262,63 @@ Estrategia tecnica:
 - mezcla por pistas y timeline en render offline
 - exportador WAV en infraestructura
 
+Tareas completas necesarias:
+- definir un renderer offline aislado del motor realtime actual
+- construir una ruta de reproduccion offline para:
+  - notas normales
+  - golpes `SMC Pad`
+  - ADSR por nota
+  - instrumento matematico por nota
+  - mezcla por pista
+  - panorama por pista
+  - automatizacion basica de volumen por pista
+- calcular duracion total del render con margen de `release`
+- crear encoder `WAV` en infraestructura sin depender del navegador para la
+  logica de mezcla
+- soportar primero exportacion `WAV PCM 32-bit float`
+- dejar extension preparada para `24-bit` y `16-bit`
+- crear flujo de aplicacion para:
+  - pedir render
+  - recibir `Blob` o buffer exportable
+  - descargar archivo
+- agregar UI minima de exportacion dentro del laboratorio actual
+- documentar limitaciones iniciales del exportador
+
+Orden recomendado de implementacion:
+1. utilidades de timeline/render length
+2. renderer offline base con notas melodicas
+3. soporte offline para `SMC Pad`
+4. mezcla por pista en offline (`volume`, `mute`, `solo`, `pan`)
+5. automatizacion basica de volumen en offline
+6. encoder `WAV PCM 32-bit float`
+7. caso de uso de exportacion
+8. boton/UI de exportar audio
+9. validacion manual con proyectos simples y multipista
+
+Validaciones esperadas:
+- una sola pista melodica exporta con duracion correcta
+- dos pistas exportan sincronizadas
+- `mute` y `solo` afectan el audio exportado
+- `pan` se refleja en el archivo final
+- automatizacion de volumen se escucha en el render exportado
+- golpes del mini `SMC Pad` si aparecen en timeline tambien aparecen en el
+  audio final
+- el archivo descargado abre correctamente en reproductor o DAW externo
+
 Cuando aplicarlo:
 - despues de Bloque C
+
+Estado:
+- completado en alcance MVP actual:
+  - renderer offline con `OfflineAudioContext`
+  - soporte de notas melodicas y mini `SMC Pad`
+  - mezcla por pista durante render (`volume`, `mute`, `solo`, `pan`)
+  - automatizacion basica de volumen por pista en exportacion
+  - exportacion `WAV PCM 32-bit float`
+  - flujo minimo de descarga desde el laboratorio actual
+- pendiente:
+  - exponer opciones secundarias `24-bit` / `16-bit` en UI si se necesitan
+  - validacion manual amplia con proyectos multipista mas complejos
 
 ### Bloque E - Modo Arpegiador (notas y acordes)
 
@@ -285,8 +340,56 @@ Tareas:
   - latch
 - grabacion del resultado en timeline como eventos/notas reales
 
+Tareas completas necesarias:
+- definir modelo de arpegiador desacoplado de React
+- crear generador de patrones a partir de:
+  - nota unica
+  - acorde
+  - rango de octavas
+- soportar modos:
+  - Up
+  - Down
+  - Up/Down
+  - Random
+  - Chord
+- soportar controles base:
+  - `rate`
+  - `gate`
+  - `octave range`
+  - `latch`
+- decidir como convive el arpegiador con:
+  - modo nota
+  - modo acorde
+  - pista activa
+- reproducir el patron en tiempo real dentro del laboratorio
+- grabar el resultado como notas reales en timeline
+- asegurar compatibilidad con mezcla por pista y exportacion audible
+- agregar UI minima de arpegiador dentro del laboratorio actual
+- documentar limites iniciales del arpegiador MVP
+
+Orden recomendado de implementacion:
+1. modelo/estado del arpegiador
+2. generador de patron musical
+3. scheduler realtime del arpegio
+4. integracion con pista activa
+5. grabacion del patron como notas reales
+6. UI minima de controles
+7. validacion con exportacion y timeline
+
+Validaciones esperadas:
+- una nota sostenida genera patron estable segun `rate`
+- un acorde genera patron correcto segun modo elegido
+- `gate` cambia la longitud percibida de cada nota arpegiada
+- `octave range` expande correctamente el patron
+- `latch` mantiene el patron cuando corresponde
+- el resultado puede grabarse como notas reales en timeline
+- lo grabado puede reproducirse y exportarse a `WAV`
+
 Cuando aplicarlo:
 - despues de Bloque D
+
+Estado:
+- siguiente bloque a implementar
 
 ### Bloque F - Timeline de tracks (alto valor)
 
