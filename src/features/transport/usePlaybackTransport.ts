@@ -6,6 +6,7 @@ import type {
 import { playRecordedNotes } from "../../application/use-cases/playRecordedNotes"
 import { stopAllVoices } from "../../engine/audio/audioEngine"
 import type { MidiRecordedNote } from "../../engine/midi/events"
+import type { ProjectTrack } from "../../engine/project/projectModel"
 
 export type TransportState = "idle" | "playing"
 
@@ -22,7 +23,7 @@ export function usePlaybackTransport() {
 
   function play(
     recordedNotes: MidiRecordedNote[],
-    options: PlayRecordedNotesOptions = {},
+    options: PlayRecordedNotesOptions & { tracks?: ProjectTrack[] } = {},
   ) {
     if (recordedNotes.length === 0 || transportState === "playing") {
       return

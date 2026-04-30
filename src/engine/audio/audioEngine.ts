@@ -7,11 +7,20 @@ export type ADSREnvelope = {
   release: number
 }
 
+export type AudioLfo = {
+  depth: number
+  rate: number
+  target?: "frequency" | "gain"
+  waveform?: OscillatorType
+}
+
 export type PlayFrequencyOptions = {
   duration?: number
+  pan?: number
   volume?: number
   waveform?: AudioWaveform
   envelope?: Partial<ADSREnvelope>
+  lfo?: AudioLfo
 }
 
 export type PlayNoiseOptions = Omit<PlayFrequencyOptions, "waveform">
@@ -22,6 +31,9 @@ type ActiveVoice = {
   source: OscillatorNode | AudioBufferSourceNode
   gainNode: GainNode
   envelope: ADSREnvelope
+  lfoGainNode?: GainNode
+  lfoSource?: OscillatorNode
+  panNode: StereoPannerNode
   sustainVolume: number
 }
 
@@ -122,44 +134,120 @@ function scheduleVoiceStop(voiceId: VoiceId, releaseStartTime: number) {
   voice.gainNode.gain.setValueAtTime(voice.sustainVolume, releaseStartTime)
   voice.gainNode.gain.linearRampToValueAtTime(0.0001, releaseEndTime)
   voice.source.stop(releaseEndTime)
+  voice.lfoSource?.stop(releaseEndTime)
 }
 
 function registerActiveVoice(
   voiceId: VoiceId,
   source: OscillatorNode | AudioBufferSourceNode,
   gainNode: GainNode,
+  panNode: StereoPannerNode,
   envelope: ADSREnvelope,
   sustainVolume: number,
+  lfoNodes?: {
+    gainNode: GainNode
+    source: OscillatorNode
+  },
 ) {
   activeVoices.set(voiceId, {
     source,
     gainNode,
     envelope,
+    lfoGainNode: lfoNodes?.gainNode,
+    lfoSource: lfoNodes?.source,
+    panNode,
     sustainVolume,
   })
 
   source.onended = () => {
+    lfoNodes?.source.disconnect()
+    lfoNodes?.gainNode.disconnect()
     source.disconnect()
     gainNode.disconnect()
+    panNode.disconnect()
     activeVoices.delete(voiceId)
+  }
+}
+
+function createFrequencyLfo(
+  ctx: AudioContext,
+  oscillator: OscillatorNode,
+  lfo: AudioLfo,
+) {
+  const lfoSource = ctx.createOscillator()
+  const lfoGainNode = ctx.createGain()
+
+  lfoSource.type = lfo.waveform ?? "sine"
+  lfoSource.frequency.setValueAtTime(Math.max(lfo.rate, 0.01), ctx.currentTime)
+  lfoGainNode.gain.setValueAtTime(Math.max(lfo.depth, 0), ctx.currentTime)
+
+  lfoSource.connect(lfoGainNode)
+  lfoGainNode.connect(oscillator.frequency)
+  lfoSource.start()
+
+  return {
+    gainNode: lfoGainNode,
+    source: lfoSource,
+  }
+}
+
+function createGainLfo(
+  ctx: AudioContext,
+  gainNode: GainNode,
+  lfo: AudioLfo,
+) {
+  const lfoSource = ctx.createOscillator()
+  const lfoGainNode = ctx.createGain()
+
+  lfoSource.type = lfo.waveform ?? "sine"
+  lfoSource.frequency.setValueAtTime(Math.max(lfo.rate, 0.01), ctx.currentTime)
+  lfoGainNode.gain.setValueAtTime(Math.max(lfo.depth, 0), ctx.currentTime)
+
+  lfoSource.connect(lfoGainNode)
+  lfoGainNode.connect(gainNode.gain)
+  lfoSource.start()
+
+  return {
+    gainNode: lfoGainNode,
+    source: lfoSource,
   }
 }
 
 function startSourceVoice(
   source: OscillatorNode | AudioBufferSourceNode,
-  options: Pick<PlayFrequencyOptions, "volume" | "envelope"> = {},
+  options: Pick<PlayFrequencyOptions, "volume" | "envelope" | "lfo" | "pan"> = {},
 ) {
   const ctx = getAudioContext()
   const gainNode = ctx.createGain()
+  const panNode = ctx.createStereoPanner()
   const envelope = resolveEnvelope(options.envelope)
   const volume = clamp(options.volume ?? 0.2, 0, 1)
+  const pan = clamp(options.pan ?? 0, -1, 1)
   const voiceId = `voice-${voiceCounter++}`
   const sustainVolume = scheduleVoiceStart(ctx, gainNode, volume, envelope)
+  const lfoNodes =
+    !options.lfo
+      ? undefined
+      : options.lfo.target === "gain"
+        ? createGainLfo(ctx, gainNode, options.lfo)
+        : source instanceof OscillatorNode
+          ? createFrequencyLfo(ctx, source, options.lfo)
+          : undefined
 
+  panNode.pan.setValueAtTime(pan, ctx.currentTime)
   source.connect(gainNode)
-  gainNode.connect(getMasterGainNode(ctx))
+  gainNode.connect(panNode)
+  panNode.connect(getMasterGainNode(ctx))
 
-  registerActiveVoice(voiceId, source, gainNode, envelope, sustainVolume)
+  registerActiveVoice(
+    voiceId,
+    source,
+    gainNode,
+    panNode,
+    envelope,
+    sustainVolume,
+    lfoNodes,
+  )
   source.start()
 
   return voiceId

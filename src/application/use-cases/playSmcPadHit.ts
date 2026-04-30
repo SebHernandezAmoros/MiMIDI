@@ -51,12 +51,15 @@ export function getSmcPadSoundDescriptor(soundId: SmcPadSoundId) {
   return smcPadSounds.find((sound) => sound.id === soundId) ?? smcPadSounds[0]
 }
 
-export function playSmcPadHit(soundId: SmcPadSoundId) {
+export function playSmcPadHit(soundId: SmcPadSoundId, volumeScale = 1, pan = 0) {
+  const scaledVolume = Math.max(volumeScale, 0)
+
   switch (soundId) {
     case "kick":
       playFrequency(64, 0.14, {
+        pan,
         waveform: "sine",
-        volume: 0.64,
+        volume: 0.64 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.045,
@@ -65,8 +68,9 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
         },
       })
       playFrequency(49, 0.24, {
+        pan,
         waveform: "triangle",
-        volume: 0.24,
+        volume: 0.24 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.07,
@@ -78,7 +82,8 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
 
     case "snare":
       playNoise(0.11, {
-        volume: 0.28,
+        pan,
+        volume: 0.28 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.032,
@@ -87,8 +92,9 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
         },
       })
       playFrequency(178, 0.09, {
+        pan,
         waveform: "sawtooth",
-        volume: 0.08,
+        volume: 0.08 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.02,
@@ -100,7 +106,8 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
 
     case "hat":
       playNoise(0.04, {
-        volume: 0.13,
+        pan,
+        volume: 0.13 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.009,
@@ -109,8 +116,9 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
         },
       })
       playFrequency(8400, 0.025, {
+        pan,
         waveform: "square",
-        volume: 0.015,
+        volume: 0.015 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.005,
@@ -124,7 +132,8 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
       ;[0, 18, 38].forEach((delayMs, burstIndex) => {
         window.setTimeout(() => {
           playNoise(0.038, {
-            volume: burstIndex === 0 ? 0.2 : 0.14,
+            pan,
+            volume: (burstIndex === 0 ? 0.2 : 0.14) * scaledVolume,
             envelope: {
               attack: 0.001,
               decay: 0.011,
@@ -135,8 +144,9 @@ export function playSmcPadHit(soundId: SmcPadSoundId) {
         }, delayMs)
       })
       playFrequency(520, 0.05, {
+        pan,
         waveform: "triangle",
-        volume: 0.03,
+        volume: 0.03 * scaledVolume,
         envelope: {
           attack: 0.001,
           decay: 0.01,

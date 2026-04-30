@@ -16,6 +16,10 @@ modular preparada para plugins/mods.
 - `04-plan-desarrollo.md` -> fases incrementales de desarrollo del proyecto.
 - `05-contexto-vivo-desarrollo.md` -> registro vivo de cambios, decisiones y
   siguientes pasos.
+- `06-ideas-de-plugins.md` -> backlog inicial de ideas para futuros plugins y
+  extensiones.
+- `07-prompt-continuidad-codex.md` -> prompt de continuidad para nuevos chats de
+  Codex, con contexto operativo y reglas de comportamiento/documentacion.
 
 ## Proposito de esta carpeta
 

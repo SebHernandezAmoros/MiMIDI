@@ -1,18 +1,13 @@
-import {
-  playSmcPadHit,
-  smcPadSounds,
-  type SmcPadSoundId,
-} from "../../application/use-cases/playSmcPadHit"
+import { smcPadSounds, type SmcPadSoundId } from "../../application/use-cases/playSmcPadHit"
 import "./MiniSmcPad.css"
 
 type MiniSmcPadProps = {
-  onTrigger?: (soundId: SmcPadSoundId) => void
+  onTrigger: (soundId: SmcPadSoundId) => void
 }
 
 export function MiniSmcPad({ onTrigger }: MiniSmcPadProps) {
   function triggerSound(soundId: SmcPadSoundId) {
-    playSmcPadHit(soundId)
-    onTrigger?.(soundId)
+    onTrigger(soundId)
   }
 
   return (

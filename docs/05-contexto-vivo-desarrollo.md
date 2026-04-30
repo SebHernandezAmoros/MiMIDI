@@ -2617,18 +2617,283 @@ laboratorio monovista, pero su refinamiento fuerte de sonido, identidad visual y
 UX se difiere para cuando exista una vista dedicada de `SMC Pad`. No se fuerza
 su cierre total dentro de la pantalla monovista actual.
 
+## Movimiento 52 - Inicio de sintesis avanzada con LFO base
+
+Fase: Bloque C - FASE 7 Sintesis avanzada
+
+Archivos movidos:
+
+- `src/engine/audio/audioEngine.ts`
+- `src/engine/audio/mathematicalInstruments.ts`
+
+Intencion:
+
+Abrir de forma real la fase de sintesis avanzada con una modulacion reutilizable
+que pueda crecer luego a vibrato, movimiento tonal y futuras automatizaciones.
+
+Como se movio:
+
+- Se agrego tipo `AudioLfo` al motor de audio.
+- `PlayFrequencyOptions` ahora acepta `lfo` opcional.
+- El motor crea un oscilador secundario de baja frecuencia y lo conecta a la
+  frecuencia del oscilador principal cuando corresponde.
+- Se integraron limpieza y parada del LFO al mismo ciclo de vida de las voces.
+- Se agrego un instrumento nuevo:
+  - `Vibrato Lead`
+
+Decision tecnica:
+
+Se eligio empezar por LFO sobre frecuencia porque es el camino mas corto y
+audible para abrir sintesis avanzada sin introducir todavia mezcla por pista ni
+automatizacion compleja.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya tiene una primera base de sintesis avanzada: un LFO opcional en el
+motor de audio y un instrumento matematico que usa vibrato real.
+
+## Movimiento 53 - LFO ampliado a tremolo por ganancia
+
+Fase: Bloque C - FASE 7 Sintesis avanzada
+
+Archivos movidos:
+
+- `src/engine/audio/audioEngine.ts`
+- `src/engine/audio/mathematicalInstruments.ts`
+
+Intencion:
+
+Ampliar el alcance inicial del LFO para que no quede limitado solo a vibrato y
+abrir un segundo destino musical claramente audible: `gain`.
+
+Como se movio:
+
+- `AudioLfo` ahora puede declarar `target`.
+- Se agrego ruta de LFO sobre `gain` para lograr `tremolo`.
+- El motor mantiene el mismo ciclo de vida y limpieza del modulador.
+- Se agrego un instrumento nuevo:
+  - `Tremolo Pad`
+
+Decision tecnica:
+
+Se eligio `gain` como segundo destino porque ofrece una diferencia audible clara
+respecto a `frequency`, valida mejor la reutilizacion del LFO y prepara el
+terreno para modulaciones mas ricas sin abrir aun automatizacion completa.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El LFO ya no solo sirve para vibrato: tambien puede producir `tremolo`, y
+MiMIDI cuenta ahora con dos referencias audibles de sintesis avanzada.
+
+## Movimiento 54 - Categoria de instrumentos y envolvente por pista
+
+Fase: Bloque C - FASE 7 Sintesis avanzada
+
+Archivos movidos:
+
+- `src/App.css`
+- `src/App.tsx`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/engine/audio/mathematicalInstruments.ts`
+- `src/engine/midi/events.ts`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabProjectPanel.tsx`
+
+Intencion:
+
+Separar mejor los instrumentos matematicos basicos de los avanzados y abrir una
+mejora estructural real de sintesis avanzada: envolvente editable por pista.
+
+Como se movio:
+
+- Se agrego categoria `Base / Avanzado` a los instrumentos matematicos.
+- La UI del laboratorio ahora permite cambiar primero la categoria y luego el
+  instrumento dentro de esa familia.
+- Cada pista ahora guarda su propia envolvente:
+  - `attack`
+  - `decay`
+  - `sustain`
+  - `release`
+- Las notas nuevas grabadas guardan snapshot de esa envolvente para reproducirse
+  luego de forma consistente.
+- `playRecordedNotes` usa la envolvente guardada por nota en lugar de depender
+  del selector actual del laboratorio.
+
+Decision tecnica:
+
+Se eligio abrir primero una envolvente por pista antes que mezcla por pista
+porque impacta directo en el caracter sonoro y era el siguiente paso mas claro
+despues de LFO, manteniendo el alcance dentro del laboratorio actual.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya distingue mejor sus familias de instrumentos y cada pista puede
+modificar su ADSR propio, con persistencia funcional sobre nuevas notas y
+reproduccion grabada.
+
+## Movimiento 55 - Mezcla base por pista y ayuda contextual en laboratorio
+
+Fase: Bloque C - FASE 7 Sintesis avanzada
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/application/use-cases/playSmcPadHit.ts`
+- `src/engine/audio/mathematicalInstruments.ts`
+- `src/engine/midi/events.ts`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabProjectPanel.tsx`
+- `docs/00-README-DOCS.md`
+
+Intencion:
+
+Completar una primera mezcla por pista util dentro del laboratorio y volver mas
+autoexplicativa la UI de instrumentos y envolvente sin esperar al modo app
+final.
+
+Como se movio:
+
+- Cada pista ahora guarda `volume` propio.
+- El volumen de pista afecta:
+  - toque en vivo
+  - notas nuevas grabadas
+  - reproduccion grabada
+  - mini `SMC Pad`
+- Las notas nuevas guardan snapshot de volumen igual que ya guardaban snapshot
+  de envolvente.
+- Se agrego descripcion para la categoria de instrumento activa:
+  - `Base`
+  - `Avanzado`
+- Se agrego texto de ayuda para explicar como usar la envolvente por pista.
+- Se actualizo el indice de docs para incluir `06` y el nuevo `07`.
+
+Decision tecnica:
+
+Se implemento primero una mezcla base por pista centrada en volumen porque da
+valor real inmediato y prepara futuras expansiones de mezcla sin introducir aun
+panorama, buses ni UI de mixer separada.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya cuenta con una primera mezcla util por pista y con una interfaz mas
+clara para distinguir familias de instrumentos y entender la envolvente activa.
+
+## Movimiento 56 - Cierre MVP de sintesis avanzada con mezcla refinada
+
+Fase: Bloque C - FASE 7 Sintesis avanzada
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/application/use-cases/playSmcPadHit.ts`
+- `src/engine/audio/audioEngine.ts`
+- `src/engine/midi/events.ts`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabProjectPanel.tsx`
+- `src/features/piano/PianoPreview.tsx`
+- `src/features/smc-pad/MiniSmcPad.tsx`
+- `docs/04-plan-desarrollo.md`
+
+Intencion:
+
+Cerrar el alcance MVP de Bloque C para que la sintesis avanzada no quede solo
+en LFO y ADSR, sino tambien con una mezcla por pista util y una base minima de
+automatizacion sonora.
+
+Como se movio:
+
+- Cada pista ahora guarda y expone:
+  - `mute`
+  - `solo`
+  - `pan`
+  - `volumeAutomation`
+- Se agrego panorama real al motor de audio usando `StereoPannerNode`.
+- La reproduccion grabada ahora resuelve mezcla por pista al sonar:
+  - respeta `mute`
+  - respeta `solo`
+  - aplica `pan`
+  - aplica automatizacion de volumen por tiempo
+- El piano del laboratorio ya no depende de opciones fijas: resuelve `playOptions`
+  al tocar para heredar mejor el estado actual de la pista.
+- El mini `SMC Pad` dejo de disparar sonido por su cuenta y ahora delega en
+  `App`, para compartir exactamente el mismo criterio de mezcla y grabacion.
+- La UI del laboratorio sumo un bloque explicito de mezcla por pista y un bloque
+  minimo de automatizacion con:
+  - volumen inicial
+  - tiempo final
+  - volumen final
+  - interruptor de activacion
+- Las notas nuevas siguen guardando snapshot de volumen base, envolvente y pan,
+  ademas de `playbackTrackId` para poder reencontrar su pista al reproducirse.
+
+Decision tecnica:
+
+La automatizacion minima se resolvio como una curva lineal de dos puntos para
+no abrir aun una UI grande de lanes de automatizacion. Esto basta para validar
+el modelo de mezcla por pista sin adelantar el timeline de tracks ni el modo
+app final.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Bloque C queda cerrado en su alcance MVP actual: MiMIDI ya tiene LFO, familias
+de instrumentos, ADSR por pista, mezcla por pista y automatizacion basica de
+volumen.
+
+Nota de validacion diferida:
+
+Aunque la implementacion tecnica quedo integrada y validada con `lint` y
+`build`, la prueba manual completa de mezcla por pista todavia se considera
+incomoda dentro del laboratorio monovista actual. Acciones como verificar con
+claridad `mute`, `solo`, panorama y automatizacion entre varias pistas quedan
+anotadas para retomarse mas adelante, idealmente cuando exista una
+reorganizacion por vistas que haga el flujo mas legible y menos caotico.
+
+Pruebas manuales diferidas:
+
+- validar con calma `mute` por pista en escenario multipista
+- validar con calma `solo` por pista en escenario multipista
+- validar panorama izquierdo/derecho entre varias pistas
+- validar automatizacion basica de volumen en reproduccion real
+- repetir pruebas de mezcla tambien sobre el mini `SMC Pad`
+
 ## Proximo paso recomendado
 
-Avanzar a FASE 8 - Proyecto musical.
+Avanzar a Bloque D - Exportacion audible.
 
 Siguiente incremento recomendado:
 
-- continuar Bloque B sobre la base ya extraida desde `App.tsx`,
-- priorizar las piezas mas concretas y de menor riesgo dentro del laboratorio:
-  - primera mejora de jerarquia visual
-  - consolidar esta prueba hacia un `SMC Pad` mas completo
-- despues de eso, pasar a Bloque C:
-  - sintesis avanzada
+- render offline del proyecto con `OfflineAudioContext`
+- mezcla por pistas durante render offline
+- exportador `WAV` como primera salida audible del proyecto
 
 Objetivo:
 

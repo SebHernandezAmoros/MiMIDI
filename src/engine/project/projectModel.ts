@@ -1,18 +1,39 @@
+import type { ADSREnvelope } from "../audio/audioEngine"
 import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
 import type { MidiRecordedNote } from "../midi/events"
 import type { MusicalNote } from "../midi/notes"
 
+export type TrackVolumeAutomationPoint = {
+  time: number
+  value: number
+}
+
+export type TrackVolumeAutomation = {
+  enabled: boolean
+  points: TrackVolumeAutomationPoint[]
+}
+
 export type ProjectTrack = {
+  envelope: ADSREnvelope
   id: string
   instrumentId: MathematicalInstrumentId
+  muted: boolean
   name: string
   notes: MidiRecordedNote[]
+  pan: number
+  solo: boolean
+  volumeAutomation: TrackVolumeAutomation
+  volume: number
 }
 
 export type MusicalProject = {
   id: string
   name: string
   tracks: ProjectTrack[]
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 export function createDefaultProject(): MusicalProject {
@@ -25,10 +46,27 @@ export function createDefaultProject(): MusicalProject {
 
 export function createProjectTrack(index: number): ProjectTrack {
   return {
+    envelope: {
+      attack: 0.02,
+      decay: 0.12,
+      sustain: 0.68,
+      release: 0.24,
+    },
     id: `track-${index}`,
     instrumentId: "pure-sine",
+    muted: false,
     name: `Track ${index}`,
     notes: [],
+    pan: 0,
+    solo: false,
+    volumeAutomation: {
+      enabled: false,
+      points: [
+        { time: 0, value: 1 },
+        { time: 4, value: 1 },
+      ],
+    },
+    volume: 1,
   }
 }
 
@@ -218,11 +256,181 @@ export function updateTrackInstrument(
   }
 }
 
+export function updateTrackEnvelope(
+  project: MusicalProject,
+  trackId: string,
+  patch: Partial<ADSREnvelope>,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            envelope: {
+              ...track.envelope,
+              ...patch,
+            },
+          }
+        : track,
+    ),
+  }
+}
+
+export function updateTrackVolume(
+  project: MusicalProject,
+  trackId: string,
+  volume: number,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            volume: clamp(volume, 0, 1.5),
+          }
+        : track,
+    ),
+  }
+}
+
+export function updateTrackPan(
+  project: MusicalProject,
+  trackId: string,
+  pan: number,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            pan: clamp(pan, -1, 1),
+          }
+        : track,
+    ),
+  }
+}
+
+export function updateTrackMuted(
+  project: MusicalProject,
+  trackId: string,
+  muted: boolean,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            muted,
+          }
+        : track,
+    ),
+  }
+}
+
+export function updateTrackSolo(
+  project: MusicalProject,
+  trackId: string,
+  solo: boolean,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            solo,
+          }
+        : track,
+    ),
+  }
+}
+
+export function updateTrackVolumeAutomation(
+  project: MusicalProject,
+  trackId: string,
+  automation: TrackVolumeAutomation,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            volumeAutomation: {
+              ...automation,
+              points: [...automation.points].sort((firstPoint, secondPoint) => firstPoint.time - secondPoint.time),
+            },
+          }
+        : track,
+    ),
+  }
+}
+
 export function appendTrack(project: MusicalProject): MusicalProject {
   return {
     ...project,
     tracks: [...project.tracks, createProjectTrack(project.tracks.length + 1)],
   }
+}
+
+export function hasSoloTracks(tracks: ProjectTrack[]) {
+  return tracks.some((track) => track.solo)
+}
+
+export function isTrackAudible(track: ProjectTrack, allTracks: ProjectTrack[]) {
+  if (hasSoloTracks(allTracks)) {
+    return track.solo && !track.muted
+  }
+
+  return !track.muted
+}
+
+export function getTrackVolumeAutomationValue(
+  automation: TrackVolumeAutomation,
+  time: number,
+) {
+  if (!automation.enabled || automation.points.length === 0) {
+    return 1
+  }
+
+  const clampedTime = Math.max(time, 0)
+  const sortedPoints = [...automation.points].sort(
+    (firstPoint, secondPoint) => firstPoint.time - secondPoint.time,
+  )
+  const firstPoint = sortedPoints[0]
+  const lastPoint = sortedPoints.at(-1) ?? firstPoint
+
+  if (clampedTime <= firstPoint.time) {
+    return clamp(firstPoint.value, 0, 1.5)
+  }
+
+  if (clampedTime >= lastPoint.time) {
+    return clamp(lastPoint.value, 0, 1.5)
+  }
+
+  for (let pointIndex = 0; pointIndex < sortedPoints.length - 1; pointIndex += 1) {
+    const currentPoint = sortedPoints[pointIndex]
+    const nextPoint = sortedPoints[pointIndex + 1]
+
+    if (clampedTime < currentPoint.time || clampedTime > nextPoint.time) {
+      continue
+    }
+
+    const segmentDuration = Math.max(nextPoint.time - currentPoint.time, 0.0001)
+    const segmentProgress = (clampedTime - currentPoint.time) / segmentDuration
+
+    return clamp(
+      currentPoint.value + (nextPoint.value - currentPoint.value) * segmentProgress,
+      0,
+      1.5,
+    )
+  }
+
+  return 1
 }
 
 export function removeTrack(
@@ -254,6 +462,10 @@ function isRecordedNote(value: unknown): value is MidiRecordedNote {
   }
 
   const note = value as Record<string, unknown>
+  const playbackEnvelope =
+    typeof note.playbackEnvelope === "object" && note.playbackEnvelope !== null
+      ? (note.playbackEnvelope as Record<string, unknown>)
+      : null
 
   return (
     typeof note.id === "string" &&
@@ -262,6 +474,19 @@ function isRecordedNote(value: unknown): value is MidiRecordedNote {
     typeof note.duration === "number" &&
     typeof note.velocity === "number" &&
     (typeof note.instrumentId === "string" || typeof note.instrumentId === "undefined") &&
+    (note.playbackPan === undefined || typeof note.playbackPan === "number") &&
+    (typeof note.playbackTrackId === "string" || typeof note.playbackTrackId === "undefined") &&
+    (note.playbackVolume === undefined || typeof note.playbackVolume === "number") &&
+    (note.playbackEnvelope === undefined ||
+      (playbackEnvelope !== null &&
+        (playbackEnvelope.attack === undefined ||
+          typeof playbackEnvelope.attack === "number") &&
+        (playbackEnvelope.decay === undefined ||
+          typeof playbackEnvelope.decay === "number") &&
+        (playbackEnvelope.sustain === undefined ||
+          typeof playbackEnvelope.sustain === "number") &&
+        (playbackEnvelope.release === undefined ||
+          typeof playbackEnvelope.release === "number"))) &&
     (note.playbackSource === undefined ||
       note.playbackSource === "note" ||
       note.playbackSource === "smc-pad") &&
@@ -284,6 +509,22 @@ function isProjectTrack(value: unknown): value is ProjectTrack {
     typeof track.id === "string" &&
     (typeof track.instrumentId === "string" ||
       typeof track.instrumentId === "undefined") &&
+    typeof track.envelope === "object" &&
+    track.envelope !== null &&
+    typeof (track.envelope as Record<string, unknown>).attack === "number" &&
+    typeof (track.envelope as Record<string, unknown>).decay === "number" &&
+    typeof (track.envelope as Record<string, unknown>).sustain === "number" &&
+    typeof (track.envelope as Record<string, unknown>).release === "number" &&
+    (typeof track.muted === "boolean" || typeof track.muted === "undefined") &&
+    (typeof track.pan === "number" || typeof track.pan === "undefined") &&
+    (typeof track.solo === "boolean" || typeof track.solo === "undefined") &&
+    (typeof track.volume === "number" || typeof track.volume === "undefined") &&
+    (track.volumeAutomation === undefined ||
+      (typeof track.volumeAutomation === "object" &&
+        track.volumeAutomation !== null &&
+        (track.volumeAutomation as Record<string, unknown>).enabled !== undefined &&
+        typeof (track.volumeAutomation as Record<string, unknown>).enabled === "boolean" &&
+        Array.isArray((track.volumeAutomation as Record<string, unknown>).points))) &&
     typeof track.name === "string" &&
     Array.isArray(track.notes) &&
     track.notes.every(isRecordedNote)
@@ -291,13 +532,88 @@ function isProjectTrack(value: unknown): value is ProjectTrack {
 }
 
 function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
+  const rawEnvelope =
+    typeof (track as Record<string, unknown>).envelope === "object" &&
+    (track as Record<string, unknown>).envelope !== null
+      ? ((track as Record<string, unknown>).envelope as Record<string, unknown>)
+      : null
+  const rawAutomation =
+    typeof (track as Record<string, unknown>).volumeAutomation === "object" &&
+    (track as Record<string, unknown>).volumeAutomation !== null
+      ? ((track as Record<string, unknown>).volumeAutomation as Record<string, unknown>)
+      : null
+  const normalizedAutomationPoints = Array.isArray(rawAutomation?.points)
+    ? rawAutomation.points
+        .filter(
+          (point): point is Record<string, unknown> =>
+            !!point &&
+            typeof point === "object" &&
+            typeof (point as Record<string, unknown>).time === "number" &&
+            typeof (point as Record<string, unknown>).value === "number",
+        )
+        .map((point) => ({
+          time: Math.max(0, point.time as number),
+          value: Math.min(Math.max(point.value as number, 0), 1.5),
+        }))
+        .sort((firstPoint, secondPoint) => firstPoint.time - secondPoint.time)
+    : []
+
   return {
     ...track,
+    envelope: {
+      attack: typeof rawEnvelope?.attack === "number" ? rawEnvelope.attack : 0.02,
+      decay: typeof rawEnvelope?.decay === "number" ? rawEnvelope.decay : 0.12,
+      sustain: typeof rawEnvelope?.sustain === "number" ? rawEnvelope.sustain : 0.68,
+      release: typeof rawEnvelope?.release === "number" ? rawEnvelope.release : 0.24,
+    },
     instrumentId: (track.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
+    muted: typeof (track as Record<string, unknown>).muted === "boolean" ? track.muted : false,
+    pan: typeof (track as Record<string, unknown>).pan === "number"
+      ? Math.min(Math.max(track.pan, -1), 1)
+      : 0,
+    solo: typeof (track as Record<string, unknown>).solo === "boolean" ? track.solo : false,
+    volume: typeof (track as Record<string, unknown>).volume === "number"
+      ? track.volume
+      : 1,
+    volumeAutomation: {
+      enabled: typeof rawAutomation?.enabled === "boolean" ? rawAutomation.enabled : false,
+      points:
+        normalizedAutomationPoints.length > 0
+          ? normalizedAutomationPoints
+          : [
+              { time: 0, value: 1 },
+              { time: 4, value: 1 },
+            ],
+    },
     notes: track.notes.map((note) => ({
       ...note,
       note: note.note as MusicalNote,
       instrumentId: (note.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
+      playbackEnvelope:
+        typeof note.playbackEnvelope === "object" && note.playbackEnvelope !== null
+          ? {
+              attack:
+                typeof note.playbackEnvelope.attack === "number"
+                  ? note.playbackEnvelope.attack
+                  : undefined,
+              decay:
+                typeof note.playbackEnvelope.decay === "number"
+                  ? note.playbackEnvelope.decay
+                  : undefined,
+              sustain:
+                typeof note.playbackEnvelope.sustain === "number"
+                  ? note.playbackEnvelope.sustain
+                  : undefined,
+              release:
+                typeof note.playbackEnvelope.release === "number"
+                  ? note.playbackEnvelope.release
+                  : undefined,
+            }
+          : undefined,
+      playbackPan: typeof note.playbackPan === "number" ? note.playbackPan : undefined,
+      playbackTrackId: typeof note.playbackTrackId === "string" ? note.playbackTrackId : undefined,
+      playbackVolume:
+        typeof note.playbackVolume === "number" ? note.playbackVolume : undefined,
       playbackSource: note.playbackSource === "smc-pad" ? "smc-pad" : "note",
       smcPadSoundId:
         note.smcPadSoundId === "kick" ||
@@ -323,7 +639,23 @@ export function parseImportedProject(projectJson: string): MusicalProject {
     typeof project.id !== "string" ||
     typeof project.name !== "string" ||
     !Array.isArray(project.tracks) ||
-    !project.tracks.every(isProjectTrack)
+    !project.tracks.every((track) => {
+      if (!track || typeof track !== "object") {
+        return false
+      }
+
+      const rawTrack = track as Record<string, unknown>
+
+      const hasLegacyShape =
+        typeof rawTrack.id === "string" &&
+        (typeof rawTrack.instrumentId === "string" ||
+          typeof rawTrack.instrumentId === "undefined") &&
+        typeof rawTrack.name === "string" &&
+        Array.isArray(rawTrack.notes) &&
+        rawTrack.notes.every(isRecordedNote)
+
+      return isProjectTrack(track) || hasLegacyShape
+    })
   ) {
     throw new Error("Project JSON does not match MiMIDI format")
   }

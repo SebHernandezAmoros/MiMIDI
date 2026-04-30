@@ -238,6 +238,16 @@ Tareas:
 Cuando aplicarlo:
 - despues de Bloque B
 
+Estado:
+- completado en alcance MVP actual:
+  - base de LFO opcional en el motor de audio
+  - modulacion sobre frecuencia (`Vibrato Lead`)
+  - modulacion sobre ganancia (`Tremolo Pad`)
+  - separacion de instrumentos matematicos en `Base / Avanzado`
+  - envolvente editable por pista para notas nuevas y reproduccion grabada
+  - mezcla por pista con volumen, mute, solo y pan
+  - automatizacion basica de volumen por pista con dos puntos minimos
+
 ### Bloque D - Exportacion audible (alta prioridad de producto)
 
 Objetivo:
@@ -341,6 +351,9 @@ Tareas:
   - Plugins
 - convertir la division interna previa en navegacion visible de app
 - redistribuir herramientas sin apelotonar controles
+- facilitar validacion manual mas clara de flujos multipista que hoy resultan
+  incomodos de probar en la monovista, especialmente mezcla, `mute`, `solo`,
+  panorama y automatizacion basica
 
 Cuando aplicarlo:
 - al final, despues de cerrar los bloques funcionales principales

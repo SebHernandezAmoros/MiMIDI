@@ -112,6 +112,68 @@ input[type="text"] {
   gap: 0.75rem;
 }
 
+.track-envelope {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #111111;
+}
+
+.track-envelope h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.track-mix,
+.track-automation {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  background: #111111;
+}
+
+.track-mix h2,
+.track-automation h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.track-mix-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.track-mix-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.track-mix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.track-mix input[type="range"] {
+  width: 100%;
+}
+
+.track-envelope-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
 .note-editor {
   display: grid;
   gap: 0.75rem;
@@ -200,6 +262,11 @@ input[type="text"] {
   .timeline-tools {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .track-mix-grid,
+  .track-envelope-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

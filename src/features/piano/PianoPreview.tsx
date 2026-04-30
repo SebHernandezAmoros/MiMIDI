@@ -14,6 +14,7 @@ type PianoPreviewProps = {
   notes: MusicalNote[]
   selectedNote: MusicalNote
   playOptions: PlayNoteOptions
+  resolvePlayOptions?: () => PlayNoteOptions
   interactionMode?: PianoInteractionMode
   getPlayableNotes?: (note: MusicalNote) => MusicalNote[]
   onSelectNote: (note: MusicalNote) => void
@@ -47,6 +48,7 @@ export function PianoPreview({
   notes,
   selectedNote,
   playOptions,
+  resolvePlayOptions,
   interactionMode = "note",
   getPlayableNotes,
   onSelectNote,
@@ -68,11 +70,12 @@ export function PianoPreview({
 
   function playPianoNoteOnce(note: MusicalNote) {
     onSelectNote(note)
+    const nextPlayOptions = resolvePlayOptions?.() ?? playOptions
 
     const playableNotes = resolvePlayableNotes(note)
 
     playableNotes.forEach((playableNote) => {
-      playNote(playableNote, 0.75, playOptions)
+      playNote(playableNote, 0.75, nextPlayOptions)
     })
   }
 
@@ -82,12 +85,13 @@ export function PianoPreview({
     }
 
     onSelectNote(note)
+    const nextPlayOptions = resolvePlayOptions?.() ?? playOptions
 
     const playableNotes = resolvePlayableNotes(note)
     const activeNoteIds = playableNotes.map((playableNote) => {
       onNoteOn?.(playableNote)
 
-      return startNote(playableNote, playOptions)
+      return startNote(playableNote, nextPlayOptions)
     })
 
     activeNotesRef.current.set(note, activeNoteIds)

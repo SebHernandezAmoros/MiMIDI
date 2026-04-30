@@ -6,6 +6,11 @@ import {
   findMathematicalInstrument,
 } from "../../engine/audio/mathematicalInstruments"
 import type { MidiRecordedNote } from "../../engine/midi/events"
+import {
+  getTrackVolumeAutomationValue,
+  isTrackAudible,
+  type ProjectTrack,
+} from "../../engine/project/projectModel"
 
 export type PlaybackHandle = {
   cancel: () => void
@@ -13,13 +18,14 @@ export type PlaybackHandle = {
 
 export type PlayRecordedNotesOptions = PlayNoteOptions & {
   onComplete?: () => void
+  tracks?: ProjectTrack[]
 }
 
 export function playRecordedNotes(
   recordedNotes: MidiRecordedNote[],
   options: PlayRecordedNotesOptions = {},
 ): PlaybackHandle {
-  const { onComplete, ...playOverrides } = options
+  const { onComplete, tracks = [], ...playOverrides } = options
 
   if (recordedNotes.length === 0) {
     onComplete?.()
@@ -44,15 +50,34 @@ export function playRecordedNotes(
         return
       }
 
+      const track = tracks.find(
+        (candidateTrack) => candidateTrack.id === recordedNote.playbackTrackId,
+      )
+
+      if (track && !isTrackAudible(track, tracks)) {
+        return
+      }
+
+      const automationVolume = track
+        ? getTrackVolumeAutomationValue(track.volumeAutomation, recordedNote.startTime)
+        : 1
+      const playbackPan = track?.pan ?? recordedNote.playbackPan ?? 0
+      const playbackVolume = (recordedNote.playbackVolume ?? 1) * automationVolume
+
       if (recordedNote.playbackSource === "smc-pad" && recordedNote.smcPadSoundId) {
-        playSmcPadHit(recordedNote.smcPadSoundId)
+        playSmcPadHit(recordedNote.smcPadSoundId, playbackVolume, playbackPan)
         return
       }
 
       const trackInstrument = findMathematicalInstrument(recordedNote.instrumentId)
 
       playNote(recordedNote.note, recordedNote.duration, {
-        ...createPlayOptions(trackInstrument),
+        ...createPlayOptions(
+          trackInstrument,
+          playbackVolume,
+          recordedNote.playbackEnvelope,
+        ),
+        pan: playbackPan,
         ...playOverrides,
       })
     }, Math.max(recordedNote.startTime - firstStartTime, 0) * 1000),

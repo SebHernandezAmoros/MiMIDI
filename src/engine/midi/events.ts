@@ -1,3 +1,4 @@
+import type { ADSREnvelope } from "../audio/audioEngine"
 import type { MusicalNote } from "./notes"
 import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
 
@@ -20,6 +21,10 @@ export type MidiRecordedNote = {
   instrumentId: MathematicalInstrumentId
   playbackSource?: "note" | "smc-pad"
   smcPadSoundId?: "kick" | "snare" | "hat" | "clap"
+  playbackEnvelope?: Partial<ADSREnvelope>
+  playbackPan?: number
+  playbackTrackId?: string
+  playbackVolume?: number
 }
 
 export function isSmcPadRecordedNote(note: MidiRecordedNote) {
@@ -45,7 +50,17 @@ export function createMidiRecordedNote(
   noteOnEvent: MidiNoteEvent,
   noteOffTime: number,
   instrumentId: MathematicalInstrumentId,
-  options: Partial<Pick<MidiRecordedNote, "playbackSource" | "smcPadSoundId">> = {},
+  options: Partial<
+    Pick<
+      MidiRecordedNote,
+      | "playbackEnvelope"
+      | "playbackPan"
+      | "playbackSource"
+      | "playbackTrackId"
+      | "playbackVolume"
+      | "smcPadSoundId"
+    >
+  > = {},
 ): MidiRecordedNote {
   return {
     id: `note-${noteOnEvent.note}-${noteOnEvent.time.toFixed(3)}-${noteOffTime.toFixed(3)}`,
@@ -54,6 +69,10 @@ export function createMidiRecordedNote(
     duration: Math.max(noteOffTime - noteOnEvent.time, 0),
     velocity: noteOnEvent.velocity,
     instrumentId,
+    playbackEnvelope: options.playbackEnvelope,
+    playbackPan: options.playbackPan,
+    playbackTrackId: options.playbackTrackId,
+    playbackVolume: options.playbackVolume,
     playbackSource: options.playbackSource ?? "note",
     smcPadSoundId: options.smcPadSoundId,
   }

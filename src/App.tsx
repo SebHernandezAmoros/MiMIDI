@@ -2,11 +2,14 @@ import type { ChangeEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import "./App.css"
 import { playNote, playNotes } from "./application/use-cases/playNote"
-import { setMasterVolume } from "./engine/audio/audioEngine"
+import { setMasterVolume, type ADSREnvelope } from "./engine/audio/audioEngine"
 import {
   createPlayOptions,
   findMathematicalInstrument,
+  getInstrumentCategoryDescription,
+  getInstrumentCategoryLabel,
   mathematicalInstruments,
+  type MathematicalInstrument,
   type MathematicalInstrumentId,
 } from "./engine/audio/mathematicalInstruments"
 import {
@@ -30,6 +33,8 @@ import {
   clearAllTrackNotes,
   createDefaultProject,
   duplicateNoteInTrack,
+  getTrackVolumeAutomationValue,
+  isTrackAudible,
   parseImportedProject,
   type MusicalProject,
   removeTrack,
@@ -38,7 +43,14 @@ import {
   renameProject,
   renameTrack,
   updateNoteInTrack,
+  updateTrackEnvelope,
   updateTrackInstrument,
+  updateTrackMuted,
+  updateTrackPan,
+  updateTrackSolo,
+  updateTrackVolumeAutomation,
+  updateTrackVolume,
+  type TrackVolumeAutomation,
 } from "./engine/project/projectModel"
 import { loadStoredProject, saveProject } from "./engine/project/projectStorage"
 import { LabActions } from "./features/lab/LabActions"
@@ -47,6 +59,7 @@ import { LabProjectPanel } from "./features/lab/LabProjectPanel"
 import { LabSoundControls } from "./features/lab/LabSoundControls"
 import {
   getSmcPadSoundDescriptor,
+  playSmcPadHit,
   type SmcPadSoundId,
 } from "./application/use-cases/playSmcPadHit"
 import { MidiEventLog } from "./features/midi-events/MidiEventLog"
@@ -70,9 +83,12 @@ const chordIntervals = {
 
 type ChordType = keyof typeof chordIntervals
 type ActiveNoteCapture = {
+  envelope: ADSREnvelope
   event: MidiNoteEvent
   instrumentId: MathematicalInstrumentId
+  pan: number
   trackId: string
+  volume: number
 }
 
 function getInitialProject() {
@@ -100,6 +116,10 @@ function areProjectsEquivalent(
   secondProject: MusicalProject,
 ) {
   return JSON.stringify(firstProject) === JSON.stringify(secondProject)
+}
+
+function getPerformanceTimestamp() {
+  return performance.now()
 }
 
 function App() {
@@ -143,35 +163,50 @@ function App() {
   const primaryTrack =
     project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0]
   const selectedInstrument = findMathematicalInstrument(primaryTrack.instrumentId)
+  const activeInstrumentCategory = selectedInstrument.category
+  const instrumentCategories = useMemo(
+    () =>
+      [...new Set(mathematicalInstruments.map((instrument) => instrument.category))].sort(
+        (firstCategory, secondCategory) => {
+          if (firstCategory === secondCategory) {
+            return 0
+          }
+
+          return firstCategory === "base" ? -1 : 1
+        },
+      ),
+    [],
+  )
+  const visibleInstruments = mathematicalInstruments.filter(
+    (instrument) => instrument.category === activeInstrumentCategory,
+  )
   const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
   const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
-  const playOptions = createPlayOptions(selectedInstrument)
   const noteCount = primaryTrack.notes.length
+  const isPrimaryTrackAudible = isTrackAudible(primaryTrack, project.tracks)
   const selectedRecordedNote =
     primaryTrack.notes.find((note) => note.id === selectedRecordedNoteId) ?? null
-  const selectedNoteHistoryStatus = useMemo(() => {
-    if (!selectedRecordedNoteId || !selectedRecordedNote) {
-      return null
-    }
+  let selectedNoteHistoryStatus: "modificada" | "sin-cambios" | null = null
 
+  if (selectedRecordedNoteId && selectedRecordedNote) {
     const latestSnapshot = undoStack.at(-1)
 
     if (!latestSnapshot) {
-      return "sin-cambios"
+      selectedNoteHistoryStatus = "sin-cambios"
+    } else {
+      const snapshotTrack = latestSnapshot.tracks.find((track) => track.id === primaryTrack.id)
+      const snapshotNote = snapshotTrack?.notes.find(
+        (note) => note.id === selectedRecordedNoteId,
+      )
+
+      selectedNoteHistoryStatus =
+        !snapshotNote ||
+        snapshotNote.startTime !== selectedRecordedNote.startTime ||
+        snapshotNote.duration !== selectedRecordedNote.duration
+          ? "modificada"
+          : "sin-cambios"
     }
-
-    const snapshotTrack = latestSnapshot.tracks.find((track) => track.id === primaryTrack.id)
-    const snapshotNote = snapshotTrack?.notes.find((note) => note.id === selectedRecordedNoteId)
-
-    if (!snapshotNote) {
-      return "modificada"
-    }
-
-    return snapshotNote.startTime === selectedRecordedNote.startTime &&
-      snapshotNote.duration === selectedRecordedNote.duration
-      ? "sin-cambios"
-      : "modificada"
-  }, [primaryTrack.id, selectedRecordedNote, selectedRecordedNoteId, undoStack])
+  }
   const shortcutHint = useMemo(() => {
     const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
     const mod = isMac ? "Cmd" : "Ctrl"
@@ -228,11 +263,44 @@ function App() {
   }
 
   function getCurrentRecordTime() {
-    const now = performance.now()
+    const now = getPerformanceTimestamp()
 
     startedAtRef.current ??= now
 
     return (now - startedAtRef.current) / 1000
+  }
+
+  function getTrackAutomationVolumeAtTime(time: number) {
+    return getTrackVolumeAutomationValue(primaryTrack.volumeAutomation, time)
+  }
+
+  function getTrackLivePlaybackState(time: number) {
+    return {
+      pan: primaryTrack.pan,
+      volume: primaryTrack.volume * getTrackAutomationVolumeAtTime(time),
+    }
+  }
+
+  function getTrackPreviewPlayOptions(time: number) {
+    const livePlaybackState = getTrackLivePlaybackState(time)
+
+    return {
+      ...createPlayOptions(
+        selectedInstrument,
+        isPrimaryTrackAudible ? livePlaybackState.volume : 0,
+        primaryTrack.envelope,
+      ),
+      pan: livePlaybackState.pan,
+    }
+  }
+
+  const basePreviewPlayOptions = {
+    ...createPlayOptions(
+      selectedInstrument,
+      isPrimaryTrackAudible ? primaryTrack.volume : 0,
+      primaryTrack.envelope,
+    ),
+    pan: primaryTrack.pan,
   }
 
   function recordNotesToActiveTrack(notes: MusicalNote[], duration: number) {
@@ -247,6 +315,12 @@ function App() {
             createMidiNoteEvent("note-on", note, startTime, 1),
             startTime + duration,
             primaryTrack.instrumentId,
+            {
+              playbackEnvelope: primaryTrack.envelope,
+              playbackPan: primaryTrack.pan,
+              playbackTrackId: primaryTrack.id,
+              playbackVolume: primaryTrack.volume,
+            },
           ),
         ),
       ),
@@ -254,7 +328,7 @@ function App() {
   }
 
   function playTestNote() {
-    playNote(selectedNote, 0.75, playOptions)
+    playNote(selectedNote, 0.75, getTrackPreviewPlayOptions(getCurrentRecordTime()))
     recordNotesToActiveTrack([selectedNote], 0.75)
   }
 
@@ -270,19 +344,32 @@ function App() {
 
   function playTestChord() {
     const chordNotes = buildChordNotes(selectedNote)
+    const previewPlayOptions = getTrackPreviewPlayOptions(getCurrentRecordTime())
 
-    playNotes(chordNotes, 1.15, createPlayOptions(selectedInstrument, 0.72))
+    playNotes(chordNotes, 1.15, {
+      ...previewPlayOptions,
+      volume: (previewPlayOptions.volume ?? 0) * 0.72,
+    })
     recordNotesToActiveTrack(chordNotes, 1.15)
     setProjectMessage(`Acorde ${selectedChordType} grabado en ${primaryTrack.name}.`)
   }
 
   function playRecording() {
-    playbackTransport.play(allRecordedNotes, playOptions)
+    playbackTransport.play(allRecordedNotes, {
+      tracks: project.tracks,
+    })
   }
 
   function triggerSmcPad(soundId: SmcPadSoundId) {
     const sound = getSmcPadSoundDescriptor(soundId)
     const startTime = getCurrentRecordTime()
+    const livePlaybackState = getTrackLivePlaybackState(startTime)
+
+    playSmcPadHit(
+      soundId,
+      isPrimaryTrackAudible ? livePlaybackState.volume : 0,
+      livePlaybackState.pan,
+    )
 
     applyUpdate((currentProject) =>
       appendNoteToTrack(
@@ -293,7 +380,11 @@ function App() {
           startTime + sound.duration,
           primaryTrack.instrumentId,
           {
+            playbackEnvelope: primaryTrack.envelope,
+            playbackPan: primaryTrack.pan,
+            playbackVolume: primaryTrack.volume,
             playbackSource: "smc-pad",
+            playbackTrackId: primaryTrack.id,
             smcPadSoundId: sound.id,
           },
         ),
@@ -352,6 +443,75 @@ function App() {
   function updateTrackInstrumentId(instrumentId: MathematicalInstrumentId) {
     applyUpdate((currentProject) =>
       updateTrackInstrument(currentProject, primaryTrack.id, instrumentId),
+    )
+  }
+
+  function updateTrackInstrumentCategory(category: MathematicalInstrument["category"]) {
+    const nextInstrument = mathematicalInstruments.find(
+      (instrument) => instrument.category === category,
+    )
+
+    if (!nextInstrument) {
+      return
+    }
+
+    updateTrackInstrumentId(nextInstrument.id)
+  }
+
+  function updatePrimaryTrackEnvelope(parameter: keyof ADSREnvelope, value: number) {
+    if (!Number.isFinite(value)) {
+      return
+    }
+
+    const nextValue =
+      parameter === "sustain"
+        ? Math.min(Math.max(value, 0), 1)
+        : Math.min(Math.max(value, 0.001), 2)
+
+    applyUpdate((currentProject) =>
+      updateTrackEnvelope(currentProject, primaryTrack.id, {
+        [parameter]: nextValue,
+      }),
+    )
+  }
+
+  function updatePrimaryTrackVolume(value: number) {
+    if (!Number.isFinite(value)) {
+      return
+    }
+
+    const nextVolume = Math.min(Math.max(value, 0), 1.5)
+
+    applyUpdate((currentProject) =>
+      updateTrackVolume(currentProject, primaryTrack.id, nextVolume),
+    )
+  }
+
+  function updatePrimaryTrackPan(value: number) {
+    if (!Number.isFinite(value)) {
+      return
+    }
+
+    applyUpdate((currentProject) =>
+      updateTrackPan(currentProject, primaryTrack.id, value),
+    )
+  }
+
+  function togglePrimaryTrackMuted() {
+    applyUpdate((currentProject) =>
+      updateTrackMuted(currentProject, primaryTrack.id, !primaryTrack.muted),
+    )
+  }
+
+  function togglePrimaryTrackSolo() {
+    applyUpdate((currentProject) =>
+      updateTrackSolo(currentProject, primaryTrack.id, !primaryTrack.solo),
+    )
+  }
+
+  function updatePrimaryTrackVolumeAutomation(automation: TrackVolumeAutomation) {
+    applyUpdate((currentProject) =>
+      updateTrackVolumeAutomation(currentProject, primaryTrack.id, automation),
     )
   }
 
@@ -609,9 +769,12 @@ function App() {
 
     if (type === "note-on") {
       activeNoteEventsRef.current.set(note, {
+        envelope: primaryTrack.envelope,
         event: midiEvent,
         instrumentId: primaryTrack.instrumentId,
+        pan: primaryTrack.pan,
         trackId: primaryTrack.id,
+        volume: primaryTrack.volume,
       })
     }
 
@@ -627,6 +790,12 @@ function App() {
               activeNoteCapture.event,
               midiEvent.time,
               activeNoteCapture.instrumentId,
+              {
+                playbackEnvelope: activeNoteCapture.envelope,
+                playbackPan: activeNoteCapture.pan,
+                playbackTrackId: activeNoteCapture.trackId,
+                playbackVolume: activeNoteCapture.volume,
+              },
             ),
           ),
         )
@@ -652,21 +821,43 @@ function App() {
         />
 
         <LabProjectPanel
-          instrumentOptions={mathematicalInstruments}
+          activeInstrumentCategory={activeInstrumentCategory}
+          envelopeHelpText="Ajusta ADSR de la pista activa. Los cambios afectan las notas nuevas y quedan guardados con la grabacion."
+          envelope={primaryTrack.envelope}
+          instrumentCategoryDescription={getInstrumentCategoryDescription(
+            activeInstrumentCategory,
+          )}
+          instrumentCategories={instrumentCategories}
+          instrumentOptions={visibleInstruments.map((instrument) => ({
+            id: instrument.id,
+            name: `${instrument.name} (${getInstrumentCategoryLabel(instrument.category)})`,
+          }))}
           noteCount={noteCount}
           onAddTrack={addTrack}
+          onInstrumentCategoryChange={updateTrackInstrumentCategory}
           onProjectNameChange={updateProjectName}
           onRemoveActiveTrack={removeActiveTrack}
           onSwitchActiveTrack={switchActiveTrack}
+          onTrackEnvelopeChange={updatePrimaryTrackEnvelope}
           onTrackInstrumentChange={updateTrackInstrumentId}
+          onTrackMutedToggle={togglePrimaryTrackMuted}
           onTrackNameChange={updateTrackName}
+          onTrackPanChange={updatePrimaryTrackPan}
+          onTrackSoloToggle={togglePrimaryTrackSolo}
+          onTrackVolumeAutomationChange={updatePrimaryTrackVolumeAutomation}
+          onTrackVolumeChange={updatePrimaryTrackVolume}
+          pan={primaryTrack.pan}
           primaryTrackId={primaryTrack.id}
           primaryTrackInstrumentId={primaryTrack.instrumentId}
+          primaryTrackMuted={primaryTrack.muted}
           primaryTrackName={primaryTrack.name}
+          primaryTrackSolo={primaryTrack.solo}
           projectMessage={projectMessage}
           projectName={project.name}
           trackCount={project.tracks.length}
           tracks={project.tracks}
+          volumeAutomation={primaryTrack.volumeAutomation}
+          volume={primaryTrack.volume}
         />
 
         <LabSoundControls
@@ -691,7 +882,8 @@ function App() {
           onNoteOff={(note) => registerMidiEvent("note-off", note)}
           onNoteOn={(note) => registerMidiEvent("note-on", note)}
           onSelectNote={setSelectedNote}
-          playOptions={playOptions}
+          playOptions={basePreviewPlayOptions}
+          resolvePlayOptions={() => getTrackPreviewPlayOptions(getCurrentRecordTime())}
           selectedNote={selectedNote}
         />
 
