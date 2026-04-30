@@ -1,6 +1,10 @@
 import type { ChangeEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import "./App.css"
+import {
+  startArpeggiatorPlayback,
+  type ArpeggiatorHandle,
+} from "./application/use-cases/arpeggiatorPlayback"
 import { exportProjectAudio as exportProjectAudioUseCase } from "./application/use-cases/exportProjectAudio"
 import { playNote, playNotes } from "./application/use-cases/playNote"
 import { setMasterVolume, type ADSREnvelope } from "./engine/audio/audioEngine"
@@ -13,6 +17,14 @@ import {
   type MathematicalInstrument,
   type MathematicalInstrumentId,
 } from "./engine/audio/mathematicalInstruments"
+import {
+  createArpeggiatorSteps,
+  defaultArpeggiatorSettings,
+  type ArpeggiatorMode,
+  type ArpeggiatorRate,
+  type ArpeggiatorSettings,
+  type ArpeggiatorStep,
+} from "./engine/midi/arpeggiator"
 import {
   createMidiRecordedNote,
   createMidiNoteEvent,
@@ -128,6 +140,9 @@ function App() {
   const [selectedNote, setSelectedNote] = useState<MusicalNote>("A4")
   const [selectedChordType, setSelectedChordType] = useState<ChordType>("major")
   const [pianoMode, setPianoMode] = useState<PianoInteractionMode>("note")
+  const [arpeggiatorSettings, setArpeggiatorSettings] = useState<ArpeggiatorSettings>(
+    defaultArpeggiatorSettings,
+  )
   const [previewOctave, setPreviewOctave] = useState<Octave>(4)
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
@@ -159,6 +174,8 @@ function App() {
   const undoActionRef = useRef<() => void>(() => {})
   const redoActionRef = useRef<() => void>(() => {})
   const importInputRef = useRef<HTMLInputElement | null>(null)
+  const activeArpeggiatorHandleRef = useRef<ArpeggiatorHandle | null>(null)
+  const activeArpeggiatorTriggerKeyRef = useRef<string | null>(null)
   const startedAtRef = useRef<number | null>(null)
   const playbackTransport = usePlaybackTransport()
 
@@ -296,6 +313,15 @@ function App() {
     }
   }
 
+  function stopArpeggiator(resetTriggerKey = true) {
+    activeArpeggiatorHandleRef.current?.stop()
+    activeArpeggiatorHandleRef.current = null
+
+    if (resetTriggerKey) {
+      activeArpeggiatorTriggerKeyRef.current = null
+    }
+  }
+
   const basePreviewPlayOptions = {
     ...createPlayOptions(
       selectedInstrument,
@@ -308,6 +334,19 @@ function App() {
   function recordNotesToActiveTrack(notes: MusicalNote[], duration: number) {
     const startTime = getCurrentRecordTime()
 
+    recordNotesAtTime(notes, duration, startTime)
+  }
+
+  function recordNotesAtTime(
+    notes: MusicalNote[],
+    duration: number,
+    startTime: number,
+  ) {
+    const playbackState = {
+      pan: primaryTrack.pan,
+      volume: primaryTrack.volume * getTrackAutomationVolumeAtTime(startTime),
+    }
+
     applyUpdate((currentProject) =>
       appendNotesToTrack(
         currentProject,
@@ -319,9 +358,9 @@ function App() {
             primaryTrack.instrumentId,
             {
               playbackEnvelope: primaryTrack.envelope,
-              playbackPan: primaryTrack.pan,
+              playbackPan: playbackState.pan,
               playbackTrackId: primaryTrack.id,
-              playbackVolume: primaryTrack.volume,
+              playbackVolume: playbackState.volume,
             },
           ),
         ),
@@ -330,6 +369,11 @@ function App() {
   }
 
   function playTestNote() {
+    if (arpeggiatorSettings.enabled) {
+      triggerArpeggiatorPattern([selectedNote])
+      return
+    }
+
     playNote(selectedNote, 0.75, getTrackPreviewPlayOptions(getCurrentRecordTime()))
     recordNotesToActiveTrack([selectedNote], 0.75)
   }
@@ -346,6 +390,12 @@ function App() {
 
   function playTestChord() {
     const chordNotes = buildChordNotes(selectedNote)
+
+    if (arpeggiatorSettings.enabled) {
+      triggerArpeggiatorPattern(chordNotes)
+      return
+    }
+
     const previewPlayOptions = getTrackPreviewPlayOptions(getCurrentRecordTime())
 
     playNotes(chordNotes, 1.15, {
@@ -354,6 +404,65 @@ function App() {
     })
     recordNotesToActiveTrack(chordNotes, 1.15)
     setProjectMessage(`Acorde ${selectedChordType} grabado en ${primaryTrack.name}.`)
+  }
+
+  function buildArpeggiatorTriggerKey(sourceNotes: MusicalNote[]) {
+    return sourceNotes.join("|")
+  }
+
+  function getArpeggiatorPreviewStepCount(steps: ArpeggiatorStep[]) {
+    if (steps.length === 0) {
+      return 0
+    }
+
+    if (arpeggiatorSettings.mode === "chord") {
+      return Math.max(2, arpeggiatorSettings.octaveRange)
+    }
+
+    return steps.length
+  }
+
+  function playAndRecordStepNotes(notes: MusicalNote[], duration: number) {
+    const startTime = getCurrentRecordTime()
+
+    playNotes(notes, duration, getTrackPreviewPlayOptions(startTime))
+    recordNotesAtTime(notes, duration, startTime)
+  }
+
+  function startArpeggiatorForNotes(
+    sourceNotes: MusicalNote[],
+    options: { maxSteps?: number } = {},
+  ) {
+    if (!arpeggiatorSettings.enabled || sourceNotes.length === 0) {
+      return
+    }
+
+    stopArpeggiator(false)
+    activeArpeggiatorTriggerKeyRef.current = buildArpeggiatorTriggerKey(sourceNotes)
+    activeArpeggiatorHandleRef.current = startArpeggiatorPlayback({
+      maxSteps: options.maxSteps,
+      onStep: (notes, noteDuration) => {
+        if (!isPrimaryTrackAudible) {
+          return
+        }
+
+        playAndRecordStepNotes(notes, noteDuration)
+      },
+      settings: arpeggiatorSettings,
+      sourceNotes,
+    })
+  }
+
+  function triggerArpeggiatorPattern(sourceNotes: MusicalNote[]) {
+    const steps = createArpeggiatorSteps(sourceNotes, arpeggiatorSettings)
+    const maxSteps = getArpeggiatorPreviewStepCount(steps)
+
+    if (maxSteps === 0) {
+      return
+    }
+
+    startArpeggiatorForNotes(sourceNotes, { maxSteps })
+    setProjectMessage(`Arpegio ${arpeggiatorSettings.mode} grabado en ${primaryTrack.name}.`)
   }
 
   function playRecording() {
@@ -410,6 +519,7 @@ function App() {
   }
 
   function switchActiveTrack(trackId: string) {
+    stopArpeggiator()
     setActiveTrackId(trackId)
     setSelectedRecordedNoteId(null)
   }
@@ -759,6 +869,7 @@ function App() {
       const importedProject = parseImportedProject(projectJson)
 
       playbackTransport.stop()
+      stopArpeggiator()
       activeNoteEventsRef.current.clear()
       startedAtRef.current = null
       setMidiEvents([])
@@ -775,6 +886,7 @@ function App() {
 
   function clearSession() {
     playbackTransport.stop()
+    stopArpeggiator()
     activeNoteEventsRef.current.clear()
     startedAtRef.current = null
     setMidiEvents([])
@@ -785,6 +897,7 @@ function App() {
 
   function restartProject() {
     playbackTransport.stop()
+    stopArpeggiator()
     activeNoteEventsRef.current.clear()
     startedAtRef.current = null
     setMidiEvents([])
@@ -809,7 +922,7 @@ function App() {
         instrumentId: primaryTrack.instrumentId,
         pan: primaryTrack.pan,
         trackId: primaryTrack.id,
-        volume: primaryTrack.volume,
+        volume: primaryTrack.volume * getTrackAutomationVolumeAtTime(midiEvent.time),
       })
     }
 
@@ -839,6 +952,87 @@ function App() {
     }
 
     setMidiEvents((currentEvents) => [midiEvent, ...currentEvents].slice(0, 12))
+  }
+
+  function handleArpeggiatorEnabledChange(enabled: boolean) {
+    if (!enabled) {
+      stopArpeggiator()
+    }
+
+    setArpeggiatorSettings((currentSettings) => ({
+      ...currentSettings,
+      enabled,
+    }))
+  }
+
+  function handleArpeggiatorModeChange(mode: ArpeggiatorMode) {
+    setArpeggiatorSettings((currentSettings) => ({
+      ...currentSettings,
+      mode,
+    }))
+  }
+
+  function handleArpeggiatorRateChange(rate: ArpeggiatorRate) {
+    setArpeggiatorSettings((currentSettings) => ({
+      ...currentSettings,
+      rate,
+    }))
+  }
+
+  function handleArpeggiatorGateChange(gate: number) {
+    setArpeggiatorSettings((currentSettings) => ({
+      ...currentSettings,
+      gate: Math.min(Math.max(gate, 0.2), 1),
+    }))
+  }
+
+  function handleArpeggiatorOctaveRangeChange(octaveRange: number) {
+    setArpeggiatorSettings((currentSettings) => ({
+      ...currentSettings,
+      octaveRange: Math.min(Math.max(octaveRange, 1), 3),
+    }))
+  }
+
+  function handleArpeggiatorLatchChange(latch: boolean) {
+    if (!latch) {
+      activeArpeggiatorTriggerKeyRef.current = null
+    }
+
+    setArpeggiatorSettings((currentSettings) => ({
+      ...currentSettings,
+      latch,
+    }))
+  }
+
+  function handlePianoTriggerStart(rootNote: MusicalNote) {
+    if (!arpeggiatorSettings.enabled) {
+      return
+    }
+
+    const sourceNotes = getPianoPlayableNotes(rootNote)
+    const triggerKey = buildArpeggiatorTriggerKey(sourceNotes)
+
+    if (arpeggiatorSettings.latch && activeArpeggiatorTriggerKeyRef.current === triggerKey) {
+      stopArpeggiator()
+      setProjectMessage("Latch del arpegiador detenido.")
+      return
+    }
+
+    startArpeggiatorForNotes(sourceNotes)
+    setProjectMessage(`Arpegiador ${arpeggiatorSettings.mode} activo en ${primaryTrack.name}.`)
+  }
+
+  function handlePianoTriggerEnd(rootNote: MusicalNote) {
+    if (!arpeggiatorSettings.enabled || arpeggiatorSettings.latch) {
+      return
+    }
+
+    const sourceNotes = getPianoPlayableNotes(rootNote)
+    const triggerKey = buildArpeggiatorTriggerKey(sourceNotes)
+
+    if (activeArpeggiatorTriggerKeyRef.current === triggerKey) {
+      stopArpeggiator()
+    }
   }
 
   return (
@@ -896,7 +1090,14 @@ function App() {
         />
 
         <LabSoundControls
+          arpeggiatorSettings={arpeggiatorSettings}
           availableNotes={visibleNotes}
+          onArpeggiatorEnabledChange={handleArpeggiatorEnabledChange}
+          onArpeggiatorGateChange={handleArpeggiatorGateChange}
+          onArpeggiatorLatchChange={handleArpeggiatorLatchChange}
+          onArpeggiatorModeChange={handleArpeggiatorModeChange}
+          onArpeggiatorOctaveRangeChange={handleArpeggiatorOctaveRangeChange}
+          onArpeggiatorRateChange={handleArpeggiatorRateChange}
           onChordTypeChange={setSelectedChordType}
           onNoteChange={setSelectedNote}
           onPreviewOctaveChange={updatePreviewOctave}
@@ -912,11 +1113,22 @@ function App() {
 
         <PianoPreview
           getPlayableNotes={getPianoPlayableNotes}
+          directPlaybackEnabled={!arpeggiatorSettings.enabled}
           interactionMode={pianoMode}
           notes={visibleNotes}
-          onNoteOff={(note) => registerMidiEvent("note-off", note)}
-          onNoteOn={(note) => registerMidiEvent("note-on", note)}
+          onNoteOff={
+            arpeggiatorSettings.enabled
+              ? undefined
+              : (note) => registerMidiEvent("note-off", note)
+          }
+          onNoteOn={
+            arpeggiatorSettings.enabled
+              ? undefined
+              : (note) => registerMidiEvent("note-on", note)
+          }
           onSelectNote={setSelectedNote}
+          onTriggerNoteOff={handlePianoTriggerEnd}
+          onTriggerNoteOn={handlePianoTriggerStart}
           playOptions={basePreviewPlayOptions}
           resolvePlayOptions={() => getTrackPreviewPlayOptions(getCurrentRecordTime())}
           selectedNote={selectedNote}

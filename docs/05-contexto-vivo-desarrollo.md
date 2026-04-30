@@ -3099,15 +3099,102 @@ Resultado:
 Bloque E queda listo para ejecutarse despues como un movimiento unico, con
 alcance, orden y criterios de validacion ya definidos.
 
+## Movimiento 60 - Arpegiador MVP integrado al laboratorio
+
+Fase: Bloque E - Modo Arpegiador
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/application/use-cases/arpeggiatorPlayback.ts`
+- `src/engine/midi/arpeggiator.ts`
+- `src/features/lab/LabSoundControls.tsx`
+- `src/features/piano/PianoPreview.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Llevar el arpegiador desde el plan a una capacidad real del laboratorio,
+haciendo que genere notas musicales verdaderas y no solo un efecto temporal de
+audio.
+
+Como se movio:
+
+- Se creo el dominio de arpegiador con:
+  - modos `Up`
+  - `Down`
+  - `Up/Down`
+  - `Random`
+  - `Chord`
+- Se agregaron settings base:
+  - `enabled`
+  - `rate`
+  - `gate`
+  - `octaveRange`
+  - `latch`
+- Se creo un scheduler realtime dedicado para emitir pasos del arpegio.
+- El arpegiador ahora puede partir de:
+  - una nota unica
+  - un acorde
+- Cada paso del arpegio se toca y se guarda como nota real en la pista activa.
+- El piano de laboratorio ahora distingue entre:
+  - reproduccion directa normal
+  - disparo de patron arpegiado
+- El laboratorio suma una UI minima de arpegiador dentro de controles de
+  sonido.
+- Los botones de prueba `Tocar nota` y `Tocar acorde` respetan el arpegiador
+  cuando esta activo.
+
+Decision tecnica:
+
+El arpegiador se implemento como generador de notas reales porque eso mantiene
+la separacion MIDI/audio del proyecto y hace que timeline, exportacion `WAV` y
+edicion posterior reutilicen el mismo material musical sin rutas especiales.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya puede arpegiar notas o acordes dentro del laboratorio, grabar el
+resultado en timeline y reutilizar esas notas en reproduccion y exportacion.
+
+Guia rapida de prueba:
+
+1. activar `Arpegiador`
+2. elegir modo `Up`, `Down`, `Up/Down`, `Random` o `Chord`
+3. elegir `rate`, `gate`, `octave range` y opcionalmente `latch`
+4. tocar una nota desde el piano o usar `Tocar nota`
+5. verificar que suene un patron en vez de una nota plana
+6. cambiar a modo `Acorde`
+7. tocar una tecla del piano o usar `Tocar acorde`
+8. verificar que el patron se construya desde el acorde
+9. revisar `Notas grabadas` y `Timeline`
+10. confirmar que el arpegio se haya grabado como varias notas reales
+11. pulsar `Reproducir grabacion`
+12. confirmar que el resultado grabado suene igual que el patron generado
+
+Limitaciones actuales:
+
+- la validacion manual profunda sigue siendo mas incomoda de lo ideal por la
+  monovista
+- el arpegiador MVP se asume como una fuente principal a la vez dentro del
+  laboratorio actual
+- no existe aun una vista dedicada ni timeline de tracks para exploracion mas
+  rica del patron
+
 ## Proximo paso recomendado
 
-Avanzar a Bloque E - Modo Arpegiador.
+Avanzar a Bloque F - Timeline de tracks.
 
 Siguiente incremento recomendado:
 
-- integrar arpegiador dentro del laboratorio actual
-- convertir acordes o notas sostenidas en patron ritmico controlable
-- grabar el resultado arpegiado como notas reales en timeline
+- sumar lanes por pista
+- seleccionar pista desde timeline de tracks
+- sincronizar timeline de tracks con timeline de notas
 
 Objetivo:
 

@@ -18,8 +18,11 @@ type PianoPreviewProps = {
   interactionMode?: PianoInteractionMode
   getPlayableNotes?: (note: MusicalNote) => MusicalNote[]
   onSelectNote: (note: MusicalNote) => void
+  directPlaybackEnabled?: boolean
   onNoteOff?: (note: MusicalNote) => void
   onNoteOn?: (note: MusicalNote) => void
+  onTriggerNoteOff?: (note: MusicalNote) => void
+  onTriggerNoteOn?: (note: MusicalNote) => void
 }
 
 type PianoStyle = CSSProperties & {
@@ -52,8 +55,11 @@ export function PianoPreview({
   interactionMode = "note",
   getPlayableNotes,
   onSelectNote,
+  directPlaybackEnabled = true,
   onNoteOff,
   onNoteOn,
+  onTriggerNoteOff,
+  onTriggerNoteOn,
 }: PianoPreviewProps) {
   const [activeNotes, setActiveNotes] = useState<MusicalNote[]>([])
   const activeNotesRef = useRef(new Map<MusicalNote, ActiveNoteId[]>())
@@ -70,9 +76,17 @@ export function PianoPreview({
 
   function playPianoNoteOnce(note: MusicalNote) {
     onSelectNote(note)
-    const nextPlayOptions = resolvePlayOptions?.() ?? playOptions
+    onTriggerNoteOn?.(note)
+
+    if (!directPlaybackEnabled) {
+      window.setTimeout(() => {
+        onTriggerNoteOff?.(note)
+      }, 0)
+      return
+    }
 
     const playableNotes = resolvePlayableNotes(note)
+    const nextPlayOptions = resolvePlayOptions?.() ?? playOptions
 
     playableNotes.forEach((playableNote) => {
       playNote(playableNote, 0.75, nextPlayOptions)
@@ -85,9 +99,16 @@ export function PianoPreview({
     }
 
     onSelectNote(note)
-    const nextPlayOptions = resolvePlayOptions?.() ?? playOptions
+    onTriggerNoteOn?.(note)
+
+    if (!directPlaybackEnabled) {
+      activeNotesRef.current.set(note, [])
+      setActiveNotes((currentNotes) => Array.from(new Set([...currentNotes, note])))
+      return
+    }
 
     const playableNotes = resolvePlayableNotes(note)
+    const nextPlayOptions = resolvePlayOptions?.() ?? playOptions
     const activeNoteIds = playableNotes.map((playableNote) => {
       onNoteOn?.(playableNote)
 
@@ -108,6 +129,13 @@ export function PianoPreview({
     }
 
     const playableNotes = resolvePlayableNotes(note)
+    onTriggerNoteOff?.(note)
+
+    if (!directPlaybackEnabled) {
+      activeNotesRef.current.delete(note)
+      setActiveNotes((currentNotes) => currentNotes.filter((currentNote) => currentNote !== note))
+      return
+    }
 
     playableNotes.forEach((playableNote, index) => {
       onNoteOff?.(playableNote)

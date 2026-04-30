@@ -389,7 +389,15 @@ Cuando aplicarlo:
 - despues de Bloque D
 
 Estado:
-- siguiente bloque a implementar
+- completado en alcance MVP actual:
+  - arpegiador integrado dentro del laboratorio actual
+  - modos `Up`, `Down`, `Up/Down`, `Random` y `Chord`
+  - controles `rate`, `gate`, `octave range` y `latch`
+  - disparo desde nota unica o acorde
+  - grabacion del resultado como notas reales en timeline
+  - compatibilidad con reproduccion grabada y exportacion audible
+- pendiente:
+  - validacion manual amplia con flujos mas largos y multipista
 
 ### Bloque F - Timeline de tracks (alto valor)
 
