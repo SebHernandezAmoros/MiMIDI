@@ -12,6 +12,7 @@ export type ArpeggiatorHandle = {
 
 type StartArpeggiatorPlaybackOptions = {
   maxSteps?: number
+  onComplete?: () => void
   onStep: (notes: MusicalNote[], noteDuration: number, stepIndex: number) => void
   settings: ArpeggiatorSettings
   sourceNotes: MusicalNote[]
@@ -19,6 +20,7 @@ type StartArpeggiatorPlaybackOptions = {
 
 export function startArpeggiatorPlayback({
   maxSteps,
+  onComplete,
   onStep,
   settings,
   sourceNotes,
@@ -52,6 +54,7 @@ export function startArpeggiatorPlayback({
 
     if (typeof maxSteps === "number" && stepIndex >= maxSteps) {
       isStopped = true
+      onComplete?.()
       return
     }
 

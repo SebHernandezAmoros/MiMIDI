@@ -3218,3 +3218,324 @@ appMode({ recordView, editView, projectView })
 
 Eso reduce riesgo de retrabajo, evita romper flujo actual demasiado pronto y
 deja el modo app como reorganizacion final sobre un core mas completo.
+
+## Movimiento 61 - Timeline de tracks MVP y latch paralelo en arpegiador
+
+Fase: Bloque F - Timeline de tracks
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.css`
+- `src/App.integration.test.tsx`
+- `src/application/use-cases/arpeggiatorPlayback.ts`
+- `src/features/timeline/TrackTimelinePreview.tsx`
+- `src/features/timeline/TrackTimelinePreview.css`
+- `src/features/timeline/TimelinePreview.tsx`
+- `src/features/timeline/timelineLayout.ts`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Abrir por fin una lectura multipista real dentro del laboratorio monovista y,
+al mismo tiempo, corregir una friccion de uso detectada en el arpegiador con
+`latch`: que una tecla latcheada no impida disparar otras en paralelo.
+
+Como se movio:
+
+- Se creo `TrackTimelinePreview` como overview multipista por encima de la
+  timeline detallada actual.
+- Cada pista ahora aparece como una lane propia con:
+  - nombre
+  - cantidad de notas
+  - indicadores rapidos de `Mute` y `Solo`
+  - bloques temporales de sus notas
+- La longitud temporal del overview multipista y de la timeline detallada ahora
+  reutiliza una misma utilidad de layout.
+- La pista activa puede cambiarse haciendo click desde la timeline de tracks.
+- Esa seleccion queda sincronizada con:
+  - resumen de proyecto
+  - lista de notas grabadas
+  - editor de nota
+  - timeline detallada de la pista activa
+- El arpegiador dejo de depender de un solo handle global.
+- Cuando `latch` esta activo, ahora cada combinacion de notas mantiene su propio
+  handle por clave disparadora.
+- Eso permite detener el mismo patron al repetir la misma tecla/combinacion, sin
+  bloquear el disparo paralelo de otras teclas.
+- Al desactivar `latch` o cambiar de pista se limpian los handles activos para
+  evitar patrones huerfanos.
+- Se agrego prueba de integracion para validar cambio de pista desde la nueva
+  timeline general.
+
+Decision tecnica:
+
+Se eligio resolver Bloque F como una capa de overview multipista sin reemplazar
+la `TimelinePreview` de detalle. Asi la app gana navegacion por pistas sin
+forzar todavia una edicion multipista compleja ni adelantar el futuro modo app.
+
+El ajuste del arpegiador se resolvio con un registro de handles por trigger en
+lugar de un singleton global, porque el problema real no era de sonido sino de
+coordinacion de sesiones activas cuando `latch` quedaba prendido.
+
+Validacion:
+
+- `npm run lint`
+- `npm run build`
+- `npm run test`
+
+Resultado:
+
+Bloque F queda completado en alcance MVP actual: MiMIDI ya muestra una timeline
+general por pistas, permite cambiar de pista desde esa vista y mantiene
+sincronizado el detalle de la pista activa.
+
+El problema de arpegiador reportado tambien queda resuelto en esta iteracion:
+con `latch` activo ya se pueden disparar otras teclas o combinaciones en
+paralelo sin que la primera deje bloqueado el flujo.
+
+Siguiente paso recomendado:
+
+Avanzar a Bloque G - FASE 6 Plugins.
+
+Antes de abrirlo con mas superficie, conviene hacer una pasada manual corta de
+uso multipista en el laboratorio:
+
+- crear varias pistas
+- alternar seleccion desde la timeline de tracks
+- confirmar que la pista activa cambia en lista, editor y timeline detallada
+- repetir la prueba con arpegiador y `latch`
+
+## Movimiento 62 - Timeline de tracks convertido en arreglo temporal real
+
+Fase: Bloque F - Timeline de tracks
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/engine/audio/offlineAudioRenderer.ts`
+- `src/engine/project/projectModel.ts`
+- `src/features/timeline/TrackTimelinePreview.tsx`
+- `src/features/timeline/TrackTimelinePreview.css`
+- `src/features/transport/usePlaybackTransport.ts`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Corregir el enfoque del bloque: la timeline por pistas no debia quedarse en
+overview visual, sino convertirse en una primera herramienta real de arreglo
+para decidir si las pistas entran al mismo tiempo o en momentos distintos.
+
+Como se movio:
+
+- Cada pista ahora tiene un `timelineClip` propio con `startTime`.
+- Se mantiene el alcance MVP de un clip por pista para no abrir todavia una
+  capa mas compleja de multiples clips.
+- El `TrackTimelinePreview` ya no solo resume notas:
+  - muestra un clip temporal por pista
+  - permite arrastrarlo horizontalmente
+  - refleja visualmente el inicio del track en segundos
+- El contenido interno de cada clip sigue viniendo de las notas de la pista,
+  mostradas como marcadores internos dentro del bloque.
+- La reproduccion realtime ya no agenda notas solo por `note.startTime`.
+- Ahora calcula notas programadas usando:
+  - tiempo relativo interno de la nota
+  - offset absoluto del clip de pista
+- La exportacion offline `WAV` tambien respeta ese offset, asi que el arreglo
+  temporal del laboratorio y el archivo exportado quedan alineados.
+- Se mantuvo la timeline detallada inferior como editor de contenido interno de
+  la pista activa.
+- Se agrego prueba de integracion para validar arrastre del clip y compatibilidad
+  con `undo`.
+- La carga de proyectos antiguos se mantiene compatible: si un proyecto viejo no
+  trae `timelineClip`, se normaliza con inicio `0`.
+
+Decision tecnica:
+
+En vez de inventar de golpe un sistema completo de multiples clips por pista, se
+eligio una capa intermedia: un clip de arreglo por pista. Eso ya resuelve la
+necesidad principal de producto que aparecio en esta iteracion:
+
+- decidir cuando entra cada track
+- dejar tracks en paralelo o desplazados
+- escuchar/exportar ese arreglo real
+
+Sin embargo, no obliga todavia a redisenar toda la edicion interna ni el modelo
+de proyecto alrededor de clips multiples.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Bloque F queda corregido y consolidado en un MVP mas fiel al objetivo del
+producto: el timeline de tracks ya sirve para editar el momento de entrada de
+cada pista dentro del arreglo global, no solo para verla o seleccionarla.
+
+Siguiente paso recomendado:
+
+Avanzar a Bloque G - FASE 6 Plugins.
+
+Pendiente natural posterior dentro del mismo eje:
+
+- permitir multiples clips por pista
+- duplicar clips
+- recortar inicio/fin de clips
+- decidir si la automatizacion de pista debe seguir siendo local al contenido o
+  evolucionar luego a lanes mas explicitas
+
+## Movimiento 63 - Reversion del latch paralelo en arpegiador
+
+Fase: Bloque E - Modo Arpegiador
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Quitar el cambio que permitia multiples patrones latcheados en paralelo y
+volver al comportamiento anterior de un solo patron activo a la vez.
+
+Como se movio:
+
+- Se elimino el registro de multiples handles por `triggerKey`.
+- El arpegiador vuelve a usar:
+  - un solo `handle` activo
+  - una sola clave activa de disparo
+- Con `latch`, repetir la misma tecla o combinacion sigue permitiendo detener el
+  patron actual, pero ya no se sostienen patrones paralelos simultaneos.
+
+Decision tecnica:
+
+Se respeto la correccion de producto pedida en chat: el soporte de patrones
+latcheados paralelos se considero un cambio no deseado y se retiro sin tocar el
+resto del flujo del arpegiador.
+
+Validacion:
+
+- `npm run lint`
+- `npm run test`
+- `npm run build`
+
+Resultado:
+
+El arpegiador vuelve a un modelo mas simple y restrictivo: una sola sesion
+latcheada activa por vez.
+
+## Movimiento 64 - Grabacion explicita por toma con punto cero propio
+
+Fase: FASE 5 - Timeline / grabacion por pistas
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/features/lab/LabActions.tsx`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Corregir el problema de huecos artificiales al inicio de nuevas pistas dejando
+explicito cuando el laboratorio esta grabando y haciendo que cada toma arranque
+desde su propio tiempo cero.
+
+Como se movio:
+
+- Se agrego estado explicito de grabacion dentro del laboratorio.
+- La UI ahora separa:
+  - tocar
+  - iniciar grabacion
+  - detener grabacion
+- `Tocar nota`, `Tocar acorde`, piano, arpegiador y mini `SMC Pad` siguen
+  sonando fuera de grabacion, pero ya no escriben notas al proyecto por
+  accidente.
+- Las notas nuevas solo se agregan al proyecto cuando el estado es
+  `recording`.
+- Cada toma usa su propio `recordingStartedAtRef`, por lo que una grabacion nueva
+  vuelve a medir tiempos desde `0` y no hereda silencios previos de la sesion.
+- Al detener la grabacion se cierran tambien capturas activas de notas
+  sostenidas para no dejar eventos abiertos si el usuario detiene en medio de
+  una pulsacion.
+- Se agregaron pruebas de integracion para validar:
+  - que tocar fuera de grabacion no ensucie timeline
+  - que una segunda toma en otra pista vuelva a empezar desde `0`
+
+Decision tecnica:
+
+Se eligio un MVP de grabacion explicita con dos estados (`idle` y
+`recording`) en vez de introducir todavia una maquina de estados mas grande con
+`armed`, cuenta regresiva o punch in/out. Eso resuelve la ambiguedad principal
+de producto sin romper el flujo actual del laboratorio.
+
+Validacion:
+
+- `npm run lint`
+- `npm run test`
+- `npm run build`
+
+Resultado:
+
+MiMIDI deja de grabar por implicito. Las nuevas tomas quedan ancladas a su
+propio inicio real y se elimina el vacio artificial que aparecia cuando se
+grababa una pista despues de otra dentro de la misma sesion.
+
+## Movimiento 65 - Duracion manual del timeline de tracks
+
+Fase: Bloque F - Timeline de tracks
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabProjectPanel.tsx`
+- `src/features/timeline/TrackTimelinePreview.tsx`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Permitir que el usuario defina cuanto dura visualmente el timeline de tracks en
+vez de depender solo del alcance actual del contenido grabado.
+
+Como se movio:
+
+- El proyecto ahora guarda `trackTimelineDuration`.
+- La timeline de tracks usa como rango visible:
+  - la duracion manual elegida
+  - o el contenido real, si este se extiende mas
+- Se agrego control en el panel del laboratorio para editar:
+  - `Duracion timeline (s)`
+- Se agrego accion `Ajustar al contenido` para recalcular rapido la duracion
+  visible segun el material actual del proyecto.
+- Los proyectos antiguos siguen siendo compatibles:
+  - si no traen la nueva propiedad, se usa un valor base razonable
+- Se agregaron pruebas para validar:
+  - duracion manual visible
+  - ajuste automatico al contenido
+
+Decision tecnica:
+
+Se eligio un modelo `max(duracionManual, contenidoReal)` porque da libertad para
+preparar espacio vacio futuro sin correr el riesgo de que el timeline colapse si
+los clips superan el rango elegido.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El timeline de tracks ya no depende solo del contenido grabado para definir su
+largo visible. Ahora puede prepararse una estructura temporal mas amplia y luego
+llenarla con clips segun lo necesite el proyecto.

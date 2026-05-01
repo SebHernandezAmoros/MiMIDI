@@ -13,6 +13,11 @@ export type TrackVolumeAutomation = {
   points: TrackVolumeAutomationPoint[]
 }
 
+export type TrackTimelineClip = {
+  id: string
+  startTime: number
+}
+
 export type ProjectTrack = {
   envelope: ADSREnvelope
   id: string
@@ -22,6 +27,7 @@ export type ProjectTrack = {
   notes: MidiRecordedNote[]
   pan: number
   solo: boolean
+  timelineClip: TrackTimelineClip
   volumeAutomation: TrackVolumeAutomation
   volume: number
 }
@@ -29,7 +35,15 @@ export type ProjectTrack = {
 export type MusicalProject = {
   id: string
   name: string
+  trackTimelineDuration: number
   tracks: ProjectTrack[]
+}
+
+export type ScheduledTrackNote = {
+  absoluteStartTime: number
+  note: MidiRecordedNote
+  relativeStartTime: number
+  track: ProjectTrack
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -40,6 +54,7 @@ export function createDefaultProject(): MusicalProject {
   return {
     id: "project-1",
     name: "MiMIDI Project",
+    trackTimelineDuration: 8,
     tracks: [createProjectTrack(1)],
   }
 }
@@ -59,6 +74,10 @@ export function createProjectTrack(index: number): ProjectTrack {
     notes: [],
     pan: 0,
     solo: false,
+    timelineClip: {
+      id: `track-${index}-clip-1`,
+      startTime: 0,
+    },
     volumeAutomation: {
       enabled: false,
       points: [
@@ -220,6 +239,16 @@ export function renameProject(
   }
 }
 
+export function updateProjectTrackTimelineDuration(
+  project: MusicalProject,
+  duration: number,
+): MusicalProject {
+  return {
+    ...project,
+    trackTimelineDuration: clamp(duration, 1, 9999),
+  }
+}
+
 export function renameTrack(
   project: MusicalProject,
   trackId: string,
@@ -370,6 +399,28 @@ export function updateTrackVolumeAutomation(
   }
 }
 
+export function updateTrackTimelineClip(
+  project: MusicalProject,
+  trackId: string,
+  patch: Partial<Pick<TrackTimelineClip, "startTime">>,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            timelineClip: {
+              ...track.timelineClip,
+              ...patch,
+              startTime: clamp(patch.startTime ?? track.timelineClip.startTime, 0, 9999),
+            },
+          }
+        : track,
+    ),
+  }
+}
+
 export function appendTrack(project: MusicalProject): MusicalProject {
   return {
     ...project,
@@ -431,6 +482,40 @@ export function getTrackVolumeAutomationValue(
   }
 
   return 1
+}
+
+export function getTrackTimelineClipDuration(track: ProjectTrack) {
+  const trackDuration = track.notes.reduce(
+    (maxEndTime, note) => Math.max(maxEndTime, note.startTime + note.duration),
+    0,
+  )
+
+  return Math.max(trackDuration, 0.25)
+}
+
+export function getTracksTimelineLength(tracks: ProjectTrack[]) {
+  const lastTrackEnd = tracks.reduce((maxEndTime, track) => {
+    const trackEnd = track.timelineClip.startTime + getTrackTimelineClipDuration(track)
+
+    return Math.max(maxEndTime, trackEnd)
+  }, 0)
+
+  return Math.max(lastTrackEnd, 1)
+}
+
+export function getProjectTrackTimelineLength(project: MusicalProject) {
+  return Math.max(project.trackTimelineDuration, getTracksTimelineLength(project.tracks))
+}
+
+export function getScheduledTrackNotes(project: MusicalProject) {
+  return project.tracks.flatMap((track) =>
+    track.notes.map((note) => ({
+      absoluteStartTime: track.timelineClip.startTime + note.startTime,
+      note,
+      relativeStartTime: note.startTime,
+      track,
+    })),
+  )
 }
 
 export function removeTrack(
@@ -515,6 +600,11 @@ function isProjectTrack(value: unknown): value is ProjectTrack {
     typeof (track.envelope as Record<string, unknown>).decay === "number" &&
     typeof (track.envelope as Record<string, unknown>).sustain === "number" &&
     typeof (track.envelope as Record<string, unknown>).release === "number" &&
+    (track.timelineClip === undefined ||
+      (typeof track.timelineClip === "object" &&
+        track.timelineClip !== null &&
+        typeof (track.timelineClip as Record<string, unknown>).id === "string" &&
+        typeof (track.timelineClip as Record<string, unknown>).startTime === "number")) &&
     (typeof track.muted === "boolean" || typeof track.muted === "undefined") &&
     (typeof track.pan === "number" || typeof track.pan === "undefined") &&
     (typeof track.solo === "boolean" || typeof track.solo === "undefined") &&
@@ -541,6 +631,11 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
     typeof (track as Record<string, unknown>).volumeAutomation === "object" &&
     (track as Record<string, unknown>).volumeAutomation !== null
       ? ((track as Record<string, unknown>).volumeAutomation as Record<string, unknown>)
+      : null
+  const rawTimelineClip =
+    typeof (track as Record<string, unknown>).timelineClip === "object" &&
+    (track as Record<string, unknown>).timelineClip !== null
+      ? ((track as Record<string, unknown>).timelineClip as Record<string, unknown>)
       : null
   const normalizedAutomationPoints = Array.isArray(rawAutomation?.points)
     ? rawAutomation.points
@@ -572,6 +667,16 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
       ? Math.min(Math.max(track.pan, -1), 1)
       : 0,
     solo: typeof (track as Record<string, unknown>).solo === "boolean" ? track.solo : false,
+    timelineClip: {
+      id:
+        typeof rawTimelineClip?.id === "string"
+          ? rawTimelineClip.id
+          : `${track.id}-clip-1`,
+      startTime:
+        typeof rawTimelineClip?.startTime === "number"
+          ? Math.max(rawTimelineClip.startTime, 0)
+          : 0,
+    },
     volume: typeof (track as Record<string, unknown>).volume === "number"
       ? track.volume
       : 1,
@@ -638,6 +743,8 @@ export function parseImportedProject(projectJson: string): MusicalProject {
   if (
     typeof project.id !== "string" ||
     typeof project.name !== "string" ||
+    (project.trackTimelineDuration !== undefined &&
+      typeof project.trackTimelineDuration !== "number") ||
     !Array.isArray(project.tracks) ||
     !project.tracks.every((track) => {
       if (!track || typeof track !== "object") {
@@ -663,6 +770,10 @@ export function parseImportedProject(projectJson: string): MusicalProject {
   return {
     id: project.id,
     name: project.name,
+    trackTimelineDuration:
+      typeof project.trackTimelineDuration === "number"
+        ? Math.max(project.trackTimelineDuration, 1)
+        : 8,
     tracks: project.tracks.map((track) => normalizeTrackNotes(track)),
   }
 }

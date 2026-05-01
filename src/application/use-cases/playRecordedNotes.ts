@@ -5,11 +5,11 @@ import {
   createPlayOptions,
   findMathematicalInstrument,
 } from "../../engine/audio/mathematicalInstruments"
-import type { MidiRecordedNote } from "../../engine/midi/events"
 import {
   getTrackVolumeAutomationValue,
+  getScheduledTrackNotes,
   isTrackAudible,
-  type ProjectTrack,
+  type MusicalProject,
 } from "../../engine/project/projectModel"
 
 export type PlaybackHandle = {
@@ -18,16 +18,16 @@ export type PlaybackHandle = {
 
 export type PlayRecordedNotesOptions = PlayNoteOptions & {
   onComplete?: () => void
-  tracks?: ProjectTrack[]
 }
 
 export function playRecordedNotes(
-  recordedNotes: MidiRecordedNote[],
+  project: MusicalProject,
   options: PlayRecordedNotesOptions = {},
 ): PlaybackHandle {
-  const { onComplete, tracks = [], ...playOverrides } = options
+  const { onComplete, ...playOverrides } = options
+  const scheduledNotes = getScheduledTrackNotes(project)
 
-  if (recordedNotes.length === 0) {
+  if (scheduledNotes.length === 0) {
     onComplete?.()
 
     return {
@@ -37,31 +37,31 @@ export function playRecordedNotes(
 
   let isCancelled = false
   const firstStartTime = Math.min(
-    ...recordedNotes.map((recordedNote) => recordedNote.startTime),
+    ...scheduledNotes.map((scheduledNote) => scheduledNote.absoluteStartTime),
   )
   const lastEndTime = Math.max(
-    ...recordedNotes.map(
-      (recordedNote) => recordedNote.startTime + recordedNote.duration,
+    ...scheduledNotes.map(
+      (scheduledNote) =>
+        scheduledNote.absoluteStartTime + scheduledNote.note.duration,
     ),
   )
-  const timerIds = recordedNotes.map((recordedNote) =>
+  const timerIds = scheduledNotes.map((scheduledNote) =>
     window.setTimeout(() => {
       if (isCancelled) {
         return
       }
 
-      const track = tracks.find(
-        (candidateTrack) => candidateTrack.id === recordedNote.playbackTrackId,
-      )
+      const { note: recordedNote, track } = scheduledNote
 
-      if (track && !isTrackAudible(track, tracks)) {
+      if (!isTrackAudible(track, project.tracks)) {
         return
       }
 
-      const automationVolume = track
-        ? getTrackVolumeAutomationValue(track.volumeAutomation, recordedNote.startTime)
-        : 1
-      const playbackPan = track?.pan ?? recordedNote.playbackPan ?? 0
+      const automationVolume = getTrackVolumeAutomationValue(
+        track.volumeAutomation,
+        scheduledNote.relativeStartTime,
+      )
+      const playbackPan = track.pan
       const playbackVolume = (recordedNote.playbackVolume ?? 1) * automationVolume
 
       if (recordedNote.playbackSource === "smc-pad" && recordedNote.smcPadSoundId) {
@@ -80,7 +80,7 @@ export function playRecordedNotes(
         pan: playbackPan,
         ...playOverrides,
       })
-    }, Math.max(recordedNote.startTime - firstStartTime, 0) * 1000),
+    }, Math.max(scheduledNote.absoluteStartTime - firstStartTime, 0) * 1000),
   )
   const completeTimerId = window.setTimeout(
     () => {

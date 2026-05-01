@@ -11,6 +11,7 @@ import type { MidiRecordedNote } from "../midi/events"
 import { noteToFrequency } from "../midi/notes"
 import {
   getTrackVolumeAutomationValue,
+  getScheduledTrackNotes,
   isTrackAudible,
   type MusicalProject,
 } from "../project/projectModel"
@@ -127,34 +128,34 @@ function scheduleLfo(
 }
 
 function createScheduledPlaybackEvents(project: MusicalProject) {
-  return project.tracks.flatMap((track) => {
+  return getScheduledTrackNotes(project).flatMap((scheduledNote) => {
+    const { note, relativeStartTime, track } = scheduledNote
+
     if (!isTrackAudible(track, project.tracks)) {
       return []
     }
 
-    return track.notes.map((note) => {
-      const instrument = findMathematicalInstrument(note.instrumentId)
-      const envelope = resolveEnvelope(instrument.envelope, note.playbackEnvelope)
-      const automationVolume = getTrackVolumeAutomationValue(
-        track.volumeAutomation,
-        note.startTime,
-      )
-      const playbackVolume = clamp(
-        (note.playbackVolume ?? track.volume) * automationVolume,
-        0,
-        1.5,
-      )
+    const instrument = findMathematicalInstrument(note.instrumentId)
+    const envelope = resolveEnvelope(instrument.envelope, note.playbackEnvelope)
+    const automationVolume = getTrackVolumeAutomationValue(
+      track.volumeAutomation,
+      relativeStartTime,
+    )
+    const playbackVolume = clamp(
+      (note.playbackVolume ?? track.volume) * automationVolume,
+      0,
+      1.5,
+    )
 
-      return {
-        duration: note.duration,
-        envelope,
-        instrument,
-        note,
-        pan: track.pan,
-        startTime: note.startTime,
-        volume: playbackVolume,
-      } satisfies ScheduledPlaybackEvent
-    })
+    return {
+      duration: note.duration,
+      envelope,
+      instrument,
+      note,
+      pan: track.pan,
+      startTime: scheduledNote.absoluteStartTime,
+      volume: playbackVolume,
+    } satisfies ScheduledPlaybackEvent
   })
 }
 

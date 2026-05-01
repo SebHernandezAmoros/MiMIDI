@@ -412,6 +412,22 @@ Tareas:
 Cuando aplicarlo:
 - despues de Bloque E
 
+Estado:
+- completado en alcance MVP actual:
+  - timeline general por pistas dentro del laboratorio monovista
+  - un clip temporal movible por pista para decidir cuando entra en el arreglo
+  - reproduccion realtime y exportacion `WAV` respetan el offset temporal de
+    cada pista
+  - seleccion de pista activa desde la timeline de tracks
+  - sincronizacion entre timeline de tracks, panel de proyecto y timeline de
+    notas de detalle
+- pendiente:
+  - ampliar de un clip por pista a multiples clips por pista cuando haga falta
+  - sumar recorte/duplicado de clips sin convertir aun esta superficie en modo
+    app
+  - seguir refinando la jerarquia visual cuando se acerque la transicion a
+    vistas separadas
+
 ### Bloque G - FASE 6 Plugins (retomar fase faltante)
 
 Objetivo:

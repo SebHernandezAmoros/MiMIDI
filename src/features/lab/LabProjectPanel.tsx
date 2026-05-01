@@ -20,6 +20,8 @@ type LabProjectPanelProps = {
     category: MathematicalInstrument["category"],
   ) => void
   onProjectNameChange: (name: string) => void
+  onProjectTrackTimelineDurationChange: (duration: number) => void
+  onResetProjectTrackTimelineDuration: () => void
   onRemoveActiveTrack: () => void
   onSwitchActiveTrack: (trackId: string) => void
   onTrackEnvelopeChange: (parameter: keyof ADSREnvelope, value: number) => void
@@ -38,6 +40,7 @@ type LabProjectPanelProps = {
   primaryTrackSolo: boolean
   projectMessage: string
   projectName: string
+  projectTrackTimelineDuration: number
   trackCount: number
   tracks: ProjectTrack[]
   volumeAutomation: TrackVolumeAutomation
@@ -58,6 +61,8 @@ export function LabProjectPanel({
   onAddTrack,
   onInstrumentCategoryChange,
   onProjectNameChange,
+  onProjectTrackTimelineDurationChange,
+  onResetProjectTrackTimelineDuration,
   onRemoveActiveTrack,
   onSwitchActiveTrack,
   onTrackEnvelopeChange,
@@ -76,6 +81,7 @@ export function LabProjectPanel({
   primaryTrackSolo,
   projectMessage,
   projectName,
+  projectTrackTimelineDuration,
   trackCount,
   tracks,
   volumeAutomation,
@@ -147,6 +153,35 @@ export function LabProjectPanel({
           />
         </div>
       </div>
+
+      <section className="track-mix" aria-label="Duracion del timeline de tracks">
+        <div className="track-mix-header">
+          <h2>Duracion del timeline</h2>
+          <button onClick={onResetProjectTrackTimelineDuration} type="button">
+            Ajustar al contenido
+          </button>
+        </div>
+        <p className="project-message">
+          Define cuanto espacio visible tiene el timeline de tracks. Si el contenido
+          crece mas, el rango se expande automaticamente.
+        </p>
+        <div className="track-mix-grid">
+          <div className="control-group">
+            <label htmlFor="project-track-timeline-duration">Duracion timeline (s)</label>
+            <input
+              id="project-track-timeline-duration"
+              max="9999"
+              min="1"
+              step="0.1"
+              type="number"
+              value={projectTrackTimelineDuration}
+              onChange={(event) =>
+                onProjectTrackTimelineDurationChange(Number(event.target.value))
+              }
+            />
+          </div>
+        </div>
+      </section>
 
       <div className="track-controls">
         <div className="control-group">

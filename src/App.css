@@ -12,7 +12,7 @@ p {
 }
 
 .audio-lab {
-  width: min(100%, 36rem);
+  width: min(100%, 76rem);
   margin-top: 1rem;
   padding: 1rem;
   border: 1px solid #343434;
@@ -20,6 +20,11 @@ p {
   display: grid;
   gap: 1rem;
   background: #181818;
+}
+
+.timeline-workspace {
+  display: grid;
+  gap: 1rem;
 }
 
 .control-group {
@@ -257,16 +262,23 @@ input[type="text"] {
 }
 
 @media (max-width: 720px) {
+  .project-summary,
+  .project-editors,
   .track-controls,
   .note-editor-grid,
   .timeline-tools {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .track-mix-grid,
   .track-envelope-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timeline-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

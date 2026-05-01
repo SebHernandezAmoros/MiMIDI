@@ -2,6 +2,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react"
 import { isSmcPadRecordedNote, type MidiRecordedNote } from "../../engine/midi/events"
 import { noteToMidiNumber } from "../../engine/midi/notes"
 import type { MusicalNote } from "../../engine/midi/notes"
+import { getTimelineLength } from "./timelineLayout"
 import "./TimelinePreview.css"
 
 type TimelinePreviewProps = {
@@ -25,15 +26,6 @@ type TimelineNoteStyle = CSSProperties & {
 type TimelineLane = {
   note: MusicalNote
   recordedNotes: MidiRecordedNote[]
-}
-
-function getTimelineLength(notes: MidiRecordedNote[]) {
-  const lastNoteEnd = notes.reduce(
-    (latestEnd, note) => Math.max(latestEnd, note.startTime + note.duration),
-    0,
-  )
-
-  return Math.max(lastNoteEnd, 1)
 }
 
 function groupNotesByPitch(notes: MidiRecordedNote[]) {

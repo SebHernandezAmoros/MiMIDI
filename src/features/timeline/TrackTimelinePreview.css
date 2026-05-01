@@ -1,0 +1,142 @@
+.track-timeline-preview {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.9rem;
+  border: 1px solid #303030;
+  border-radius: 0.9rem;
+  background:
+    radial-gradient(circle at top left, rgba(255, 126, 80, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    #101010;
+}
+
+.track-timeline-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.track-timeline-header h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.track-timeline-lanes {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.track-timeline-lane {
+  padding: 0.75rem;
+  border: 1px solid #2f2f2f;
+  border-radius: 0.8rem;
+  display: grid;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 140ms ease,
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.track-timeline-lane:hover {
+  border-color: #4d4d4d;
+  transform: translateY(-1px);
+}
+
+.track-timeline-lane-active {
+  border-color: #ff6a4e;
+  background: rgba(255, 106, 78, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 168, 146, 0.2);
+}
+
+.track-timeline-meta {
+  display: grid;
+  gap: 0.28rem;
+  text-align: left;
+}
+
+.track-timeline-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.track-timeline-badge {
+  padding: 0.18rem 0.45rem;
+  border: 1px solid #444444;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: #d8d8d8;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.track-timeline-track {
+  position: relative;
+  min-height: 3rem;
+  border: 1px solid #303030;
+  border-radius: 0.7rem;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    #0f0f0f;
+  background-size: 12.5% 100%, 100% 100%, 100% 100%;
+  overflow: hidden;
+}
+
+.track-timeline-clip {
+  --track-clip-duration: 0;
+  --track-clip-start: 0;
+  position: absolute;
+  inset-block: 0.38rem;
+  left: calc(var(--track-clip-start) * 100%);
+  width: max(calc(var(--track-clip-duration) * 100%), 0.8rem);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 157, 120, 0.3), rgba(255, 95, 84, 0.22)),
+    rgba(255, 95, 84, 0.1);
+  cursor: grab;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.track-timeline-clip:active {
+  cursor: grabbing;
+}
+
+.track-timeline-clip-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  color: #b0b0b0;
+}
+
+.track-timeline-note-marker {
+  --track-marker-duration: 0;
+  --track-marker-start: 0;
+  position: absolute;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  left: calc(var(--track-marker-start) * 100%);
+  width: max(calc(var(--track-marker-duration) * 100%), 0.18rem);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff8e63, #ff6459);
+}
+
+.track-timeline-note-marker-smc {
+  background: linear-gradient(180deg, #7fd0ff, #4da4ff);
+}
+
+@media (max-width: 720px) {
+  .track-timeline-lane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

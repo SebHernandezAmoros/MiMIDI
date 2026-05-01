@@ -5,8 +5,7 @@ import type {
 } from "../../application/use-cases/playRecordedNotes"
 import { playRecordedNotes } from "../../application/use-cases/playRecordedNotes"
 import { stopAllVoices } from "../../engine/audio/audioEngine"
-import type { MidiRecordedNote } from "../../engine/midi/events"
-import type { ProjectTrack } from "../../engine/project/projectModel"
+import type { MusicalProject } from "../../engine/project/projectModel"
 
 export type TransportState = "idle" | "playing"
 
@@ -22,16 +21,16 @@ export function usePlaybackTransport() {
   }
 
   function play(
-    recordedNotes: MidiRecordedNote[],
-    options: PlayRecordedNotesOptions & { tracks?: ProjectTrack[] } = {},
+    project: MusicalProject,
+    options: PlayRecordedNotesOptions = {},
   ) {
-    if (recordedNotes.length === 0 || transportState === "playing") {
+    if (project.tracks.every((track) => track.notes.length === 0) || transportState === "playing") {
       return
     }
 
     stop()
     setTransportState("playing")
-    playbackHandleRef.current = playRecordedNotes(recordedNotes, {
+    playbackHandleRef.current = playRecordedNotes(project, {
       ...options,
       onComplete: () => {
         playbackHandleRef.current = null

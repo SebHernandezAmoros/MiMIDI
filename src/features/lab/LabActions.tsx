@@ -3,6 +3,7 @@ type LabActionsProps = {
   canExportAudio: boolean
   isPlaying: boolean
   isExportingAudio: boolean
+  isRecording: boolean
   onClearSession: () => void
   onExportAudio: () => void
   onExportProject: () => void
@@ -11,6 +12,8 @@ type LabActionsProps = {
   onPlayTestChord: () => void
   onPlayTestNote: () => void
   onRestartProject: () => void
+  onStartRecording: () => void
+  onStopRecording: () => void
   onStopPlayback: () => void
 }
 
@@ -19,6 +22,7 @@ export function LabActions({
   canExportAudio,
   isPlaying,
   isExportingAudio,
+  isRecording,
   onClearSession,
   onExportAudio,
   onExportProject,
@@ -27,6 +31,8 @@ export function LabActions({
   onPlayTestChord,
   onPlayTestNote,
   onRestartProject,
+  onStartRecording,
+  onStopRecording,
   onStopPlayback,
 }: LabActionsProps) {
   return (
@@ -36,6 +42,12 @@ export function LabActions({
       </button>
       <button onClick={onPlayTestChord} type="button">
         Tocar acorde
+      </button>
+      <button disabled={isRecording} onClick={onStartRecording} type="button">
+        {isRecording ? "Grabando" : "Iniciar grabacion"}
+      </button>
+      <button disabled={!isRecording} onClick={onStopRecording} type="button">
+        Detener grabacion
       </button>
       <button disabled={!canPlayRecording || isPlaying} onClick={onPlayRecording} type="button">
         {isPlaying ? "Reproduciendo" : "Reproducir grabacion"}
