@@ -1,9 +1,9 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
 import { playSmcPadHit } from "./playSmcPadHit"
+import { findAvailableMathematicalInstrument } from "../../engine/audio/instrumentCatalog"
 import {
   createPlayOptions,
-  findMathematicalInstrument,
 } from "../../engine/audio/mathematicalInstruments"
 import {
   getTrackVolumeAutomationValue,
@@ -69,7 +69,10 @@ export function playRecordedNotes(
         return
       }
 
-      const trackInstrument = findMathematicalInstrument(recordedNote.instrumentId)
+      const trackInstrument = findAvailableMathematicalInstrument(
+        recordedNote.instrumentId,
+        project.pluginStates,
+      )
 
       playNote(recordedNote.note, recordedNote.duration, {
         ...createPlayOptions(

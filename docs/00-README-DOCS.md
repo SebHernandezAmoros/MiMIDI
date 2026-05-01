@@ -22,6 +22,9 @@ modular preparada para plugins/mods.
   Codex, con contexto operativo y reglas de comportamiento/documentacion.
 - `08-guia-crear-plugins.md` -> guia practica para crear y registrar plugins en
   el MVP actual del proyecto.
+- `09-arquitectura-modo-app.md` -> mapa tecnico del futuro modo app con
+  multiples pantallas, shell horizontal y reglas para seguir agregando archivos
+  sin romper la arquitectura.
 
 ## Proposito de esta carpeta
 

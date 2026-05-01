@@ -33,6 +33,7 @@ describe("App integration: timeline history", () => {
 
   beforeEach(() => {
     window.localStorage.clear()
+    window.history.pushState({}, "", "/lab")
 
     const seededProject = {
       id: "project-test",
@@ -313,6 +314,34 @@ describe("App integration: timeline history", () => {
 
     const instrumentSelect = screen.getByLabelText("Instrumento matematico")
 
-    expect(within(instrumentSelect).getByRole("option", { name: "Glass Pluck (Base)" })).toBeTruthy()
+    expect(
+      within(instrumentSelect).getByRole("option", {
+        name: "Glass Pluck (Base · Motion Synth Pack)",
+      }),
+    ).toBeTruthy()
+  })
+
+  it("allows disabling a plugin from the lab and persists that state", () => {
+    render(<App />)
+
+    const instrumentSelect = screen.getByLabelText("Instrumento matematico")
+    expect(
+      within(instrumentSelect).getByRole("option", {
+        name: "Glass Pluck (Base · Motion Synth Pack)",
+      }),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByLabelText("Activar Motion Synth Pack"))
+
+    expect(
+      within(instrumentSelect).queryByRole("option", {
+        name: "Glass Pluck (Base · Motion Synth Pack)",
+      }),
+    ).toBeNull()
+
+    const storedProject = window.localStorage.getItem(PROJECT_STORAGE_KEY)
+
+    expect(storedProject).not.toBeNull()
+    expect(JSON.parse(storedProject ?? "{}").pluginStates["motion-synth-pack"]).toBe(false)
   })
 })

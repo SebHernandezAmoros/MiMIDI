@@ -9,18 +9,28 @@ import type {
   MathematicalInstrument,
   MathematicalInstrumentId,
 } from "../../engine/audio/mathematicalInstruments"
+import type { MiMIDIPluginStateMap } from "../../engine/plugins/pluginModel"
 
-export function useLabInstrumentCatalog(selectedInstrumentId: MathematicalInstrumentId) {
-  const availableInstruments = useMemo(() => getAvailableMathematicalInstruments(), [])
+export function useLabInstrumentCatalog(
+  selectedInstrumentId: MathematicalInstrumentId,
+  pluginStates: MiMIDIPluginStateMap,
+) {
+  const availableInstruments = useMemo(
+    () => getAvailableMathematicalInstruments(pluginStates),
+    [pluginStates],
+  )
   const selectedInstrument = useMemo(
-    () => findAvailableMathematicalInstrument(selectedInstrumentId),
-    [selectedInstrumentId],
+    () => findAvailableMathematicalInstrument(selectedInstrumentId, pluginStates),
+    [selectedInstrumentId, pluginStates],
   )
   const activeInstrumentCategory = selectedInstrument.category
-  const instrumentCategories = useMemo(() => getInstrumentCategoriesFromCatalog(), [])
+  const instrumentCategories = useMemo(
+    () => getInstrumentCategoriesFromCatalog(pluginStates),
+    [pluginStates],
+  )
   const visibleInstruments = useMemo(
-    () => getInstrumentsByCategory(activeInstrumentCategory),
-    [activeInstrumentCategory],
+    () => getInstrumentsByCategory(activeInstrumentCategory, pluginStates),
+    [activeInstrumentCategory, pluginStates],
   )
 
   return {

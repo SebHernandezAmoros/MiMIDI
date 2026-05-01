@@ -3904,3 +3904,270 @@ Siguiente foco recomendado dentro de Bloque G:
 1. activacion/desactivacion visible
 2. persistencia del estado de plugins
 3. elegir una segunda superficie extensible MVP
+
+## Movimiento 72 - Manager visible de plugins y persistencia por proyecto
+
+Fase: Bloque G - Plugins
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/application/use-cases/playRecordedNotes.ts`
+- `src/engine/audio/instrumentCatalog.ts`
+- `src/engine/audio/offlineAudioRenderer.ts`
+- `src/engine/plugins/pluginModel.ts`
+- `src/engine/plugins/pluginRegistry.test.ts`
+- `src/engine/plugins/pluginRegistry.ts`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabProjectPanel.tsx`
+- `src/features/lab/useLabInstrumentCatalog.ts`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/08-guia-crear-plugins.md`
+
+Intencion:
+
+Cerrar el siguiente tramo real del sistema de plugins para que deje de ser solo
+catalogo extensible interno y pase a tener:
+
+- activacion/desactivacion visible
+- persistencia por proyecto
+- reproduccion y exportacion alineadas con el catalogo activo
+- guia operativa mucho mas util para crear plugins nuevos
+
+Como se movio:
+
+- Se agrego `MiMIDIPluginStateMap` como estado persistible del proyecto.
+- El proyecto ahora guarda `pluginStates` y los recupera al importar o cargar
+  desde storage.
+- `pluginRegistry.ts` suma helpers para:
+  - estados por defecto
+  - resolucion de estados persistidos
+  - resumenes visibles para UI
+  - catalogo de plugins habilitados segun proyecto
+- `instrumentCatalog.ts` y `useLabInstrumentCatalog.ts` ahora resuelven el
+  catalogo en funcion del estado activo de plugins.
+- `LabProjectPanel` suma un manager visible de plugins internos con toggle por
+  plugin.
+- Si se apaga un plugin, las pistas que usaban sus instrumentos vuelven a un
+  fallback disponible del core para no quedar rotas.
+- La reproduccion grabada y el render offline dejaron de resolver instrumentos
+  solo desde el core y ahora consultan el catalogo activo.
+- Se actualizaron pruebas para cubrir:
+  - override de estado activo/inactivo
+  - desaparicion visible de instrumentos del plugin al desactivarlo
+  - persistencia del estado en localStorage
+- `docs/08-guia-crear-plugins.md` se reescribio con:
+  - prompt recomendado al inicio para pedir plugins nuevos a Codex
+  - estado real del sistema actualizado
+  - flujo de trabajo actual para crear, registrar, activar y validar plugins
+  - advertencia explicita de que la guia es viva y seguramente cambiara
+
+Decision tecnica:
+
+Se eligio persistir el estado activo/inactivo dentro del proyecto, no como
+storage global separado, porque asi:
+
+- viaja con import/export JSON
+- evita estados fantasma entre proyectos
+- permite que el catalogo activo forme parte del estado de producto real
+
+Resultado:
+
+Bloque G deja de estar atascado en "plugins registrados pero sin control
+visible". Ahora existe una primera gestion usable de plugins internos y una
+guia mucho mas fuerte para seguir creando extensiones sin improvisar.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Que sigue realmente dentro de Bloque G:
+
+1. abrir una segunda superficie extensible MVP ademas del catalogo de
+   instrumentos
+2. seguir sacando coordinacion de `App.tsx` hacia fronteras mas compatibles con
+   plugins
+3. decidir si la siguiente superficie sera:
+   - acciones del laboratorio
+   - herramientas del timeline
+   - paneles dedicados
+
+## Movimiento 73 - Etiquetado visible de origen en el selector de instrumentos
+
+Fase: Bloque G - Plugins
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/engine/plugins/pluginRegistry.ts`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/08-guia-crear-plugins.md`
+
+Intencion:
+
+Hacer mas legible el catalogo combinado del laboratorio para que el usuario
+entienda inmediatamente si un instrumento viene del `Core` o de un plugin
+activo, sin tener que inferirlo mirando el manager de plugins aparte.
+
+Como se movio:
+
+- Se agrego un helper en el registro de plugins para resolver de que plugin
+  viene un instrumento activo.
+- El selector de instrumentos ahora etiqueta cada opcion como:
+  - `Core`
+  - o nombre del plugin de origen
+- Se actualizaron pruebas de integracion para verificar la nueva etiqueta
+  visible sobre instrumentos de plugin.
+- `docs/08` se ajusto para reflejar que el selector ya muestra el origen del
+  instrumento como parte del flujo actual.
+
+Decision tecnica:
+
+Se eligio resolver el origen desde el registro de plugins activo, no con una
+lista hardcodeada en `App.tsx`, para mantener la UI desacoplada de plugins
+concretos y reutilizar la misma fuente de verdad del sistema.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El catalogo combinado sigue funcionando igual, pero ahora comunica mucho mejor
+su procedencia: los instrumentos del core y los de plugins activos ya no se
+mezclan visualmente como si todos nacieran del mismo sitio.
+
+## Movimiento 74 - Reenfoque del siguiente paso hacia arquitectura del modo app
+
+Fase: Bloque G - Plugins / preparacion del Bloque I
+
+Archivos movidos:
+
+- `docs/00-README-DOCS.md`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Dejar claro que, despues del MVP actual de plugins, el siguiente foco no debe
+ser crecer mas superficies pluginizables dentro de la monovista, sino seguir
+sacando coordinacion de `App.tsx` y preparar la arquitectura del futuro modo
+app con multiples pantallas.
+
+Como se movio:
+
+- Se documento un nuevo archivo `09` dedicado al modo app futuro.
+- El nuevo documento deja:
+  - shell horizontal propuesto
+  - inspiracion visual de escritorio clasico tipo `Mac OS` original
+  - pantallas recomendadas
+  - estructura de carpetas sugerida
+  - orden de migracion desde la monovista
+  - regla para agregar archivos nuevos sin romper Screaming Architecture
+- En `04` se reordeno el pendiente real de Bloque G para reflejar que:
+  - lo inmediato es seguir extrayendo `App.tsx`
+  - el crecimiento fuerte de plugins visuales o de nuevas superficies se
+    difiere hasta tener UI mas ordenada
+- Se actualizo el indice documental para incluir `09`.
+
+Decision tecnica:
+
+Se considera que los plugins futuros probablemente no solo agregaran
+instrumentos, sino tambien cambios visuales, paneles o herramientas. Abrir esa
+complejidad antes del modo app aumentaria el caos del laboratorio actual. Por
+eso el siguiente paso correcto es preparar primero shell, pantallas y
+fronteras mas limpias.
+
+Resultado:
+
+Queda consolidado que el proximo trabajo estructural debe centrarse en:
+
+1. seguir extrayendo coordinacion de `App.tsx`
+2. preparar `AppShell` y navegacion horizontal
+3. mapear la migracion hacia multiples pantallas
+4. recien despues reabrir la expansion fuerte de plugins
+
+Plan completo recomendado:
+
+1. seguir extrayendo coordinacion restante de `App.tsx`
+2. crear `src/app/AppShell.tsx`
+3. definir modelo de navegacion interna por vistas
+4. abrir `Edit` como primera pantalla real
+5. mover `Project` a pantalla propia
+6. mover `Perform` a pantalla propia
+7. crear `PluginsScreen`
+8. recien ahi reabrir segunda superficie extensible de plugins
+
+## Movimiento 75 - Laboratorio movido a /lab y reserva de / para modo app
+
+Fase: preparacion del Bloque I / desacople de `App.tsx`
+
+Archivos movidos:
+
+- `src/App.css`
+- `src/App.integration.test.tsx`
+- `src/App.tsx`
+- `src/app/AppHome.tsx`
+- `src/app/AppShell.tsx`
+- `src/app/appRoutes.ts`
+- `src/features/lab/LabApp.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Empezar a preparar de verdad el futuro modo app sin romper el laboratorio
+actual, separando la monovista heredada de la ruta principal y evitando que
+`App.tsx` siga siendo al mismo tiempo:
+
+- shell general
+- home futura
+- laboratorio completo
+
+Como se movio:
+
+- El laboratorio actual se movio a la ruta:
+  - `/lab`
+- La raiz:
+  - `/`
+  queda reservada como entrada del futuro modo app
+- Se creo una home minima de app para la raiz, con mensaje de direccion futura
+  y acceso al laboratorio.
+- Se creo `AppShell` como primer contenedor del futuro modo app horizontal.
+- El laboratorio se extrajo a `src/features/lab/LabApp.tsx`.
+- `App.tsx` deja de ser la monovista completa y pasa a ser un wrapper pequeno
+  de navegacion entre rutas base.
+- Las pruebas de integracion se actualizan para arrancar desde `/lab`.
+- Se documento explicitamente que el futuro `modo vertical` se difiere hasta que
+  el modo horizontal este funcionando de forma estable.
+
+Decision tecnica:
+
+Se eligio una separacion minima de rutas sin agregar todavia un router grande ni
+abrir todas las pantallas nuevas. Esto alcanza para:
+
+- sacar responsabilidad de `App.tsx`
+- liberar `/` para la arquitectura futura
+- mantener el laboratorio funcional y accesible
+- dejar el modo horizontal como prioridad antes del vertical
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+MiMIDI ya no usa la raiz como laboratorio por defecto. La app principal empieza
+su camino hacia un shell propio y el laboratorio queda aislado en una ruta mas
+honesta para continuar migrando sin apelotonar el proyecto.

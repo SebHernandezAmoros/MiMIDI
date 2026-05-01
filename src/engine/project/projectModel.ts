@@ -1,7 +1,14 @@
 import type { ADSREnvelope } from "../audio/audioEngine"
+import { getAvailableMathematicalInstruments } from "../audio/instrumentCatalog"
 import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
 import type { MidiRecordedNote } from "../midi/events"
 import type { MusicalNote } from "../midi/notes"
+import type { MiMIDIPluginId, MiMIDIPluginStateMap } from "../plugins/pluginModel"
+import {
+  createDefaultPluginStates,
+  isKnownPluginId,
+  resolvePluginStates,
+} from "../plugins/pluginRegistry"
 
 export type TrackVolumeAutomationPoint = {
   time: number
@@ -36,6 +43,7 @@ export type ProjectTrack = {
 export type MusicalProject = {
   id: string
   name: string
+  pluginStates: MiMIDIPluginStateMap
   trackTimelineDuration: number
   tracks: ProjectTrack[]
 }
@@ -55,6 +63,7 @@ export function createDefaultProject(): MusicalProject {
   return {
     id: "project-1",
     name: "MiMIDI Project",
+    pluginStates: createDefaultPluginStates(),
     trackTimelineDuration: 8,
     tracks: [createProjectTrack(1)],
   }
@@ -472,6 +481,44 @@ export function updateTrackTimelineClip(
   }
 }
 
+export function syncProjectTrackInstrumentsWithPluginCatalog(
+  project: MusicalProject,
+): MusicalProject {
+  const availableInstruments = getAvailableMathematicalInstruments(project.pluginStates)
+  const fallbackInstrumentId = availableInstruments[0]?.id ?? "pure-sine"
+  const availableInstrumentIds = new Set(
+    availableInstruments.map((instrument) => instrument.id),
+  )
+
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      availableInstrumentIds.has(track.instrumentId)
+        ? track
+        : {
+            ...track,
+            instrumentId: fallbackInstrumentId,
+          },
+    ),
+  }
+}
+
+export function updateProjectPluginEnabled(
+  project: MusicalProject,
+  pluginId: MiMIDIPluginId,
+  enabled: boolean,
+): MusicalProject {
+  const nextProject = {
+    ...project,
+    pluginStates: {
+      ...project.pluginStates,
+      [pluginId]: enabled,
+    },
+  }
+
+  return syncProjectTrackInstrumentsWithPluginCatalog(nextProject)
+}
+
 export function appendTrack(project: MusicalProject): MusicalProject {
   return {
     ...project,
@@ -603,6 +650,25 @@ export function resetProject(project: MusicalProject): MusicalProject {
     ...defaultProject,
     id: project.id,
   }
+}
+
+function normalizePluginStates(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return createDefaultPluginStates()
+  }
+
+  const rawStates = value as Record<string, unknown>
+  const pluginStatePatch: Partial<MiMIDIPluginStateMap> = {}
+
+  for (const [pluginId, pluginState] of Object.entries(rawStates)) {
+    if (!isKnownPluginId(pluginId) || typeof pluginState !== "boolean") {
+      continue
+    }
+
+    pluginStatePatch[pluginId] = pluginState
+  }
+
+  return resolvePluginStates(pluginStatePatch)
 }
 
 function isRecordedNote(value: unknown): value is MidiRecordedNote {
@@ -836,12 +902,15 @@ export function parseImportedProject(projectJson: string): MusicalProject {
   }
 
   return {
-    id: project.id,
-    name: project.name,
-    trackTimelineDuration:
-      typeof project.trackTimelineDuration === "number"
-        ? Math.max(project.trackTimelineDuration, 1)
-        : 8,
-    tracks: project.tracks.map((track) => normalizeTrackNotes(track)),
+    ...syncProjectTrackInstrumentsWithPluginCatalog({
+      id: project.id,
+      name: project.name,
+      pluginStates: normalizePluginStates(project.pluginStates),
+      trackTimelineDuration:
+        typeof project.trackTimelineDuration === "number"
+          ? Math.max(project.trackTimelineDuration, 1)
+          : 8,
+      tracks: project.tracks.map((track) => normalizeTrackNotes(track)),
+    }),
   }
 }

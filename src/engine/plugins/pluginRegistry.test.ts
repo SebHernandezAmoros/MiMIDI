@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { getEnabledPlugins, getPluginInstruments, getRegisteredPlugins } from "./pluginRegistry"
+import {
+  createDefaultPluginStates,
+  getEnabledPlugins,
+  getPluginInstruments,
+  getRegisteredPlugins,
+  getRegisteredPluginSummaries,
+  resolvePluginStates,
+} from "./pluginRegistry"
 
 describe("pluginRegistry", () => {
   it("returns registered internal plugins", () => {
@@ -20,5 +27,26 @@ describe("pluginRegistry", () => {
     const enabledPlugins = getEnabledPlugins()
 
     expect(enabledPlugins.some((plugin) => plugin.id === "motion-synth-pack")).toBe(true)
+  })
+
+  it("can override the enabled state of a registered plugin", () => {
+    const enabledPlugins = getEnabledPlugins({
+      "motion-synth-pack": false,
+    })
+
+    expect(enabledPlugins.some((plugin) => plugin.id === "motion-synth-pack")).toBe(false)
+    expect(getPluginInstruments({ "motion-synth-pack": false })).toHaveLength(0)
+  })
+
+  it("resolves persisted states over default states", () => {
+    const defaultStates = createDefaultPluginStates()
+    const resolvedStates = resolvePluginStates({
+      "motion-synth-pack": false,
+    })
+    const pluginSummary = getRegisteredPluginSummaries(resolvedStates)[0]
+
+    expect(defaultStates["motion-synth-pack"]).toBe(true)
+    expect(resolvedStates["motion-synth-pack"]).toBe(false)
+    expect(pluginSummary?.enabled).toBe(false)
   })
 })

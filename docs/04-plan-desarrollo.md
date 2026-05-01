@@ -448,17 +448,26 @@ Estado:
   - registro interno de plugins
   - primer plugin de instrumentos matematicos
   - catalogo combinado core + plugin en laboratorio
+  - manager visible de plugins internos en el laboratorio
+  - persistencia del estado activo/inactivo dentro del proyecto
+  - resolucion coherente del catalogo activo en reproduccion y exportacion
   - extraccion inicial de coordinacion de grabacion fuera de `App.tsx`
 - pendiente:
-  - activacion/desactivacion visible de plugins
-  - persistencia del estado activo/inactivo de plugins
-  - nuevas superficies extensibles ademas del catalogo de instrumentos
-  - elegir y abrir la siguiente superficie extensible MVP:
-    - acciones del laboratorio
-    - herramientas del timeline
-    - paneles dedicados
   - seguir extrayendo coordinacion de `App.tsx` hacia hooks/catalogos/fronteras
     de producto compatibles con plugins
+  - preparar arquitectura del futuro modo app antes de abrir mas superficie de
+    plugins
+  - documentar y crear shell horizontal para multiples pantallas con inspiracion
+    de app de escritorio clasica
+  - mover el laboratorio actual a una ruta propia para liberar `/` como entrada
+    del futuro modo app
+  - dejar el modo vertical como fase posterior al modo horizontal estable
+  - diferir nuevas superficies extensibles de plugins hasta que exista una UI
+    mas ordenada
+  - reevaluar despues del modo app si la siguiente superficie pluginizable sera:
+    - acciones del laboratorio o de pantalla
+    - herramientas del timeline
+    - paneles dedicados
 
 ### Bloque H - Sampler (menu separado)
 

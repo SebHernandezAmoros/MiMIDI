@@ -7,6 +7,7 @@ import type {
   ProjectTrack,
   TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
+import type { RegisteredPluginSummary } from "../../engine/plugins/pluginRegistry"
 
 type LabProjectPanelProps = {
   activeInstrumentCategory: MathematicalInstrument["category"]
@@ -19,6 +20,7 @@ type LabProjectPanelProps = {
   onInstrumentCategoryChange: (
     category: MathematicalInstrument["category"],
   ) => void
+  onPluginEnabledChange: (pluginId: string, enabled: boolean) => void
   onProjectNameChange: (name: string) => void
   onProjectTrackTimelineDurationChange: (duration: number) => void
   onResetProjectTrackTimelineDuration: () => void
@@ -41,6 +43,7 @@ type LabProjectPanelProps = {
   projectMessage: string
   projectName: string
   projectTrackTimelineDuration: number
+  plugins: RegisteredPluginSummary[]
   trackCount: number
   tracks: ProjectTrack[]
   volumeAutomation: TrackVolumeAutomation
@@ -60,6 +63,7 @@ export function LabProjectPanel({
   noteCount,
   onAddTrack,
   onInstrumentCategoryChange,
+  onPluginEnabledChange,
   onProjectNameChange,
   onProjectTrackTimelineDurationChange,
   onResetProjectTrackTimelineDuration,
@@ -82,6 +86,7 @@ export function LabProjectPanel({
   projectMessage,
   projectName,
   projectTrackTimelineDuration,
+  plugins,
   trackCount,
   tracks,
   volumeAutomation,
@@ -240,6 +245,42 @@ export function LabProjectPanel({
           ))}
         </select>
       </div>
+
+      <section className="track-mix" aria-label="Plugins internos">
+        <div className="track-mix-header">
+          <h2>Plugins internos</h2>
+        </div>
+        <p className="project-message">
+          Activa o desactiva extensiones internas del catalogo. Si apagas un
+          plugin, las pistas que usen sus instrumentos vuelven a un fallback del
+          core para que el proyecto siga estable.
+        </p>
+        <div className="track-envelope-grid">
+          {plugins.map((plugin) => (
+            <div className="control-group" key={plugin.id}>
+              <label
+                className="timeline-snap-toggle"
+                htmlFor={`plugin-enabled-${plugin.id}`}
+              >
+                <input
+                  checked={plugin.enabled}
+                  id={`plugin-enabled-${plugin.id}`}
+                  onChange={(event) =>
+                    onPluginEnabledChange(plugin.id, event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                Activar {plugin.name}
+              </label>
+              <span className="project-label">
+                v{plugin.version} · {plugin.instrumentCount} instrumento
+                {plugin.instrumentCount === 1 ? "" : "s"}
+              </span>
+              <span className="project-message">{plugin.description}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="track-mix" aria-label="Mezcla por pista">
         <div className="track-mix-header">

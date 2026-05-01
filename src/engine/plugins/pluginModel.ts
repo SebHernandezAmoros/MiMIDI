@@ -1,6 +1,7 @@
 import type { MathematicalInstrument } from "../audio/mathematicalInstruments"
 
 export type MiMIDIPluginId = string
+export type MiMIDIPluginStateMap = Record<MiMIDIPluginId, boolean>
 
 export type InstrumentPluginContribution = {
   instruments: MathematicalInstrument[]

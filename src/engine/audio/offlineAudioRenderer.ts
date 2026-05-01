@@ -1,10 +1,10 @@
+import { findAvailableMathematicalInstrument } from "./instrumentCatalog"
 import type {
   ADSREnvelope,
   AudioLfo,
   AudioWaveform,
 } from "./audioEngine"
 import {
-  findMathematicalInstrument,
   type MathematicalInstrument,
 } from "./mathematicalInstruments"
 import type { MidiRecordedNote } from "../midi/events"
@@ -135,7 +135,10 @@ function createScheduledPlaybackEvents(project: MusicalProject) {
       return []
     }
 
-    const instrument = findMathematicalInstrument(note.instrumentId)
+    const instrument = findAvailableMathematicalInstrument(
+      note.instrumentId,
+      project.pluginStates,
+    )
     const envelope = resolveEnvelope(instrument.envelope, note.playbackEnvelope)
     const automationVolume = getTrackVolumeAutomationValue(
       track.volumeAutomation,
