@@ -396,7 +396,34 @@ Orden sugerido:
 8. crear `PluginsScreen`
 9. recien ahi abrir segunda superficie extensible de plugins
 
-## 11. Resultado esperado
+## 11. Estado ya preparado en codigo
+
+La base inicial ya puede dejar listos estos archivos aunque todavia esten en
+modo placeholder:
+
+- `src/app/AppMode.tsx`
+- `src/app/AppShell.tsx`
+- `src/app/appNavigation.ts`
+- `src/app/appRoutes.ts`
+- `src/features/edit/EditScreen.tsx`
+- `src/features/edit/EditWorkspace.tsx`
+- `src/features/perform/PerformScreen.tsx`
+- `src/features/perform/PerformWorkspace.tsx`
+- `src/features/project-view/ProjectScreen.tsx`
+- `src/features/project-view/ProjectWorkspace.tsx`
+- `src/features/plugins-view/PluginsScreen.tsx`
+- `src/features/plugins-view/PluginsWorkspace.tsx`
+- `src/features/settings-view/SettingsScreen.tsx`
+- `src/features/sampler/SamplerScreen.tsx`
+
+La meta de este paso no es que las vistas ya hagan todo, sino que ya tengan:
+
+- lugar oficial
+- nombre estable
+- frontera clara
+- shell horizontal donde montarse
+
+## 12. Resultado esperado
 
 Si seguimos esta ruta, vamos a lograr:
 

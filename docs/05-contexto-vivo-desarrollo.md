@@ -4171,3 +4171,73 @@ Resultado:
 MiMIDI ya no usa la raiz como laboratorio por defecto. La app principal empieza
 su camino hacia un shell propio y el laboratorio queda aislado en una ruta mas
 honesta para continuar migrando sin apelotonar el proyecto.
+
+## Movimiento 76 - Esqueleto inicial de vistas del modo app
+
+Fase: preparacion del Bloque I / continuidad del desacople de `App.tsx`
+
+Archivos movidos:
+
+- `src/App.css`
+- `src/App.integration.test.tsx`
+- `src/App.tsx`
+- `src/app/AppMode.tsx`
+- `src/app/appNavigation.ts`
+- `src/app/appRoutes.ts`
+- `src/app/navigation.ts`
+- `src/features/edit/EditScreen.tsx`
+- `src/features/edit/EditWorkspace.tsx`
+- `src/features/perform/PerformScreen.tsx`
+- `src/features/perform/PerformWorkspace.tsx`
+- `src/features/plugins-view/PluginsScreen.tsx`
+- `src/features/plugins-view/PluginsWorkspace.tsx`
+- `src/features/project-view/ProjectScreen.tsx`
+- `src/features/project-view/ProjectWorkspace.tsx`
+- `src/features/sampler/SamplerScreen.tsx`
+- `src/features/settings-view/SettingsScreen.tsx`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Dejar nacidas las vistas principales del futuro modo app horizontal aunque
+todavia no tengan su contenido final, para que la migracion deje de ser solo
+plan y pase a tener archivos, nombres y fronteras reales dentro del proyecto.
+
+Como se movio:
+
+- La raiz de la app ya no muestra solo una home temporal.
+- Se creo `AppMode` como shell inicial del modo app horizontal.
+- `AppMode` ya muestra navegacion base por vistas:
+  - `Perform`
+  - `Edit`
+  - `Project`
+  - `Plugins`
+  - `Settings`
+  - `Sampler`
+- Se dejaron creados los archivos placeholder de cada pantalla y, cuando
+  aplica, de su `Workspace`.
+- `Edit` queda como vista activa por defecto, alineada con la recomendacion de
+  empezar la migracion por la pantalla de edicion.
+- Se agrego prueba para validar que la raiz ya monta el shell nuevo y no el
+  laboratorio.
+
+Decision tecnica:
+
+Se eligio crear pantallas reales aunque esten vacias en vez de seguir
+describiendolas solo en docs, porque eso reduce friccion futura y fija desde
+ya una convencion de nombres y ubicaciones. Tambien ayuda a seguir sacando
+coordinacion de `App.tsx`, ya que la app principal empieza a hablar en terminos
+de modo app y laboratorio como piezas separadas.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El proyecto ya tiene un esqueleto funcional del modo app horizontal. Todavia no
+hay migracion de features dentro de cada vista, pero las pantallas ya existen y
+la arquitectura deja de depender de imaginar esos archivos "despues".

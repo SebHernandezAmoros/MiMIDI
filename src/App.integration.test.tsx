@@ -344,4 +344,15 @@ describe("App integration: timeline history", () => {
     expect(storedProject).not.toBeNull()
     expect(JSON.parse(storedProject ?? "{}").pluginStates["motion-synth-pack"]).toBe(false)
   })
+
+  it("shows the app mode shell on the root route", () => {
+    window.history.pushState({}, "", "/?view=edit")
+
+    render(<App />)
+
+    expect(screen.getByRole("button", { name: "Perform" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy()
+    expect(screen.getByText("Edit workspace")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Ir al laboratorio" })).toBeTruthy()
+  })
 })
