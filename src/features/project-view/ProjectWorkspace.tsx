@@ -1,11 +1,13 @@
-export function ProjectWorkspace() {
+type ProjectWorkspaceProps = {
+  body: string
+  title: string
+}
+
+export function ProjectWorkspace({ body, title }: ProjectWorkspaceProps) {
   return (
     <section className="app-view-panel app-view-panel-feature" aria-label="Workspace Project">
-      <h2>Project workspace</h2>
-      <p>
-        Aqui iran nombre del proyecto, mezcla por pista, exportacion JSON/WAV y
-        acciones estructurales del proyecto.
-      </p>
+      <h2>{title}</h2>
+      <p>{body}</p>
     </section>
   )
 }

@@ -462,6 +462,7 @@ Estado:
   - mover el laboratorio actual a una ruta propia para liberar `/` como entrada
     del futuro modo app
   - dejar el modo vertical como fase posterior al modo horizontal estable
+  - preparar base multilenguaje antes de llenar fuerte las nuevas vistas
   - diferir nuevas superficies extensibles de plugins hasta que exista una UI
     mas ordenada
   - reevaluar despues del modo app si la siguiente superficie pluginizable sera:

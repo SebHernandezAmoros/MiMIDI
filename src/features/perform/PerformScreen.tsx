@@ -1,16 +1,18 @@
+import type { AppViewMessages } from "../../app/appI18n"
 import { PerformWorkspace } from "./PerformWorkspace"
 
-export function PerformScreen() {
+type PerformScreenProps = {
+  copy: AppViewMessages
+}
+
+export function PerformScreen({ copy }: PerformScreenProps) {
   return (
     <section className="app-view-screen" aria-label="Pantalla Perform">
       <div className="app-view-intro">
-        <h2>Perform</h2>
-        <p>
-          Vista pensada para interpretar, probar timbres y grabar tomas sin la
-          densidad de la pantalla de edicion.
-        </p>
+        <h2>{copy.label}</h2>
+        <p>{copy.intro}</p>
       </div>
-      <PerformWorkspace />
+      <PerformWorkspace body={copy.workspaceBody} title={copy.workspaceTitle} />
     </section>
   )
 }

@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react"
+import { getClassicAppThemeStyle } from "./appTheme"
 
 type AppShellProps = PropsWithChildren<{
   subtitle: string
@@ -8,7 +9,7 @@ type AppShellProps = PropsWithChildren<{
 
 export function AppShell({ children, subtitle, title, toolbar }: AppShellProps) {
   return (
-    <main className="app-shell">
+    <main className="app-shell app-theme-classic" style={getClassicAppThemeStyle()}>
       <header className="app-shell-header" aria-label="Shell principal MiMIDI">
         <div>
           <span className="app-shell-eyebrow">MiMIDI App Mode</span>

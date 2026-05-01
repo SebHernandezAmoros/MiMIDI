@@ -1,11 +1,16 @@
-export function EditWorkspace() {
+import LabApp from "../lab/LabApp"
+
+type EditWorkspaceProps = {
+  body: string
+  title: string
+}
+
+export function EditWorkspace({ body, title }: EditWorkspaceProps) {
   return (
     <section className="app-view-panel app-view-panel-feature" aria-label="Workspace Edit">
-      <h2>Edit workspace</h2>
-      <p>
-        Aqui iran el timeline de tracks, el timeline de notas, el editor de nota
-        seleccionada y las herramientas de edicion fina.
-      </p>
+      <h2>{title}</h2>
+      <p>{body}</p>
+      <LabApp mode="edit-only" />
     </section>
   )
 }

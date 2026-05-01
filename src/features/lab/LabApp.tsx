@@ -140,7 +140,13 @@ function getPerformanceTimestamp() {
   return performance.now()
 }
 
-function LabApp() {
+type LabAppMode = "full" | "edit-only"
+
+type LabAppProps = {
+  mode?: LabAppMode
+}
+
+function LabApp({ mode = "full" }: LabAppProps) {
   const [volume, setVolume] = useState(0.8)
   const [selectedNote, setSelectedNote] = useState<MusicalNote>("A4")
   const [selectedChordType, setSelectedChordType] = useState<ChordType>("major")
@@ -1087,6 +1093,63 @@ function LabApp() {
     }
   }
 
+  const editWorkspace = (
+    <section className="timeline-workspace" aria-label="Workspace de timeline">
+      <TrackTimelinePreview
+        activeTrackId={primaryTrack.id}
+        onSelectTrack={switchActiveTrack}
+        onDragStateChange={setIsTimelineDragging}
+        onUpdateTrackStartTime={updateTrackStartTime}
+        timelineLength={projectTrackTimelineLength}
+        tracks={project.tracks}
+      />
+      <RecordedNoteList
+        notes={primaryTrack.notes}
+        onRemoveNote={removeRecordedNote}
+        onSelectNote={selectRecordedNote}
+        selectedNoteId={selectedRecordedNoteId}
+      />
+      <LabNoteEditor
+        canRedo={canRedo}
+        canUndo={canUndo}
+        historyLimit={HISTORY_LIMIT}
+        isTimelineDragging={isTimelineDragging}
+        noteTimelineDuration={primaryTrack.noteTimelineDuration}
+        onCompactNoteTimelineStart={compactPrimaryTrackNoteTimelineStart}
+        onDuplicateSelectedNote={duplicateSelectedRecordedNote}
+        onNoteTimelineDurationChange={updatePrimaryTrackNoteTimelineDurationValue}
+        onRedo={redoProjectEdit}
+        onResetNoteTimelineDuration={resetPrimaryTrackNoteTimelineDuration}
+        onRevertSelectedNote={revertSelectedNoteToLastCommit}
+        onSelectedNoteDurationChange={updateSelectedNoteDuration}
+        onSelectedNoteStartTimeChange={updateSelectedNoteStartTime}
+        onTimelineSnapStepChange={setTimelineSnapStep}
+        onToggleTimelineSnap={setTimelineSnapEnabled}
+        onUndo={undoProjectEdit}
+        redoCount={redoStack.length}
+        selectedNoteHistoryStatus={selectedNoteHistoryStatus}
+        selectedRecordedNote={selectedRecordedNote}
+        shortcutHint={shortcutHint}
+        timelineSnapEnabled={timelineSnapEnabled}
+        timelineSnapStep={timelineSnapStep}
+        undoCount={undoStack.length}
+      />
+      <TimelinePreview
+        notes={primaryTrack.notes}
+        onRemoveSelectedNote={removeRecordedNote}
+        onDragStateChange={setIsTimelineDragging}
+        onSelectNote={selectRecordedNote}
+        onUpdateNote={updateRecordedNote}
+        selectedNoteId={selectedRecordedNoteId}
+        timelineLength={primaryTrackNoteTimelineLength}
+      />
+    </section>
+  )
+
+  if (mode === "edit-only") {
+    return editWorkspace
+  }
+
   return (
     <main>
       <h1>MiMIDI</h1>
@@ -1210,56 +1273,7 @@ function LabApp() {
         />
 
         <MidiEventLog events={midiEvents} />
-        <section className="timeline-workspace" aria-label="Workspace de timeline">
-          <TrackTimelinePreview
-            activeTrackId={primaryTrack.id}
-            onSelectTrack={switchActiveTrack}
-            onDragStateChange={setIsTimelineDragging}
-            onUpdateTrackStartTime={updateTrackStartTime}
-            timelineLength={projectTrackTimelineLength}
-            tracks={project.tracks}
-          />
-          <RecordedNoteList
-            notes={primaryTrack.notes}
-            onRemoveNote={removeRecordedNote}
-            onSelectNote={selectRecordedNote}
-            selectedNoteId={selectedRecordedNoteId}
-          />
-          <LabNoteEditor
-            canRedo={canRedo}
-            canUndo={canUndo}
-            historyLimit={HISTORY_LIMIT}
-            isTimelineDragging={isTimelineDragging}
-            noteTimelineDuration={primaryTrack.noteTimelineDuration}
-            onCompactNoteTimelineStart={compactPrimaryTrackNoteTimelineStart}
-            onDuplicateSelectedNote={duplicateSelectedRecordedNote}
-            onNoteTimelineDurationChange={updatePrimaryTrackNoteTimelineDurationValue}
-            onRedo={redoProjectEdit}
-            onResetNoteTimelineDuration={resetPrimaryTrackNoteTimelineDuration}
-            onRevertSelectedNote={revertSelectedNoteToLastCommit}
-            onSelectedNoteDurationChange={updateSelectedNoteDuration}
-            onSelectedNoteStartTimeChange={updateSelectedNoteStartTime}
-            onTimelineSnapStepChange={setTimelineSnapStep}
-            onToggleTimelineSnap={setTimelineSnapEnabled}
-            onUndo={undoProjectEdit}
-            redoCount={redoStack.length}
-            selectedNoteHistoryStatus={selectedNoteHistoryStatus}
-            selectedRecordedNote={selectedRecordedNote}
-            shortcutHint={shortcutHint}
-            timelineSnapEnabled={timelineSnapEnabled}
-            timelineSnapStep={timelineSnapStep}
-            undoCount={undoStack.length}
-          />
-          <TimelinePreview
-            notes={primaryTrack.notes}
-            onRemoveSelectedNote={removeRecordedNote}
-            onDragStateChange={setIsTimelineDragging}
-            onSelectNote={selectRecordedNote}
-            onUpdateNote={updateRecordedNote}
-            selectedNoteId={selectedRecordedNoteId}
-            timelineLength={primaryTrackNoteTimelineLength}
-          />
-        </section>
+        {editWorkspace}
       </section>
     </main>
   )

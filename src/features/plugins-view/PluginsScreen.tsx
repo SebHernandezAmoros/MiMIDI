@@ -1,16 +1,18 @@
+import type { AppViewMessages } from "../../app/appI18n"
 import { PluginsWorkspace } from "./PluginsWorkspace"
 
-export function PluginsScreen() {
+type PluginsScreenProps = {
+  copy: AppViewMessages
+}
+
+export function PluginsScreen({ copy }: PluginsScreenProps) {
   return (
     <section className="app-view-screen" aria-label="Pantalla Plugins">
       <div className="app-view-intro">
-        <h2>Plugins</h2>
-        <p>
-          Vista futura para gestionar plugins con una interfaz mas limpia y
-          menos apelotonada que la monovista actual.
-        </p>
+        <h2>{copy.label}</h2>
+        <p>{copy.intro}</p>
       </div>
-      <PluginsWorkspace />
+      <PluginsWorkspace body={copy.workspaceBody} title={copy.workspaceTitle} />
     </section>
   )
 }

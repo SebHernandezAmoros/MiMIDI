@@ -4241,3 +4241,190 @@ Resultado:
 El proyecto ya tiene un esqueleto funcional del modo app horizontal. Todavia no
 hay migracion de features dentro de cada vista, pero las pantallas ya existen y
 la arquitectura deja de depender de imaginar esos archivos "despues".
+
+## Movimiento 78 - Tema clasico base e i18n inicial para el modo app
+
+Fase: preparacion del Bloque I / shell horizontal
+
+Archivos movidos:
+
+- `src/App.css`
+- `src/App.tsx`
+- `src/app/AppMode.tsx`
+- `src/app/AppShell.tsx`
+- `src/app/appI18n.ts`
+- `src/app/appNavigation.ts`
+- `src/app/appRoutes.ts`
+- `src/app/appTheme.ts`
+- `src/features/edit/EditScreen.tsx`
+- `src/features/edit/EditWorkspace.tsx`
+- `src/features/perform/PerformScreen.tsx`
+- `src/features/perform/PerformWorkspace.tsx`
+- `src/features/plugins-view/PluginsScreen.tsx`
+- `src/features/plugins-view/PluginsWorkspace.tsx`
+- `src/features/project-view/ProjectScreen.tsx`
+- `src/features/project-view/ProjectWorkspace.tsx`
+- `src/features/sampler/SamplerScreen.tsx`
+- `src/features/settings-view/SettingsScreen.tsx`
+- `src/i18n/en.ts`
+- `src/i18n/es.ts`
+- `src/i18n/index.ts`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Preparar el modo app horizontal para crecer con menos retrabajo, dejando ya:
+
+- tokens visuales inspirados en `Mac OS Classic`
+- tipografia base coherente con esa direccion
+- primera base real de multilenguaje configurable
+- placeholders del modo app sin textos regados por todos lados
+
+Como se movio:
+
+- Se creo `appTheme.ts` con la paleta base de 5 grises y tipografia principal.
+- `AppShell` ahora aplica variables CSS del tema clasico.
+- `App.css` se ajusto para que el shell y las vistas placeholder usen:
+  - bloques rigidos
+  - relieve falso 3D
+  - contraste por grises
+- Se importaron fuentes base para el modo app:
+  - `VT323`
+  - `IBM Plex Mono` como respaldo moderno
+- Se creo `appI18n.ts` como frontera de idioma del modo app.
+- Se agregaron diccionarios iniciales:
+  - `es`
+  - `en`
+- La raiz del modo app ya puede leer `lang` desde query string.
+- `AppMode` ahora resuelve labels, descripciones y toolbar desde mensajes
+  centralizados.
+- Las vistas placeholder del modo app dejaron de hardcodear su copy principal y
+  ahora reciben textos desde i18n.
+
+Decision tecnica:
+
+Se eligio resolver primero tema e idioma en el shell antes de llenar las vistas
+reales, porque hacerlo despues implicaria tocar muchas pantallas otra vez.
+Tambien se mantiene la regla de que el futuro modo vertical deberia nacer como
+reordenamiento de layout, no como reescritura de textos o estilos por separado.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El modo app ya no solo tiene estructura de vistas: tambien tiene una direccion
+visual compartida y una base multilenguaje inicial. Eso baja mucho el riesgo de
+que las siguientes pantallas nazcan inconsistentes o con texto hardcodeado por
+todas partes.
+
+## Movimiento 77 - Plan visual, multilenguaje y flexible para el modo app
+
+Fase: preparacion del Bloque I / direccion del shell
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Dejar asentada la direccion concreta del layout antes de llenarlo de contenido,
+incluyendo:
+
+- referencia visual tipo `Mac OS Classic`
+- tokens de color
+- tipografia recomendada
+- preparacion multilenguaje
+- regla de flexibilidad para futuro modo vertical
+
+Como se movio:
+
+- Se agrego a `09` la paleta base de 5 grises sin blanco.
+- Se documento el uso sugerido de cada gris dentro del shell.
+- Se agrego la recomendacion tipografica:
+  - `VT323`
+  - alternativa `IBM Plex Mono`
+- Se reforzo la regla del relieve 3D falso:
+  - claro arriba/izquierda
+  - oscuro abajo/derecha
+- Se dejo explicito que el layout nace horizontal, pero no debe quedar tan
+  rigido que impida un modo vertical despues.
+- Se agrego una seccion de preparacion multilenguaje con estructura sugerida de
+  i18n y reglas para no hardcodear textos futuros.
+- Se amplio el plan tecnico para incluir:
+  - etapa de tokens visuales
+  - etapa de i18n
+  - etapa de shell flexible
+  - etapa de replica por vistas
+  - etapa posterior de modo vertical
+
+Decision tecnica:
+
+Se eligio documentar primero esta direccion para evitar que las futuras vistas
+nazcan con decisiones visuales y de texto improvisadas. Tambien se busca que el
+modo vertical futuro sea mayormente una reorganizacion del shell, no una
+reescritura completa de la app.
+
+Resultado:
+
+El proyecto ya no solo tiene un shell y pantallas placeholder: ahora tambien
+tiene una guia clara de como deberian implementarse visualmente, como
+prepararlas para multiples idiomas y como mantener la puerta abierta al modo
+vertical sin romper la direccion horizontal principal.
+
+## Movimiento 79 - Primera replica real de edicion desde el laboratorio
+
+Fase: Bloque I - Modo app / migracion por vistas
+
+Archivos movidos:
+
+- `src/features/lab/LabApp.tsx`
+- `src/features/edit/EditWorkspace.tsx`
+- `src/App.integration.test.tsx`
+
+Intencion:
+
+Dejar de tener `EditScreen` como placeholder puro y convertirlo en la primera
+vista real del modo app, pero sin romper ni desarmar todavia el laboratorio
+monovista.
+
+Como se movio:
+
+- `LabApp` ahora acepta un modo `edit-only`.
+- Ese modo reutiliza la misma logica del laboratorio para renderizar solo:
+  - timeline de tracks
+  - lista de notas grabadas
+  - editor de nota
+  - timeline de notas
+- `EditWorkspace` ya no muestra solo texto de placeholder:
+  - ahora monta `LabApp` en modo `edit-only`
+- La prueba de integracion de la ruta raiz dejo de validar solo copy vacio y
+  ahora confirma presencia real de controles del editor.
+
+Decision tecnica:
+
+Se eligio replicar la vista de edicion reutilizando el laboratorio como fuente
+de verdad de comportamiento, en lugar de reimplementar la logica dentro de
+`EditScreen`. Asi:
+
+- el laboratorio sigue integro
+- la nueva vista ya nace funcional
+- se evita duplicar reglas de timeline, seleccion, historial y edicion fina
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El modo app ya no es solo shell + placeholders. `Edit` se convierte en la
+primera pantalla viva montada sobre comportamiento real, mientras `LabApp`
+sigue intacto como sandbox completo para migraciones futuras.

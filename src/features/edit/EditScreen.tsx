@@ -1,16 +1,18 @@
+import type { AppViewMessages } from "../../app/appI18n"
 import { EditWorkspace } from "./EditWorkspace"
 
-export function EditScreen() {
+type EditScreenProps = {
+  copy: AppViewMessages
+}
+
+export function EditScreen({ copy }: EditScreenProps) {
   return (
     <section className="app-view-screen" aria-label="Pantalla Edit">
       <div className="app-view-intro">
-        <h2>Edit</h2>
-        <p>
-          Primera pantalla recomendada para la migracion desde el laboratorio.
-          Su frontera natural es la edicion temporal del proyecto.
-        </p>
+        <h2>{copy.label}</h2>
+        <p>{copy.intro}</p>
       </div>
-      <EditWorkspace />
+      <EditWorkspace body={copy.workspaceBody} title={copy.workspaceTitle} />
     </section>
   )
 }
