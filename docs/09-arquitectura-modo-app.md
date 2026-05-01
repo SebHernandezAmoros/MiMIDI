@@ -751,6 +751,42 @@ adelante con:
 - `Project`
 - `Perform`
 
+Segundo ejemplo concreto ya previsto por la misma linea:
+
+- `LabApp mode="project-only"`
+
+Ese modo puede concentrar:
+
+- panel de proyecto
+- pistas activas
+- mezcla
+- automatizacion
+- envolvente
+- import/export
+- acciones estructurales del proyecto
+
+La regla sigue siendo la misma:
+
+- primero replicar comportamiento real
+- despues extraer coordinacion comun a hooks o view-models
+
+Tercer ejemplo natural de la misma estrategia:
+
+- `LabApp mode="perform-only"`
+
+Ese modo puede concentrar:
+
+- controles de sonido
+- arpegiador
+- piano
+- mini `SMC Pad`
+- acciones de tocar/grabar
+- log MIDI
+
+Con `Edit`, `Project` y `Perform` ya replicados de esta forma, el siguiente
+paso deja de ser crear mas placeholders y pasa a ser refinar fronteras de
+coordinacion compartida.
+
 ## 12. Resultado esperado
 
 Si seguimos esta ruta, vamos a lograr:

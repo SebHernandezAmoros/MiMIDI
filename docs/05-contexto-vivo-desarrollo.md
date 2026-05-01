@@ -4428,3 +4428,118 @@ Resultado:
 El modo app ya no es solo shell + placeholders. `Edit` se convierte en la
 primera pantalla viva montada sobre comportamiento real, mientras `LabApp`
 sigue intacto como sandbox completo para migraciones futuras.
+
+## Movimiento 80 - Primera replica real de proyecto desde el laboratorio
+
+Fase: Bloque I - Modo app / migracion por vistas
+
+Archivos movidos:
+
+- `src/features/lab/LabApp.tsx`
+- `src/features/project-view/ProjectWorkspace.tsx`
+- `src/App.integration.test.tsx`
+
+Intencion:
+
+Hacer que `ProjectScreen` deje de ser un placeholder y pase a exponer una vista
+real de gestion de proyecto, manteniendo el laboratorio como fuente completa de
+comportamiento.
+
+Como se movio:
+
+- `LabApp` ahora acepta tambien un modo `project-only`.
+- Ese modo reutiliza la logica del laboratorio para renderizar:
+  - panel de proyecto y pistas
+  - categoria e instrumento por pista
+  - manager de plugins internos
+  - mezcla por pista
+  - automatizacion basica
+  - envolvente por pista
+  - acciones de proyecto:
+    - reproducir
+    - exportar WAV
+    - detener
+    - limpiar notas
+    - reiniciar proyecto
+    - importar/exportar JSON
+- `ProjectWorkspace` ya monta `LabApp` en modo `project-only`.
+- Se agrego prueba de integracion para confirmar que la ruta raiz en `view=project`
+  ya muestra controles reales del proyecto.
+
+Decision tecnica:
+
+Se repitio la misma estrategia usada en `Edit`: primero replicar la superficie
+real apoyandose en el laboratorio, y despues extraer coordinacion mas fina si
+la vista crece. Eso evita reescritura temprana y mantiene una sola fuente de
+verdad de negocio durante la migracion.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+`Project` ya nace como segunda pantalla viva del modo app. El shell deja de ser
+solo maqueta y empieza a repartir capacidades reales sin sacrificar el
+laboratorio monovista como sandbox estable.
+
+## Movimiento 81 - Primera replica real de interpretacion desde el laboratorio
+
+Fase: Bloque I - Modo app / migracion por vistas
+
+Archivos movidos:
+
+- `src/features/lab/LabApp.tsx`
+- `src/features/perform/PerformWorkspace.tsx`
+- `src/App.integration.test.tsx`
+
+Intencion:
+
+Convertir `PerformScreen` en la tercera pantalla viva del modo app, agrupando
+la parte mas performativa del laboratorio sin mezclarla con mezcla o edicion
+fina.
+
+Como se movio:
+
+- `LabApp` ahora suma un modo `perform-only`.
+- Ese modo reutiliza la logica del laboratorio para renderizar:
+  - controles de sonido
+  - arpegiador
+  - selector de octava y modo del piano
+  - piano visual
+  - mini `SMC Pad`
+  - acciones de toque/grabacion/reproduccion
+  - log MIDI
+- `PerformWorkspace` ya monta `LabApp` en modo `perform-only`.
+- Se agrego prueba de integracion para confirmar que la ruta raiz en
+  `view=perform` muestra controles reales de interpretacion.
+
+Decision tecnica:
+
+Se consolida el patron de migracion por modos parciales del laboratorio:
+
+- `edit-only`
+- `project-only`
+- `perform-only`
+
+Eso permite repartir capacidades reales del laboratorio dentro del shell sin
+duplicar comportamiento ni destruir el sandbox original.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El modo app ya cuenta con sus tres vistas troncales vivas:
+
+- `Edit`
+- `Project`
+- `Perform`
+
+La raiz del proyecto deja de ser solo una maqueta de navegacion y pasa a tener
+un esqueleto funcional serio para la futura separacion completa por pantallas.

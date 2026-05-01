@@ -140,7 +140,7 @@ function getPerformanceTimestamp() {
   return performance.now()
 }
 
-type LabAppMode = "full" | "edit-only"
+type LabAppMode = "full" | "edit-only" | "project-only" | "perform-only"
 
 type LabAppProps = {
   mode?: LabAppMode
@@ -1150,6 +1150,178 @@ function LabApp({ mode = "full" }: LabAppProps) {
     return editWorkspace
   }
 
+  const projectPanel = (
+    <LabProjectPanel
+      activeInstrumentCategory={activeInstrumentCategory}
+      envelopeHelpText="Ajusta ADSR de la pista activa. Los cambios afectan las notas nuevas y quedan guardados con la grabacion."
+      envelope={primaryTrack.envelope}
+      instrumentCategoryDescription={getInstrumentCategoryDescription(
+        activeInstrumentCategory,
+      )}
+      instrumentCategories={instrumentCategories}
+      instrumentOptions={visibleInstrumentOptions}
+      noteCount={noteCount}
+      onAddTrack={addTrack}
+      onInstrumentCategoryChange={updateTrackInstrumentCategory}
+      onPluginEnabledChange={updatePluginEnabled}
+      onProjectNameChange={updateProjectName}
+      onProjectTrackTimelineDurationChange={updateProjectTrackTimelineDurationValue}
+      onResetProjectTrackTimelineDuration={resetProjectTrackTimelineDuration}
+      onRemoveActiveTrack={removeActiveTrack}
+      onSwitchActiveTrack={switchActiveTrack}
+      onTrackEnvelopeChange={updatePrimaryTrackEnvelope}
+      onTrackInstrumentChange={updateTrackInstrumentId}
+      onTrackMutedToggle={togglePrimaryTrackMuted}
+      onTrackNameChange={updateTrackName}
+      onTrackPanChange={updatePrimaryTrackPan}
+      onTrackSoloToggle={togglePrimaryTrackSolo}
+      onTrackVolumeAutomationChange={updatePrimaryTrackVolumeAutomation}
+      onTrackVolumeChange={updatePrimaryTrackVolume}
+      pan={primaryTrack.pan}
+      primaryTrackId={primaryTrack.id}
+      primaryTrackInstrumentId={primaryTrack.instrumentId}
+      primaryTrackMuted={primaryTrack.muted}
+      primaryTrackName={primaryTrack.name}
+      primaryTrackSolo={primaryTrack.solo}
+      projectMessage={projectMessage}
+      projectName={project.name}
+      projectTrackTimelineDuration={project.trackTimelineDuration}
+      plugins={registeredPlugins}
+      trackCount={project.tracks.length}
+      tracks={project.tracks}
+      volumeAutomation={primaryTrack.volumeAutomation}
+      volume={primaryTrack.volume}
+    />
+  )
+
+  const projectActionSection = (
+    <div className="actions" aria-label="Acciones del proyecto">
+      <button
+        disabled={!allRecordedNotes.length || playbackTransport.isPlaying}
+        onClick={playRecording}
+        type="button"
+      >
+        {playbackTransport.isPlaying ? "Reproduciendo" : "Reproducir grabacion"}
+      </button>
+      <button
+        disabled={!allRecordedNotes.length || isExportingAudio}
+        onClick={exportProjectAudio}
+        type="button"
+      >
+        {isExportingAudio ? "Exportando audio..." : "Exportar WAV"}
+      </button>
+      <button onClick={playbackTransport.stop} type="button">
+        Detener
+      </button>
+      <button onClick={clearSession} type="button">
+        Limpiar notas
+      </button>
+      <button onClick={restartProject} type="button">
+        Reiniciar proyecto
+      </button>
+      <button onClick={openImportDialog} type="button">
+        Importar JSON
+      </button>
+      <button onClick={exportProject} type="button">
+        Exportar JSON
+      </button>
+    </div>
+  )
+
+  const projectWorkspace = (
+    <>
+      <input
+        accept=".json,application/json"
+        hidden
+        onChange={importProjectFile}
+        ref={importInputRef}
+        type="file"
+      />
+      {projectPanel}
+      {projectActionSection}
+    </>
+  )
+
+  if (mode === "project-only") {
+    return projectWorkspace
+  }
+
+  const performWorkspace = (
+    <>
+      <LabSoundControls
+        arpeggiatorSettings={arpeggiatorSettings}
+        availableNotes={visibleNotes}
+        onArpeggiatorEnabledChange={handleArpeggiatorEnabledChange}
+        onArpeggiatorGateChange={handleArpeggiatorGateChange}
+        onArpeggiatorLatchChange={handleArpeggiatorLatchChange}
+        onArpeggiatorModeChange={handleArpeggiatorModeChange}
+        onArpeggiatorOctaveRangeChange={handleArpeggiatorOctaveRangeChange}
+        onArpeggiatorRateChange={handleArpeggiatorRateChange}
+        onChordTypeChange={setSelectedChordType}
+        onNoteChange={setSelectedNote}
+        onPreviewOctaveChange={updatePreviewOctave}
+        onPianoModeChange={setPianoMode}
+        onVolumeChange={updateVolume}
+        pianoMode={pianoMode}
+        previewOctave={previewOctave}
+        previewOctaveOptions={previewOctaveOptions}
+        selectedChordType={selectedChordType}
+        selectedNote={selectedNote}
+        volume={volume}
+      />
+
+      <PianoPreview
+        getPlayableNotes={getPianoPlayableNotes}
+        directPlaybackEnabled={!arpeggiatorSettings.enabled}
+        interactionMode={pianoMode}
+        notes={visibleNotes}
+        onNoteOff={
+          arpeggiatorSettings.enabled
+            ? undefined
+            : (note) => handleMidiEvent("note-off", note)
+        }
+        onNoteOn={
+          arpeggiatorSettings.enabled
+            ? undefined
+            : (note) => handleMidiEvent("note-on", note)
+        }
+        onSelectNote={setSelectedNote}
+        onTriggerNoteOff={handlePianoTriggerEnd}
+        onTriggerNoteOn={handlePianoTriggerStart}
+        playOptions={basePreviewPlayOptions}
+        resolvePlayOptions={() => getTrackPreviewPlayOptions(getCurrentRecordTime())}
+        selectedNote={selectedNote}
+      />
+
+      <MiniSmcPad onTrigger={triggerSmcPad} />
+
+      <LabActions
+        canExportAudio={allRecordedNotes.length > 0}
+        canPlayRecording={allRecordedNotes.length > 0}
+        isExportingAudio={isExportingAudio}
+        isPlaying={playbackTransport.isPlaying}
+        isRecording={recordingState === "recording"}
+        onClearSession={clearSession}
+        onExportAudio={exportProjectAudio}
+        onExportProject={exportProject}
+        onImportProject={openImportDialog}
+        onPlayRecording={playRecording}
+        onPlayTestChord={playTestChord}
+        onPlayTestNote={playTestNote}
+        onRestartProject={restartProject}
+        onStartRecording={startRecording}
+        onStopPlayback={playbackTransport.stop}
+        onStopRecording={() => stopRecording()}
+      />
+
+      <MidiEventLog events={midiEvents} />
+    </>
+  )
+
+  if (mode === "perform-only") {
+    return performWorkspace
+  }
+
   return (
     <main>
       <h1>MiMIDI</h1>
@@ -1164,115 +1336,17 @@ function LabApp({ mode = "full" }: LabAppProps) {
           type="file"
         />
 
-        <LabProjectPanel
-          activeInstrumentCategory={activeInstrumentCategory}
-          envelopeHelpText="Ajusta ADSR de la pista activa. Los cambios afectan las notas nuevas y quedan guardados con la grabacion."
-          envelope={primaryTrack.envelope}
-          instrumentCategoryDescription={getInstrumentCategoryDescription(
-            activeInstrumentCategory,
-          )}
-          instrumentCategories={instrumentCategories}
-          instrumentOptions={visibleInstrumentOptions}
-          noteCount={noteCount}
-          onAddTrack={addTrack}
-          onInstrumentCategoryChange={updateTrackInstrumentCategory}
-          onPluginEnabledChange={updatePluginEnabled}
-          onProjectNameChange={updateProjectName}
-          onProjectTrackTimelineDurationChange={updateProjectTrackTimelineDurationValue}
-          onResetProjectTrackTimelineDuration={resetProjectTrackTimelineDuration}
-          onRemoveActiveTrack={removeActiveTrack}
-          onSwitchActiveTrack={switchActiveTrack}
-          onTrackEnvelopeChange={updatePrimaryTrackEnvelope}
-          onTrackInstrumentChange={updateTrackInstrumentId}
-          onTrackMutedToggle={togglePrimaryTrackMuted}
-          onTrackNameChange={updateTrackName}
-          onTrackPanChange={updatePrimaryTrackPan}
-          onTrackSoloToggle={togglePrimaryTrackSolo}
-          onTrackVolumeAutomationChange={updatePrimaryTrackVolumeAutomation}
-          onTrackVolumeChange={updatePrimaryTrackVolume}
-          pan={primaryTrack.pan}
-          primaryTrackId={primaryTrack.id}
-          primaryTrackInstrumentId={primaryTrack.instrumentId}
-          primaryTrackMuted={primaryTrack.muted}
-          primaryTrackName={primaryTrack.name}
-          primaryTrackSolo={primaryTrack.solo}
-          projectMessage={projectMessage}
-          projectName={project.name}
-          projectTrackTimelineDuration={project.trackTimelineDuration}
-          plugins={registeredPlugins}
-          trackCount={project.tracks.length}
-          tracks={project.tracks}
-          volumeAutomation={primaryTrack.volumeAutomation}
-          volume={primaryTrack.volume}
+        <input
+          accept=".json,application/json"
+          hidden
+          onChange={importProjectFile}
+          ref={importInputRef}
+          type="file"
         />
 
-        <LabSoundControls
-          arpeggiatorSettings={arpeggiatorSettings}
-          availableNotes={visibleNotes}
-          onArpeggiatorEnabledChange={handleArpeggiatorEnabledChange}
-          onArpeggiatorGateChange={handleArpeggiatorGateChange}
-          onArpeggiatorLatchChange={handleArpeggiatorLatchChange}
-          onArpeggiatorModeChange={handleArpeggiatorModeChange}
-          onArpeggiatorOctaveRangeChange={handleArpeggiatorOctaveRangeChange}
-          onArpeggiatorRateChange={handleArpeggiatorRateChange}
-          onChordTypeChange={setSelectedChordType}
-          onNoteChange={setSelectedNote}
-          onPreviewOctaveChange={updatePreviewOctave}
-          onPianoModeChange={setPianoMode}
-          onVolumeChange={updateVolume}
-          pianoMode={pianoMode}
-          previewOctave={previewOctave}
-          previewOctaveOptions={previewOctaveOptions}
-          selectedChordType={selectedChordType}
-          selectedNote={selectedNote}
-          volume={volume}
-        />
+        {projectPanel}
 
-        <PianoPreview
-          getPlayableNotes={getPianoPlayableNotes}
-          directPlaybackEnabled={!arpeggiatorSettings.enabled}
-          interactionMode={pianoMode}
-          notes={visibleNotes}
-          onNoteOff={
-            arpeggiatorSettings.enabled
-              ? undefined
-              : (note) => handleMidiEvent("note-off", note)
-          }
-          onNoteOn={
-            arpeggiatorSettings.enabled
-              ? undefined
-              : (note) => handleMidiEvent("note-on", note)
-          }
-          onSelectNote={setSelectedNote}
-          onTriggerNoteOff={handlePianoTriggerEnd}
-          onTriggerNoteOn={handlePianoTriggerStart}
-          playOptions={basePreviewPlayOptions}
-          resolvePlayOptions={() => getTrackPreviewPlayOptions(getCurrentRecordTime())}
-          selectedNote={selectedNote}
-        />
-
-        <MiniSmcPad onTrigger={triggerSmcPad} />
-
-        <LabActions
-          canExportAudio={allRecordedNotes.length > 0}
-          canPlayRecording={allRecordedNotes.length > 0}
-          isExportingAudio={isExportingAudio}
-          isPlaying={playbackTransport.isPlaying}
-          onClearSession={clearSession}
-          onExportAudio={exportProjectAudio}
-          onExportProject={exportProject}
-          onImportProject={openImportDialog}
-          isRecording={recordingState === "recording"}
-          onPlayRecording={playRecording}
-          onPlayTestChord={playTestChord}
-          onPlayTestNote={playTestNote}
-          onRestartProject={restartProject}
-          onStartRecording={startRecording}
-          onStopRecording={() => stopRecording()}
-          onStopPlayback={playbackTransport.stop}
-        />
-
-        <MidiEventLog events={midiEvents} />
+        {performWorkspace}
         {editWorkspace}
       </section>
     </main>

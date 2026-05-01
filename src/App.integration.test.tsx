@@ -356,4 +356,26 @@ describe("App integration: timeline history", () => {
     expect(screen.getByLabelText("Workspace Edit")).toBeTruthy()
     expect(screen.getByLabelText("Duracion timeline notas (s)")).toBeTruthy()
   })
+
+  it("shows the replicated project view on the root route", () => {
+    window.history.pushState({}, "", "/?view=project")
+
+    render(<App />)
+
+    expect(screen.getByRole("button", { name: "Project" })).toBeTruthy()
+    expect(screen.getByLabelText("Workspace Project")).toBeTruthy()
+    expect(screen.getByLabelText("Proyecto actual")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Exportar JSON" })).toBeTruthy()
+  })
+
+  it("shows the replicated perform view on the root route", () => {
+    window.history.pushState({}, "", "/?view=perform")
+
+    render(<App />)
+
+    expect(screen.getByRole("button", { name: "Perform" })).toBeTruthy()
+    expect(screen.getByLabelText("Workspace Perform")).toBeTruthy()
+    expect(screen.getByLabelText("Modo del piano")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Tocar nota" })).toBeTruthy()
+  })
 })
