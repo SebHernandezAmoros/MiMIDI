@@ -3539,3 +3539,368 @@ Resultado:
 El timeline de tracks ya no depende solo del contenido grabado para definir su
 largo visible. Ahora puede prepararse una estructura temporal mas amplia y luego
 llenarla con clips segun lo necesite el proyecto.
+
+## Movimiento 66 - Base modular de plugins y catalogo extensible
+
+Fase: Bloque G - FASE 6 Plugins
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/engine/audio/instrumentCatalog.ts`
+- `src/engine/audio/mathematicalInstruments.ts`
+- `src/engine/plugins/internalPlugins.ts`
+- `src/engine/plugins/pluginModel.ts`
+- `src/engine/plugins/pluginRegistry.ts`
+- `src/engine/plugins/pluginRegistry.test.ts`
+- `src/features/lab/useLabInstrumentCatalog.ts`
+- `docs/00-README-DOCS.md`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/08-guia-crear-plugins.md`
+
+Intencion:
+
+Preparar una base modular real para plugins sin romper el laboratorio actual y,
+al mismo tiempo, seguir reduciendo la responsabilidad directa de `App.tsx`
+sacando la resolucion del catalogo de instrumentos fuera del componente
+principal.
+
+Como se movio:
+
+- Se definio un contrato minimo de plugin en `pluginModel.ts`.
+- Se creo un registro interno controlado de plugins.
+- Se agrego un primer plugin matematico de ejemplo:
+  - `Motion Synth Pack`
+- Ese plugin aporta instrumentos nuevos sin usar samples.
+- Se creo `instrumentCatalog.ts` para combinar:
+  - instrumentos del core
+  - instrumentos de plugins habilitados
+- `App.tsx` dejo de resolver directamente el catalogo de instrumentos base.
+- El laboratorio ahora consume un hook de catalogo (`useLabInstrumentCatalog`)
+  para obtener:
+  - instrumento seleccionado
+  - categorias
+  - instrumentos visibles
+- Se agregaron pruebas para:
+  - registro de plugins
+  - instrumentos aportados por plugin
+  - presencia visible del plugin en el selector del laboratorio
+- Se agrego una nueva guia numerada en docs para explicar como crear plugins en
+  el MVP actual.
+
+Decision tecnica:
+
+Se eligio empezar por plugins internos de instrumentos porque validan el
+contrato de extensibilidad con el menor riesgo y sin forzar todavia carga
+dinamica, sandbox ni instalacion externa. Tambien se aprovecho el movimiento
+para sacar una parte clara de coordinacion de `App.tsx` hacia un catalogo y un
+hook dedicados, en lugar de seguir acoplando el componente principal al listado
+de instrumentos.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+Bloque G queda iniciado con una base modular funcional: MiMIDI ya puede
+combinar instrumentos del core con instrumentos registrados por plugins internos,
+y `App.tsx` queda menos cargado en una de sus zonas de coordinacion mas
+sensibles.
+
+## Movimiento 67 - Extraccion de la sesion de grabacion del laboratorio
+
+Fase: Bloque G - soporte estructural para modularidad
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/features/lab/useLabRecordingSession.ts`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Seguir separando `App.tsx` en secciones logicas del laboratorio sin cambiar el
+comportamiento visible, dejando la coordinacion de grabacion en un hook propio
+para preparar mejor el crecimiento modular del core y futuras extensiones.
+
+Como se movio:
+
+- Se creo `useLabRecordingSession` como frontera dedicada para:
+  - inicio y detencion de grabacion
+  - tiempo de toma actual
+  - registro de eventos `note-on` / `note-off`
+  - cierre de notas activas al detener grabacion
+  - reinicio limpio de la sesion de captura
+- `App.tsx` dejo de cargar directamente con:
+  - refs de grabacion
+  - calculo de tiempo de toma
+  - persistencia temporal de notas activas
+- El componente principal ahora consume una interfaz mas clara del hook:
+  - `startRecording`
+  - `stopRecording`
+  - `recordNotesToActiveTrack`
+  - `recordNotesAtTime`
+  - `registerMidiEvent`
+  - `resetRecordingSession`
+
+Decision tecnica:
+
+Se eligio extraer primero la sesion de grabacion porque era una de las
+coordinaciones mas acopladas dentro de `App.tsx` y, al mismo tiempo, una pieza
+central para no romper el flujo actual del laboratorio. Convertirla en hook
+permite seguir dividiendo el componente principal por responsabilidades reales,
+no solo por conveniencia visual.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+`App.tsx` pierde una parte importante de su coordinacion interna sin cambiar la
+semantica actual de grabacion. La base para seguir separando el laboratorio ya
+queda mas clara y menos riesgosa para las siguientes iteraciones de `Bloque G`.
+
+## Movimiento 68 - Duracion configurable del timeline de notas por pista
+
+Fase: Bloque F - refinamiento del editor de notas
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabNoteEditor.tsx`
+- `src/features/timeline/TimelinePreview.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Completar la coherencia entre el timeline global de tracks y el timeline de
+notas de la pista activa, permitiendo definir un rango visible y editable propio
+para cada pista en vez de depender solo del ultimo evento grabado.
+
+Como se movio:
+
+- Cada pista ahora guarda `noteTimelineDuration`.
+- Se agrego un resolvedor `max(duracionManual, contenidoReal)` para el editor de
+  notas.
+- `TimelinePreview` deja de depender exclusivamente del contenido para decidir
+  su largo visible.
+- `LabNoteEditor` incorpora:
+  - `Duracion timeline notas (s)`
+  - `Ajustar notas al contenido`
+- Los proyectos anteriores siguen funcionando:
+  - si una pista no trae `noteTimelineDuration`, se normaliza con un valor base
+    razonable.
+- Se agregaron pruebas de integracion para validar:
+  - duracion manual del timeline de notas
+  - reajuste al contenido actual
+
+Decision tecnica:
+
+Se eligio guardar la duracion del timeline de notas por pista, no a nivel global
+del proyecto, porque esta vista representa el espacio de trabajo del contenido
+interno de cada track. Asi el arreglo general y la edicion detallada pueden
+crecer por separado sin mezclar sus responsabilidades.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+El timeline de notas ya puede reservar espacio vacio futuro y conservarlo por
+pista. La edicion detallada deja de colapsar al ultimo evento y gana una
+semantica temporal consistente con el timeline superior de tracks.
+
+## Movimiento 69 - Expansion de la guia base para crear plugins
+
+Fase: Bloque G - documentacion estructural
+
+Archivos movidos:
+
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/08-guia-crear-plugins.md`
+
+Intencion:
+
+Convertir la guia numerada de plugins en una base mas completa y util para los
+proximos pasos del bloque, dejando no solo el flujo actual del MVP sino tambien
+los limites, riesgos y puntos donde seguramente habra que parchear la guia
+cuando el sistema crezca.
+
+Como se movio:
+
+- Se reescribio `docs/08` con una estructura mas amplia.
+- La guia ahora explica:
+  - objetivo real del MVP
+  - contrato actual de plugin
+  - flujo de registro y resolucion del catalogo
+  - significado de cada campo
+  - procedimiento recomendado para crear plugins
+  - riesgos actuales del sistema
+  - checklist de validacion
+  - puntos futuros de parche y evolucion
+
+Decision tecnica:
+
+Se eligio dejar la guia mas descriptiva ahora, aunque todavia el sistema sea
+pequeno, porque el costo de documentar tarde seria mucho mayor cuando empiecen a
+aparecer plugins mas ambiciosos, superficies nuevas o activacion visible.
+
+Validacion:
+
+- revision manual de coherencia contra:
+  - `pluginModel.ts`
+  - `pluginRegistry.ts`
+  - `internalPlugins.ts`
+  - `instrumentCatalog.ts`
+
+Resultado:
+
+La documentacion de plugins deja de ser una nota corta de MVP y pasa a ser una
+base operativa mas completa para crear, revisar y evolucionar plugins en
+MiMIDI.
+
+## Movimiento 70 - Plan para compactar el inicio del timeline de notas
+
+Fase: Bloque F - refinamiento del editor de notas
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Registrar una mejora puntual del editor de notas que quite el espacio en blanco
+inicial antes de la primera nota, sin tocar todavia el timeline de tracks ni
+convertir esto en una operacion global del proyecto.
+
+Como se moveria:
+
+- agregar una accion explicita tipo:
+  - `Compactar inicio`
+- calcular el `startTime` minimo de las notas visibles de la pista activa
+- restar ese offset minimo a todas las notas de esa pista
+- conservar intactas:
+  - distancias relativas entre notas
+  - duraciones actuales
+  - seleccion de pista
+- si no hay notas o la primera ya empieza en `0`, no hacer cambios
+- registrar el cambio dentro del historial normal para permitir:
+  - `Deshacer`
+  - `Rehacer`
+
+Decision tecnica:
+
+Esto se plantea solo para el timeline de notas porque ahi el espacio vacio
+inicial afecta mas la edicion fina. No se aplicara por ahora al timeline de
+tracks para evitar mezclar una mejora local de detalle con decisiones globales
+del arreglo multipista.
+
+Plan recomendado:
+
+1. crear helper de dominio para compactar notas de una pista
+2. exponer una accion desde `App.tsx` o el hook que corresponda
+3. agregar boton en `LabNoteEditor`
+4. cubrir con prueba de integracion:
+   - caso con espacio en blanco inicial
+   - caso sin notas
+   - caso donde la primera nota ya esta en `0`
+
+Resultado:
+
+La idea queda consolidada y lista para implementarse despues sin perder el
+alcance: compactar inicio solo en timeline de notas.
+
+## Movimiento 71 - Compactar inicio del timeline de notas
+
+Fase: Bloque F - refinamiento del editor de notas
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/App.integration.test.tsx`
+- `src/engine/project/projectModel.ts`
+- `src/features/lab/LabNoteEditor.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Eliminar rapidamente el espacio en blanco previo a la primera nota de la pista
+activa cuando el usuario quiera empezar la edicion detallada desde `0s`, sin
+afectar todavia el timeline de tracks ni el arreglo global.
+
+Como se movio:
+
+- Se agrego helper de dominio para compactar el inicio de las notas de una
+  pista.
+- El sistema calcula la nota mas temprana de la pista activa y resta ese offset
+  a todas las notas de la misma pista.
+- Se conserva:
+  - distancia relativa entre notas
+  - duracion de cada nota
+  - integracion con historial
+- `LabNoteEditor` suma el boton:
+  - `Compactar inicio`
+- Se cubrio con prueba de integracion el caso donde una pista arranca despues
+  de `0s`.
+
+Decision tecnica:
+
+La compactacion se limito al timeline de notas porque es una operacion local de
+edicion fina. No se aplico al timeline de tracks para no mezclar un ajuste del
+detalle interno con decisiones estructurales del arreglo multipista.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+La pista activa ya puede mover todo su contenido al segundo `0` con una sola
+accion, eliminando silencio inicial sin romper relaciones internas entre notas.
+
+Guia rapida de prueba:
+
+1. ir a una pista cuyas notas no empiecen en `0s`
+2. abrir el editor de notas
+3. pulsar `Compactar inicio`
+4. revisar la timeline de notas
+5. confirmar que la primera nota ahora empieza en `0s`
+6. confirmar que las demas conservaron su separacion relativa
+7. usar `Deshacer` y `Rehacer` para validar historial
+
+## Estado ampliado del bloque actual
+
+Bloque actual: Bloque G - Plugins
+
+Pendiente real consolidado:
+
+- activacion/desactivacion visible de plugins
+- persistencia del estado activo/inactivo
+- abrir una segunda superficie extensible ademas del catalogo de instrumentos
+- seguir sacando coordinacion de `App.tsx` a fronteras mas compatibles con
+  extensibilidad
+
+Siguiente foco recomendado dentro de Bloque G:
+
+1. activacion/desactivacion visible
+2. persistencia del estado de plugins
+3. elegir una segunda superficie extensible MVP

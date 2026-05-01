@@ -20,6 +20,8 @@ modular preparada para plugins/mods.
   extensiones.
 - `07-prompt-continuidad-codex.md` -> prompt de continuidad para nuevos chats de
   Codex, con contexto operativo y reglas de comportamiento/documentacion.
+- `08-guia-crear-plugins.md` -> guia practica para crear y registrar plugins en
+  el MVP actual del proyecto.
 
 ## Proposito de esta carpeta
 

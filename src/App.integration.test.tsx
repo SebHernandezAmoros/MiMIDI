@@ -44,6 +44,7 @@ describe("App integration: timeline history", () => {
           instrumentId: "pure-sine",
           name: "Track 1",
           muted: false,
+          noteTimelineDuration: 8,
           notes: [
             {
               id: "note-A4-0.000-0.500",
@@ -75,6 +76,7 @@ describe("App integration: timeline history", () => {
           instrumentId: "soft-triangle",
           name: "Track 2",
           muted: false,
+          noteTimelineDuration: 8,
           notes: [
             {
               id: "note-C5-0.250-0.750",
@@ -271,5 +273,46 @@ describe("App integration: timeline history", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ajustar al contenido" }))
 
     expect(Number((durationInput as HTMLInputElement).value)).toBeLessThan(16)
+  })
+
+  it("allows defining a manual duration for the note timeline", () => {
+    render(<App />)
+
+    const durationInput = screen.getByLabelText("Duracion timeline notas (s)")
+    fireEvent.change(durationInput, { target: { value: "12" } })
+
+    expect(screen.getByText("12.0s")).toBeTruthy()
+  })
+
+  it("can reset the note timeline duration to fit current content", () => {
+    render(<App />)
+
+    const durationInput = screen.getByLabelText("Duracion timeline notas (s)")
+    fireEvent.change(durationInput, { target: { value: "12" } })
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar notas al contenido" }))
+
+    expect(Number((durationInput as HTMLInputElement).value)).toBeLessThan(12)
+  })
+
+  it("can compact the empty space before the first note in the note timeline", () => {
+    const { container } = render(<App />)
+
+    fireEvent.click(screen.getByRole("button", { name: /track 2/i }))
+
+    let block = getFirstTimelineBlock(container)
+    expect(Number(getNoteStartValue(block))).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole("button", { name: "Compactar inicio" }))
+
+    block = getFirstTimelineBlock(container)
+    expect(Number(getNoteStartValue(block))).toBe(0)
+  })
+
+  it("shows plugin instruments in the instrument selector", () => {
+    render(<App />)
+
+    const instrumentSelect = screen.getByLabelText("Instrumento matematico")
+
+    expect(within(instrumentSelect).getByRole("option", { name: "Glass Pluck (Base)" })).toBeTruthy()
   })
 })

@@ -24,6 +24,7 @@ export type ProjectTrack = {
   instrumentId: MathematicalInstrumentId
   muted: boolean
   name: string
+  noteTimelineDuration: number
   notes: MidiRecordedNote[]
   pan: number
   solo: boolean
@@ -71,6 +72,7 @@ export function createProjectTrack(index: number): ProjectTrack {
     instrumentId: "pure-sine",
     muted: false,
     name: `Track ${index}`,
+    noteTimelineDuration: 8,
     notes: [],
     pan: 0,
     solo: false,
@@ -264,6 +266,55 @@ export function renameTrack(
           }
         : track,
     ),
+  }
+}
+
+export function updateTrackNoteTimelineDuration(
+  project: MusicalProject,
+  trackId: string,
+  duration: number,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) =>
+      track.id === trackId
+        ? {
+            ...track,
+            noteTimelineDuration: clamp(duration, 1, 9999),
+          }
+        : track,
+    ),
+  }
+}
+
+export function compactTrackNotesStart(
+  project: MusicalProject,
+  trackId: string,
+): MusicalProject {
+  return {
+    ...project,
+    tracks: project.tracks.map((track) => {
+      if (track.id !== trackId || track.notes.length === 0) {
+        return track
+      }
+
+      const earliestStartTime = track.notes.reduce(
+        (minimumStartTime, note) => Math.min(minimumStartTime, note.startTime),
+        Number.POSITIVE_INFINITY,
+      )
+
+      if (!Number.isFinite(earliestStartTime) || earliestStartTime <= 0) {
+        return track
+      }
+
+      return {
+        ...track,
+        notes: track.notes.map((note) => ({
+          ...note,
+          startTime: Math.max(0, note.startTime - earliestStartTime),
+        })),
+      }
+    }),
   }
 }
 
@@ -493,6 +544,19 @@ export function getTrackTimelineClipDuration(track: ProjectTrack) {
   return Math.max(trackDuration, 0.25)
 }
 
+export function getTrackNoteTimelineContentLength(track: ProjectTrack) {
+  const lastNoteEnd = track.notes.reduce(
+    (latestEnd, note) => Math.max(latestEnd, note.startTime + note.duration),
+    0,
+  )
+
+  return Math.max(lastNoteEnd, 1)
+}
+
+export function getTrackNoteTimelineLength(track: ProjectTrack) {
+  return Math.max(track.noteTimelineDuration, getTrackNoteTimelineContentLength(track))
+}
+
 export function getTracksTimelineLength(tracks: ProjectTrack[]) {
   const lastTrackEnd = tracks.reduce((maxEndTime, track) => {
     const trackEnd = track.timelineClip.startTime + getTrackTimelineClipDuration(track)
@@ -663,6 +727,10 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
     },
     instrumentId: (track.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
     muted: typeof (track as Record<string, unknown>).muted === "boolean" ? track.muted : false,
+    noteTimelineDuration:
+      typeof (track as Record<string, unknown>).noteTimelineDuration === "number"
+        ? Math.max(track.noteTimelineDuration, 1)
+        : 8,
     pan: typeof (track as Record<string, unknown>).pan === "number"
       ? Math.min(Math.max(track.pan, -1), 1)
       : 0,

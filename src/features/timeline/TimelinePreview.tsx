@@ -2,7 +2,6 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react"
 import { isSmcPadRecordedNote, type MidiRecordedNote } from "../../engine/midi/events"
 import { noteToMidiNumber } from "../../engine/midi/notes"
 import type { MusicalNote } from "../../engine/midi/notes"
-import { getTimelineLength } from "./timelineLayout"
 import "./TimelinePreview.css"
 
 type TimelinePreviewProps = {
@@ -16,6 +15,7 @@ type TimelinePreviewProps = {
     historyMode?: "transient" | "commit",
   ) => void
   selectedNoteId?: string | null
+  timelineLength?: number
 }
 
 type TimelineNoteStyle = CSSProperties & {
@@ -50,10 +50,19 @@ export function TimelinePreview({
   onDragStateChange,
   onUpdateNote,
   selectedNoteId,
+  timelineLength: providedTimelineLength,
 }: TimelinePreviewProps) {
   const orderedNotes = [...notes].sort((a, b) => a.startTime - b.startTime)
   const lanes = groupNotesByPitch(orderedNotes)
-  const timelineLength = getTimelineLength(orderedNotes)
+  const timelineLength =
+    providedTimelineLength ??
+    Math.max(
+      orderedNotes.reduce(
+        (latestEnd, note) => Math.max(latestEnd, note.startTime + note.duration),
+        0,
+      ),
+      1,
+    )
 
   function startNoteDrag(
     event: ReactPointerEvent<HTMLElement>,

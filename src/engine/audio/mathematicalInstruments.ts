@@ -5,13 +5,7 @@ import type {
   PlayFrequencyOptions,
 } from "./audioEngine"
 
-export type MathematicalInstrumentId =
-  | "pure-sine"
-  | "soft-triangle"
-  | "bright-square"
-  | "saw-lead"
-  | "vibrato-lead"
-  | "tremolo-pad"
+export type MathematicalInstrumentId = string
 
 export type MathematicalInstrument = {
   category: "advanced" | "base"
@@ -23,7 +17,7 @@ export type MathematicalInstrument = {
   lfo?: AudioLfo
 }
 
-export const mathematicalInstruments: MathematicalInstrument[] = [
+export const coreMathematicalInstruments: MathematicalInstrument[] = [
   {
     category: "base",
     id: "pure-sine",
@@ -115,12 +109,14 @@ export const mathematicalInstruments: MathematicalInstrument[] = [
   },
 ]
 
+export const mathematicalInstruments = coreMathematicalInstruments
+
 export function findMathematicalInstrument(
   instrumentId: MathematicalInstrumentId,
 ) {
   return (
-    mathematicalInstruments.find((instrument) => instrument.id === instrumentId) ??
-    mathematicalInstruments[0]
+    coreMathematicalInstruments.find((instrument) => instrument.id === instrumentId) ??
+    coreMathematicalInstruments[0]
   )
 }
 

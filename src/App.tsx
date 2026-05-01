@@ -10,13 +10,12 @@ import { playNote, playNotes } from "./application/use-cases/playNote"
 import { setMasterVolume, type ADSREnvelope } from "./engine/audio/audioEngine"
 import {
   createPlayOptions,
-  findMathematicalInstrument,
   getInstrumentCategoryDescription,
   getInstrumentCategoryLabel,
-  mathematicalInstruments,
   type MathematicalInstrument,
   type MathematicalInstrumentId,
 } from "./engine/audio/mathematicalInstruments"
+import { useLabInstrumentCatalog } from "./features/lab/useLabInstrumentCatalog"
 import {
   createArpeggiatorSteps,
   defaultArpeggiatorSettings,
@@ -41,11 +40,13 @@ import {
 } from "./engine/midi/notes"
 import {
   appendNoteToTrack,
-  appendNotesToTrack,
   appendTrack,
   clearAllTrackNotes,
+  compactTrackNotesStart,
   createDefaultProject,
   duplicateNoteInTrack,
+  getTrackNoteTimelineContentLength,
+  getTrackNoteTimelineLength,
   getProjectTrackTimelineLength,
   getTracksTimelineLength,
   getTrackVolumeAutomationValue,
@@ -62,6 +63,7 @@ import {
   updateTrackEnvelope,
   updateTrackInstrument,
   updateTrackMuted,
+  updateTrackNoteTimelineDuration,
   updateTrackPan,
   updateTrackSolo,
   updateTrackTimelineClip,
@@ -74,6 +76,7 @@ import { LabActions } from "./features/lab/LabActions"
 import { LabNoteEditor } from "./features/lab/LabNoteEditor"
 import { LabProjectPanel } from "./features/lab/LabProjectPanel"
 import { LabSoundControls } from "./features/lab/LabSoundControls"
+import { useLabRecordingSession } from "./features/lab/useLabRecordingSession"
 import {
   getSmcPadSoundDescriptor,
   playSmcPadHit,
@@ -100,15 +103,6 @@ const chordIntervals = {
 } as const
 
 type ChordType = keyof typeof chordIntervals
-type RecordingState = "idle" | "recording"
-type ActiveNoteCapture = {
-  envelope: ADSREnvelope
-  event: MidiNoteEvent
-  instrumentId: MathematicalInstrumentId
-  pan: number
-  trackId: string
-  volume: number
-}
 
 function getInitialProject() {
   return loadStoredProject() ?? createDefaultProject()
@@ -155,7 +149,6 @@ function App() {
   const [isTimelineDragging, setIsTimelineDragging] = useState(false)
   const [activeTrackId, setActiveTrackId] = useState(getInitialActiveTrackId)
   const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
-  const [recordingState, setRecordingState] = useState<RecordingState>("idle")
   const [selectedRecordedNoteId, setSelectedRecordedNoteId] = useState<string | null>(
     null,
   )
@@ -177,39 +170,26 @@ function App() {
     isEqual: areProjectsEquivalent,
     limit: HISTORY_LIMIT,
   })
-  const activeNoteEventsRef = useRef(new Map<MusicalNote, ActiveNoteCapture>())
   const undoActionRef = useRef<() => void>(() => {})
   const redoActionRef = useRef<() => void>(() => {})
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const activeArpeggiatorHandleRef = useRef<ArpeggiatorHandle | null>(null)
   const activeArpeggiatorTriggerKeyRef = useRef<string | null>(null)
-  const labStartedAtRef = useRef<number | null>(null)
-  const recordingStartedAtRef = useRef<number | null>(null)
   const playbackTransport = usePlaybackTransport()
 
   const primaryTrack =
     project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0]
-  const selectedInstrument = findMathematicalInstrument(primaryTrack.instrumentId)
-  const activeInstrumentCategory = selectedInstrument.category
-  const instrumentCategories = useMemo(
-    () =>
-      [...new Set(mathematicalInstruments.map((instrument) => instrument.category))].sort(
-        (firstCategory, secondCategory) => {
-          if (firstCategory === secondCategory) {
-            return 0
-          }
-
-          return firstCategory === "base" ? -1 : 1
-        },
-      ),
-    [],
-  )
-  const visibleInstruments = mathematicalInstruments.filter(
-    (instrument) => instrument.category === activeInstrumentCategory,
-  )
+  const {
+    activeInstrumentCategory,
+    availableInstruments,
+    instrumentCategories,
+    selectedInstrument,
+    visibleInstruments,
+  } = useLabInstrumentCatalog(primaryTrack.instrumentId)
   const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
   const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
   const projectTrackTimelineLength = getProjectTrackTimelineLength(project)
+  const primaryTrackNoteTimelineLength = getTrackNoteTimelineLength(primaryTrack)
   const noteCount = primaryTrack.notes.length
   const isPrimaryTrackAudible = isTrackAudible(primaryTrack, project.tracks)
   const selectedRecordedNote =
@@ -290,26 +270,6 @@ function App() {
     }
   }
 
-  function getCurrentRecordTime() {
-    if (recordingState !== "recording") {
-      return 0
-    }
-
-    const now = getPerformanceTimestamp()
-
-    recordingStartedAtRef.current ??= now
-
-    return (now - recordingStartedAtRef.current) / 1000
-  }
-
-  function getCurrentLabTime() {
-    const now = getPerformanceTimestamp()
-
-    labStartedAtRef.current ??= now
-
-    return (now - labStartedAtRef.current) / 1000
-  }
-
   function getTrackAutomationVolumeAtTime(time: number) {
     return getTrackVolumeAutomationValue(primaryTrack.volumeAutomation, time)
   }
@@ -351,51 +311,24 @@ function App() {
     ),
     pan: primaryTrack.pan,
   }
-
-  function recordNotesToActiveTrack(notes: MusicalNote[], duration: number) {
-    if (recordingState !== "recording") {
-      return
-    }
-
-    const startTime = getCurrentRecordTime()
-
-    recordNotesAtTime(notes, duration, startTime)
-  }
-
-  function recordNotesAtTime(
-    notes: MusicalNote[],
-    duration: number,
-    startTime: number,
-  ) {
-    if (recordingState !== "recording") {
-      return
-    }
-
-    const playbackState = {
-      pan: primaryTrack.pan,
-      volume: primaryTrack.volume * getTrackAutomationVolumeAtTime(startTime),
-    }
-
-    applyUpdate((currentProject) =>
-      appendNotesToTrack(
-        currentProject,
-        primaryTrack.id,
-        notes.map((note) =>
-          createMidiRecordedNote(
-            createMidiNoteEvent("note-on", note, startTime, 1),
-            startTime + duration,
-            primaryTrack.instrumentId,
-            {
-              playbackEnvelope: primaryTrack.envelope,
-              playbackPan: playbackState.pan,
-              playbackTrackId: primaryTrack.id,
-              playbackVolume: playbackState.volume,
-            },
-          ),
-        ),
-      ),
-    )
-  }
+  const {
+    getCurrentRecordTime,
+    recordNotesAtTime,
+    recordNotesToActiveTrack,
+    recordingState,
+    registerMidiEvent,
+    resetRecordingSession,
+    startRecording,
+    stopRecording,
+  } = useLabRecordingSession({
+    getPerformanceTimestamp,
+    getTrackAutomationVolumeAtTime,
+    onProjectUpdate: applyUpdate,
+    onStopArpeggiator: () => stopArpeggiator(),
+    onStopPlayback: playbackTransport.stop,
+    onUpdateMessage: setProjectMessage,
+    primaryTrack,
+  })
 
   function playTestNote() {
     if (arpeggiatorSettings.enabled) {
@@ -588,7 +521,7 @@ function App() {
   }
 
   function updateTrackInstrumentCategory(category: MathematicalInstrument["category"]) {
-    const nextInstrument = mathematicalInstruments.find(
+    const nextInstrument = availableInstruments.find(
       (instrument) => instrument.category === category,
     )
 
@@ -753,55 +686,50 @@ function App() {
     setProjectMessage("Duracion del timeline ajustada al contenido.")
   }
 
-  function stopRecording(options: { preserveMessage?: boolean } = {}) {
-    if (recordingState !== "recording") {
+  function updatePrimaryTrackNoteTimelineDurationValue(value: number) {
+    if (!Number.isFinite(value)) {
       return
     }
 
-    const stopTime = getCurrentRecordTime()
-
-    if (activeNoteEventsRef.current.size > 0) {
-      const activeCaptures = [...activeNoteEventsRef.current.values()]
-
-      applyUpdate((currentProject) =>
-        activeCaptures.reduce(
-          (nextProject, activeCapture) =>
-            appendNoteToTrack(
-              nextProject,
-              activeCapture.trackId,
-              createMidiRecordedNote(
-                activeCapture.event,
-                stopTime,
-                activeCapture.instrumentId,
-                {
-                  playbackEnvelope: activeCapture.envelope,
-                  playbackPan: activeCapture.pan,
-                  playbackTrackId: activeCapture.trackId,
-                  playbackVolume: activeCapture.volume,
-                },
-              ),
-            ),
-          currentProject,
-        ),
-      )
-      activeNoteEventsRef.current.clear()
-    }
-
-    setRecordingState("idle")
-    recordingStartedAtRef.current = null
-
-    if (!options.preserveMessage) {
-      setProjectMessage(`Grabacion detenida en ${primaryTrack.name}.`)
-    }
+    applyUpdate((currentProject) =>
+      updateTrackNoteTimelineDuration(currentProject, primaryTrack.id, value),
+    )
   }
 
-  function startRecording() {
-    playbackTransport.stop()
-    stopArpeggiator()
-    activeNoteEventsRef.current.clear()
-    recordingStartedAtRef.current = getPerformanceTimestamp()
-    setRecordingState("recording")
-    setProjectMessage(`Grabando en ${primaryTrack.name}.`)
+  function resetPrimaryTrackNoteTimelineDuration() {
+    applyUpdate((currentProject) =>
+      updateTrackNoteTimelineDuration(currentProject, primaryTrack.id, (() => {
+        const currentTrack =
+          currentProject.tracks.find((track) => track.id === primaryTrack.id) ?? primaryTrack
+
+        return getTrackNoteTimelineContentLength(currentTrack)
+      })()),
+    )
+    setProjectMessage(
+      `Duracion del timeline de notas ajustada al contenido de ${primaryTrack.name}.`,
+    )
+  }
+
+  function compactPrimaryTrackNoteTimelineStart() {
+    if (primaryTrack.notes.length === 0) {
+      setProjectMessage(`No hay notas en ${primaryTrack.name} para compactar.`)
+      return
+    }
+
+    const earliestStartTime = primaryTrack.notes.reduce(
+      (minimumStartTime, note) => Math.min(minimumStartTime, note.startTime),
+      Number.POSITIVE_INFINITY,
+    )
+
+    if (!Number.isFinite(earliestStartTime) || earliestStartTime <= 0) {
+      setProjectMessage(`Las notas de ${primaryTrack.name} ya empiezan en 0s.`)
+      return
+    }
+
+    applyUpdate((currentProject) =>
+      compactTrackNotesStart(currentProject, primaryTrack.id),
+    )
+    setProjectMessage(`Inicio del timeline de notas compactado en ${primaryTrack.name}.`)
   }
 
   function duplicateSelectedRecordedNote() {
@@ -995,10 +923,7 @@ function App() {
 
       playbackTransport.stop()
       stopArpeggiator()
-      activeNoteEventsRef.current.clear()
-      labStartedAtRef.current = null
-      recordingStartedAtRef.current = null
-      setRecordingState("idle")
+      resetRecordingSession()
       setMidiEvents([])
       replaceState(importedProject)
       setActiveTrackId(importedProject.tracks[0]?.id ?? "track-1")
@@ -1014,10 +939,7 @@ function App() {
   function clearSession() {
     playbackTransport.stop()
     stopArpeggiator()
-    activeNoteEventsRef.current.clear()
-    labStartedAtRef.current = null
-    recordingStartedAtRef.current = null
-    setRecordingState("idle")
+    resetRecordingSession()
     setMidiEvents([])
     applyUpdate((currentProject) => clearAllTrackNotes(currentProject))
     setSelectedRecordedNoteId(null)
@@ -1027,10 +949,7 @@ function App() {
   function restartProject() {
     playbackTransport.stop()
     stopArpeggiator()
-    activeNoteEventsRef.current.clear()
-    labStartedAtRef.current = null
-    recordingStartedAtRef.current = null
-    setRecordingState("idle")
+    resetRecordingSession()
     setMidiEvents([])
     applyUpdate((currentProject) => resetProject(currentProject))
     setActiveTrackId("track-1")
@@ -1042,46 +961,8 @@ function App() {
     setSelectedRecordedNoteId(noteId)
   }
 
-  function registerMidiEvent(type: MidiNoteEventType, note: MusicalNote) {
-    const eventTime =
-      recordingState === "recording" ? getCurrentRecordTime() : getCurrentLabTime()
-    const midiEvent = createMidiNoteEvent(type, note, eventTime)
-
-    if (type === "note-on" && recordingState === "recording") {
-      activeNoteEventsRef.current.set(note, {
-        envelope: primaryTrack.envelope,
-        event: midiEvent,
-        instrumentId: primaryTrack.instrumentId,
-        pan: primaryTrack.pan,
-        trackId: primaryTrack.id,
-        volume: primaryTrack.volume * getTrackAutomationVolumeAtTime(midiEvent.time),
-      })
-    }
-
-    if (type === "note-off" && recordingState === "recording") {
-      const activeNoteCapture = activeNoteEventsRef.current.get(note)
-
-      if (activeNoteCapture) {
-        applyUpdate((currentProject) =>
-          appendNoteToTrack(
-            currentProject,
-            activeNoteCapture.trackId,
-            createMidiRecordedNote(
-              activeNoteCapture.event,
-              midiEvent.time,
-              activeNoteCapture.instrumentId,
-              {
-                playbackEnvelope: activeNoteCapture.envelope,
-                playbackPan: activeNoteCapture.pan,
-                playbackTrackId: activeNoteCapture.trackId,
-                playbackVolume: activeNoteCapture.volume,
-              },
-            ),
-          ),
-        )
-        activeNoteEventsRef.current.delete(note)
-      }
-    }
+  function handleMidiEvent(type: MidiNoteEventType, note: MusicalNote) {
+    const midiEvent = registerMidiEvent(type, note)
 
     setMidiEvents((currentEvents) => [midiEvent, ...currentEvents].slice(0, 12))
   }
@@ -1254,12 +1135,12 @@ function App() {
           onNoteOff={
             arpeggiatorSettings.enabled
               ? undefined
-              : (note) => registerMidiEvent("note-off", note)
+              : (note) => handleMidiEvent("note-off", note)
           }
           onNoteOn={
             arpeggiatorSettings.enabled
               ? undefined
-              : (note) => registerMidiEvent("note-on", note)
+              : (note) => handleMidiEvent("note-on", note)
           }
           onSelectNote={setSelectedNote}
           onTriggerNoteOff={handlePianoTriggerEnd}
@@ -1311,8 +1192,12 @@ function App() {
             canUndo={canUndo}
             historyLimit={HISTORY_LIMIT}
             isTimelineDragging={isTimelineDragging}
+            noteTimelineDuration={primaryTrack.noteTimelineDuration}
+            onCompactNoteTimelineStart={compactPrimaryTrackNoteTimelineStart}
             onDuplicateSelectedNote={duplicateSelectedRecordedNote}
+            onNoteTimelineDurationChange={updatePrimaryTrackNoteTimelineDurationValue}
             onRedo={redoProjectEdit}
+            onResetNoteTimelineDuration={resetPrimaryTrackNoteTimelineDuration}
             onRevertSelectedNote={revertSelectedNoteToLastCommit}
             onSelectedNoteDurationChange={updateSelectedNoteDuration}
             onSelectedNoteStartTimeChange={updateSelectedNoteStartTime}
@@ -1334,6 +1219,7 @@ function App() {
             onSelectNote={selectRecordedNote}
             onUpdateNote={updateRecordedNote}
             selectedNoteId={selectedRecordedNoteId}
+            timelineLength={primaryTrackNoteTimelineLength}
           />
         </section>
       </section>

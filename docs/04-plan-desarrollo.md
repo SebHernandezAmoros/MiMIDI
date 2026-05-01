@@ -421,6 +421,7 @@ Estado:
   - seleccion de pista activa desde la timeline de tracks
   - sincronizacion entre timeline de tracks, panel de proyecto y timeline de
     notas de detalle
+  - duracion configurable del timeline de notas por pista activa
 - pendiente:
   - ampliar de un clip por pista a multiples clips por pista cuando haga falta
   - sumar recorte/duplicado de clips sin convertir aun esta superficie en modo
@@ -440,6 +441,24 @@ Tareas:
 
 Cuando aplicarlo:
 - despues de Bloque F
+
+Estado:
+- iniciado:
+  - contrato minimo de plugin interno
+  - registro interno de plugins
+  - primer plugin de instrumentos matematicos
+  - catalogo combinado core + plugin en laboratorio
+  - extraccion inicial de coordinacion de grabacion fuera de `App.tsx`
+- pendiente:
+  - activacion/desactivacion visible de plugins
+  - persistencia del estado activo/inactivo de plugins
+  - nuevas superficies extensibles ademas del catalogo de instrumentos
+  - elegir y abrir la siguiente superficie extensible MVP:
+    - acciones del laboratorio
+    - herramientas del timeline
+    - paneles dedicados
+  - seguir extrayendo coordinacion de `App.tsx` hacia hooks/catalogos/fronteras
+    de producto compatibles con plugins
 
 ### Bloque H - Sampler (menu separado)
 

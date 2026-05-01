@@ -5,11 +5,15 @@ type LabNoteEditorProps = {
   canUndo: boolean
   historyLimit: number
   isTimelineDragging: boolean
+  noteTimelineDuration: number
+  onCompactNoteTimelineStart: () => void
   onDuplicateSelectedNote: () => void
   onRedo: () => void
+  onResetNoteTimelineDuration: () => void
   onRevertSelectedNote: () => void
   onSelectedNoteDurationChange: (value: number) => void
   onSelectedNoteStartTimeChange: (value: number) => void
+  onNoteTimelineDurationChange: (value: number) => void
   onToggleTimelineSnap: (enabled: boolean) => void
   onTimelineSnapStepChange: (step: number) => void
   onUndo: () => void
@@ -27,8 +31,12 @@ export function LabNoteEditor({
   canUndo,
   historyLimit,
   isTimelineDragging,
+  noteTimelineDuration,
+  onCompactNoteTimelineStart,
   onDuplicateSelectedNote,
+  onNoteTimelineDurationChange,
   onRedo,
+  onResetNoteTimelineDuration,
   onRevertSelectedNote,
   onSelectedNoteDurationChange,
   onSelectedNoteStartTimeChange,
@@ -105,6 +113,33 @@ export function LabNoteEditor({
             Nota {selectedNoteHistoryStatus === "modificada" ? "modificada" : "sin cambios"}
           </span>
         ) : null}
+      </div>
+
+      <div className="project-control-grid">
+        <div className="control-group">
+          <label htmlFor="note-timeline-duration">Duracion timeline notas (s)</label>
+          <input
+            id="note-timeline-duration"
+            min="1"
+            step="0.1"
+            type="number"
+            value={noteTimelineDuration.toFixed(2)}
+            onChange={(event) =>
+              onNoteTimelineDurationChange(Number(event.target.value))
+            }
+          />
+        </div>
+        <div className="control-group">
+          <span className="project-label">Rango visible</span>
+          <div className="actions">
+            <button onClick={onResetNoteTimelineDuration} type="button">
+              Ajustar notas al contenido
+            </button>
+            <button onClick={onCompactNoteTimelineStart} type="button">
+              Compactar inicio
+            </button>
+          </div>
+        </div>
       </div>
 
       {selectedRecordedNote ? (
