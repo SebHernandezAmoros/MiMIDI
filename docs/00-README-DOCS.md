@@ -25,6 +25,8 @@ modular preparada para plugins/mods.
 - `09-arquitectura-modo-app.md` -> mapa tecnico del futuro modo app con
   multiples pantallas, shell horizontal y reglas para seguir agregando archivos
   sin romper la arquitectura.
+- `10-app-expo-actual.md` -> estado real de la app Expo en `apps/`,
+  decisiones activas, limites actuales y siguiente tramo recomendado.
 
 ## Proposito de esta carpeta
 

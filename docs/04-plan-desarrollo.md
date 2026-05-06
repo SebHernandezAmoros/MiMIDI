@@ -514,6 +514,36 @@ Tareas:
 Cuando aplicarlo:
 - al final, despues de cerrar los bloques funcionales principales
 
+Estado:
+- iniciado en fase de migracion controlada:
+  - shell horizontal inicial
+  - base visual clasica documentada
+  - base multilenguaje inicial
+  - vistas reales `Edit`, `Project` y `Perform` montadas desde el laboratorio
+  - primer aterrizaje visual real de `Perform` guiado por mockup
+  - catalogo inicial de estilos compartidos del modo app
+  - app Expo separada creada en `apps/mimidi-expo`
+- pendiente:
+  - foco inmediato:
+    - seguir refinando `Perform` en Expo contra el placeholder objetivo
+    - pulir `Plugins` y `Settings` ya aterrizados en Expo
+    - abrir la siguiente iteracion de `Edit / Timelines` en Expo
+    - decidir cuando bajar `Sampler` a vista propia dentro de Expo
+  - tareas importantes para despues:
+    - seguir extrayendo coordinacion de `App.tsx` hacia hooks/fronteras mas
+      reutilizables
+    - consolidar `LabApp` como fuente de verdad reutilizable durante la
+      migracion
+    - desacoplar gradualmente cada vista del laboratorio sin destruir el
+      sandbox
+    - evaluar si `SMC Pad` y `Edit` en Expo ya justifican datos/mock state mas
+      ricos antes de compartir dominio real
+    - decidir si Expo seguira como prototipo paralelo o si pasara a segunda app
+      oficial mas integrada al core
+  - decision posterior:
+    - definir si la entrada futura del modo app web convivira con una app Expo
+      paralela o si Expo sera solo casco de prototipado para mockups
+
 ---
 
 ## Resumen de Aplicacion

@@ -4543,3 +4543,342 @@ El modo app ya cuenta con sus tres vistas troncales vivas:
 
 La raiz del proyecto deja de ser solo una maqueta de navegacion y pasa a tener
 un esqueleto funcional serio para la futura separacion completa por pantallas.
+
+## Movimiento 82 - Plan consolidado para empujar el modo app y preparar Expo
+
+Fase: transicion entre Bloque G y Bloque I
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Dejar documentado el siguiente tramo real del proyecto ahora que ya existen
+mockups y que la prioridad pasa a ser empujar el modo app como experiencia
+visible, sin perder el laboratorio como sandbox ni tomar una mala decision al
+introducir Expo.
+
+Como se movio:
+
+- Se actualizo `04` para reconocer que `Bloque I` ya esta iniciado en fase de
+  migracion controlada.
+- Se amplio `09` con:
+  - plan inmediato por iteraciones para el modo app
+  - estrategia de trabajo guiada por mockups
+  - analisis de opciones para Expo
+  - recomendacion concreta de no incrustar Expo dentro del `src/` actual
+  - sugerencia de crear Expo como app separada si se decide avanzar
+- Se dejo explicito que el siguiente frente no es solo "mas plugins", sino:
+  - consolidar shell
+  - madurar vistas reales
+  - seguir extrayendo coordinacion de `LabApp`
+
+Decision tecnica:
+
+Se eligio documentar primero la estrategia antes de crear una app Expo porque el
+riesgo mayor ahora no es "no tener Expo", sino abrir otro runtime sin un mapa
+claro de convivencia con la app web ya existente.
+
+Validacion:
+
+- revision manual de coherencia entre:
+  - `docs/04-plan-desarrollo.md`
+  - `docs/05-contexto-vivo-desarrollo.md`
+  - `docs/09-arquitectura-modo-app.md`
+  - estado actual del shell y vistas reales del modo app en `src/`
+  - documentacion oficial de Expo:
+    - `create-expo-app`
+    - `Expo Router`
+
+Resultado:
+
+El proyecto ya tiene una hoja de ruta mas clara para arrancar el modo app con
+mockups reales y tambien una postura inicial sensata sobre Expo: probarlo como
+app paralela o segunda app del workspace, no como reemplazo directo de la app
+web actual.
+
+## Movimiento 83 - Priorizacion explicita: vistas ahora, Expo y desacople fuerte despues
+
+Fase: transicion entre Bloque G y Bloque I
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+
+Intencion:
+
+Evitar que el plan se disperse ahora que ya hay mockups del modo app. Se deja
+explicito que el foco inmediato pasa a ser construir las vistas, mientras que la
+separacion mas profunda de `App.tsx` / `LabApp` y la incorporacion correcta de
+Expo quedan guardadas como tareas importantes pero posteriores.
+
+Como se movio:
+
+- En `04` se marco como foco inmediato:
+  - adaptar `Edit`, `Project` y `Perform` a mockups reales
+  - convertir `Plugins`, `Settings` y `Sampler` en vistas reales
+- En `04` tambien se movio a "tareas importantes para despues":
+  - seguir extrayendo coordinacion de `App.tsx`
+  - consolidar `LabApp`
+  - desacoplar gradualmente las vistas del laboratorio
+  - definir e implementar Expo como app separada, si se confirma
+- En `09` se ajusto el siguiente paso recomendado para dejar claro que:
+  - primero van las vistas del modo app web actual
+  - despues el desacople fuerte
+  - y solo mas tarde la decision/creacion de Expo
+
+Decision tecnica:
+
+Se eligio no abrir a la vez "mockups + desacople profundo + Expo" porque eso
+subiria demasiado el frente de trabajo y haria mas facil perder foco. El orden
+correcto por ahora es avanzar visiblemente en el modo app y dejar las tareas
+estructurales mas pesadas anotadas, no olvidadas.
+
+Validacion:
+
+- revision manual de consistencia entre `04`, `05` y `09`
+
+Resultado:
+
+Queda asentado que la prioridad actual es desarrollar las vistas del modo app.
+Expo y la separacion mas profunda de `App.tsx` siguen siendo importantes, pero
+ya no compiten con el foco inmediato.
+
+## Movimiento 84 - Primer aterrizaje visual real de Perform con catalogo de estilos del modo app
+
+Fase: Bloque I - vistas guiadas por mockup
+
+Archivos movidos:
+
+- `src/App.tsx`
+- `src/app/appRoutes.ts`
+- `src/app/appNavigation.ts`
+- `src/app/appTheme.ts`
+- `src/app/styles/appModeCatalog.css`
+- `src/features/lab/LabApp.tsx`
+- `src/features/perform/PerformWorkspace.tsx`
+- `src/features/perform/PerformWorkspace.css`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+
+Intencion:
+
+Empezar el modo app en serio por la vista `Perform`, tomando como referencia el
+mockup compartido y mejorando al mismo tiempo la base de estilos compartidos del
+shell para no seguir resolviendo cada pantalla desde `App.css` de forma
+mezclada.
+
+Como se movio:
+
+- Se creo `src/app/styles/appModeCatalog.css` como primera base compartida del
+  modo app para:
+  - shell
+  - superficies tipo ventana
+  - topbars
+  - bloques y acciones comunes
+- Se expandio `appTheme.ts` con tokens mas utiles para este lenguaje visual:
+  - canvas
+  - superficies papel
+  - borde suave
+  - texto mutado
+  - color acento
+- `PerformWorkspace` dejo de ser una simple caja que incrustaba el laboratorio
+  y ahora monta una carcasa visual mas cercana al mockup.
+- `LabApp` en modo `perform-only` se reorganizo en bloques mas claros:
+  - panel principal
+  - selector rapido de track
+  - acceso rapido de octava / nota / tocar
+  - panel de piano
+  - panel lateral con proyecto, `SMC Pad`, acciones y log MIDI
+- Se cambio la vista por defecto del modo app a `Perform` para acompañar el
+  foco actual de trabajo.
+
+Decision tecnica:
+
+Se eligio no reescribir la logica de interpretacion desde cero. En vez de eso,
+se reutilizo la logica real ya viva en `LabApp`, pero se le dio una estructura
+mas compatible con mockup y con el shell horizontal. Tambien se empezo a sacar
+la direccion visual del modo app de `App.css` hacia un catalogo mas especifico,
+porque seguir mezclando ambos mundos iba a encarecer mucho el resto de vistas.
+
+Validacion:
+
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+Resultado:
+
+`Perform` se convierte en la primera vista del modo app con una direccion visual
+real y no solo funcional. Ademas, el proyecto ya tiene una base inicial de
+estilos compartidos del modo app para abaratar el costo de las siguientes
+pantallas.
+
+## Movimiento 85 - Analisis y documentacion de la app Expo ya creada en `apps/`
+
+Fase: Bloque I / convivencia web + Expo
+
+Archivos movidos:
+
+- `docs/00-README-DOCS.md`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/09-arquitectura-modo-app.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Corregir un vacio documental importante: Expo ya fue creado dentro del proyecto,
+pero la documentacion seguia hablando de Expo mayormente como decision futura o
+posibilidad posterior.
+
+Tambien hacia falta dejar por escrito el estado real de `apps/mimidi-expo`
+porque:
+
+- el proyecto ya tiene una segunda app en el workspace;
+- esa app no esta integrada aun al core musical;
+- y su navegacion/configuracion actual no refleja del todo la direccion activa
+  del producto.
+
+Como se movio:
+
+- Se registro la existencia explicita de:
+  - `apps/mimidi-expo`
+- Se creo una nueva fuente de verdad dedicada:
+  - `docs/10-app-expo-actual.md`
+- Se documento que Expo hoy cumple el rol de:
+  - prototipo paralelo del modo app
+- Se dejo por escrito que la app Expo actual:
+  - tiene una primera pantalla visual real (`PerformPrototypeScreen`)
+  - mantiene varias pantallas placeholder
+  - no esta conectada aun al core web real
+  - conserva desalineaciones tecnicas que explican parte del "nada funciona"
+- Se detecto y documento que:
+  - `app.json` sigue con `orientation: "portrait"`
+  - el tabs layout sigue apuntando a `index` y `explore`
+  - las rutas reales existentes son:
+    - `index`
+    - `edit`
+    - `plugins`
+    - `smc-pad`
+    - `settings`
+
+Decision tecnica:
+
+Expo deja de tratarse solo como hipotesis futura y pasa a considerarse una
+pieza real del workspace, pero con un rol acotado y honesto:
+
+- no reemplaza aun la app web;
+- no es todavia la nueva fuente principal del producto;
+- se conserva como prototipo paralelo del modo app;
+- su prioridad inmediata es alinearse con la direccion horizontal actual y
+  ordenar su estructura base antes de intentar integraciones profundas.
+
+Validacion:
+
+- revision manual de `apps/mimidi-expo`
+- lectura de:
+  - `package.json`
+  - `app.json`
+  - `app/_layout.tsx`
+  - `app/(tabs)/_layout.tsx`
+  - pantallas actuales del router
+  - componentes de `src/features` dentro de Expo
+
+Resultado:
+
+La carpeta `apps/` deja de ser un frente silencioso del proyecto. Desde ahora
+queda documentado que Expo ya existe, para que sirve hoy, que no hace todavia y
+cual es el siguiente tramo sano para continuar.
+
+## Movimiento 86 - Base real de pantallas Expo alineada a placeholders
+
+Fase: Bloque I / frente Expo horizontal
+
+Archivos movidos:
+
+- `apps/mimidi-expo/app.json`
+- `apps/mimidi-expo/README.md`
+- `apps/mimidi-expo/app/_layout.tsx`
+- `apps/mimidi-expo/app/(tabs)/_layout.tsx`
+- `apps/mimidi-expo/app/(tabs)/edit.tsx`
+- `apps/mimidi-expo/app/(tabs)/plugins.tsx`
+- `apps/mimidi-expo/app/(tabs)/settings.tsx`
+- `apps/mimidi-expo/app/(tabs)/smc-pad.tsx`
+- `apps/mimidi-expo/src/navigation/appTabs.ts`
+- `apps/mimidi-expo/src/components/PrototypeShell.tsx`
+- `apps/mimidi-expo/src/components/PrototypeUI.tsx`
+- `apps/mimidi-expo/src/features/perform/PerformPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/smc-pad/SmcPadPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/plugins/PluginsPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/edit/EditPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/settings/SettingsPrototypeScreen.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Pasar de una Expo app con tabs starter y placeholders sueltos a una base real
+de modo app, alineada con los placeholders visuales compartidos y con una
+estructura que pueda crecer sin volver a mezclar navegacion, pantalla y estilo
+en cada archivo.
+
+Como se movio:
+
+- Se definio un plan de crecimiento para Expo con esta prioridad:
+  - `Perform`
+  - `SMC Pad`
+  - `Plugins`
+  - `Edit / Timelines`
+  - `Settings`
+- Se creo `PrototypeShell` como carcasa comun del prototipo Expo.
+- Se creo `PrototypeUI` para centralizar primitivas visuales base:
+  - botones
+  - paneles
+  - selects simulados
+  - filas de ajustes
+- Se creo `appTabs.ts` para dejar una sola fuente de verdad de rutas visibles.
+- Se oculto la tab bar nativa de Expo Router y la navegacion visible pasa a ser
+  una barra superior propia del prototipo.
+- Se alineo Expo con la regla:
+  - horizontal primero
+- `app.json` paso a `orientation: "landscape"`.
+- El shell ahora muestra una pantalla de rotacion si se abre en vertical.
+- `Perform` se rearmo sobre el shell nuevo como referencia visual principal.
+- `SMC Pad`, `Plugins`, `Edit` y `Settings` dejaron de usar placeholder puro y
+  ahora tienen prototipos visuales iniciales alineados a los mocks.
+- `Edit` se resolvio por ahora como una sola pantalla de timelines con:
+  - toolbar
+  - timeline de notas
+  - preview de track timeline
+- Se reemplazo el README starter por documentacion propia de la app Expo.
+
+Decision tecnica:
+
+Se eligio no conectar todavia Expo con el core musical real. Primero se fija:
+
+- shell
+- navegacion
+- orientacion
+- lenguaje visual
+- mapa de pantallas
+
+La razon es proteger el crecimiento futuro: si la UI aun esta inestable,
+compartir dominio o logica demasiado pronto encarece todo.
+
+Validacion:
+
+- `npm run lint` dentro de `apps/mimidi-expo`
+
+Resultado:
+
+Expo deja de ser una coleccion de restos del template y pasa a ser una base
+seria del modo app paralelo. Ya existe una estructura clara para seguir
+refinando pantallas y luego decidir con mas criterio que parte del dominio del
+proyecto web merece compartirse.

@@ -19,4 +19,4 @@ export const appViewDefinitions: AppViewDefinition[] = [
   { id: "sampler" },
 ]
 
-export const defaultAppView: AppViewId = "edit"
+export const defaultAppView: AppViewId = "perform"

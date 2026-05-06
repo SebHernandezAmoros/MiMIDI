@@ -301,6 +301,17 @@ function LabApp({ mode = "full" }: LabAppProps) {
     }
   }
 
+  function stepPreviewOctave(direction: -1 | 1) {
+    const currentIndex = previewOctaveOptions.findIndex((octave) => octave === previewOctave)
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0
+    const nextIndex = Math.min(
+      Math.max(safeIndex + direction, 0),
+      previewOctaveOptions.length - 1,
+    )
+
+    updatePreviewOctave(previewOctaveOptions[nextIndex])
+  }
+
   function getTrackAutomationVolumeAtTime(time: number) {
     return getTrackVolumeAutomationValue(primaryTrack.volumeAutomation, time)
   }
@@ -515,6 +526,22 @@ function LabApp({ mode = "full" }: LabAppProps) {
     stopArpeggiator()
     setActiveTrackId(trackId)
     setSelectedRecordedNoteId(null)
+  }
+
+  function switchTrackByOffset(offset: -1 | 1) {
+    const currentIndex = project.tracks.findIndex((track) => track.id === primaryTrack.id)
+
+    if (currentIndex < 0) {
+      return
+    }
+
+    const nextTrack = project.tracks[currentIndex + offset]
+
+    if (!nextTrack) {
+      return
+    }
+
+    switchActiveTrack(nextTrack.id)
   }
 
   function removeActiveTrack() {
@@ -1246,80 +1273,225 @@ function LabApp({ mode = "full" }: LabAppProps) {
     return projectWorkspace
   }
 
+  const performControls = (
+    <LabSoundControls
+      arpeggiatorSettings={arpeggiatorSettings}
+      availableNotes={visibleNotes}
+      onArpeggiatorEnabledChange={handleArpeggiatorEnabledChange}
+      onArpeggiatorGateChange={handleArpeggiatorGateChange}
+      onArpeggiatorLatchChange={handleArpeggiatorLatchChange}
+      onArpeggiatorModeChange={handleArpeggiatorModeChange}
+      onArpeggiatorOctaveRangeChange={handleArpeggiatorOctaveRangeChange}
+      onArpeggiatorRateChange={handleArpeggiatorRateChange}
+      onChordTypeChange={setSelectedChordType}
+      onNoteChange={setSelectedNote}
+      onPreviewOctaveChange={updatePreviewOctave}
+      onPianoModeChange={setPianoMode}
+      onVolumeChange={updateVolume}
+      pianoMode={pianoMode}
+      previewOctave={previewOctave}
+      previewOctaveOptions={previewOctaveOptions}
+      selectedChordType={selectedChordType}
+      selectedNote={selectedNote}
+      volume={volume}
+    />
+  )
+
+  const performPiano = (
+    <PianoPreview
+      getPlayableNotes={getPianoPlayableNotes}
+      directPlaybackEnabled={!arpeggiatorSettings.enabled}
+      interactionMode={pianoMode}
+      notes={visibleNotes}
+      onNoteOff={
+        arpeggiatorSettings.enabled
+          ? undefined
+          : (note) => handleMidiEvent("note-off", note)
+      }
+      onNoteOn={
+        arpeggiatorSettings.enabled
+          ? undefined
+          : (note) => handleMidiEvent("note-on", note)
+      }
+      onSelectNote={setSelectedNote}
+      onTriggerNoteOff={handlePianoTriggerEnd}
+      onTriggerNoteOn={handlePianoTriggerStart}
+      playOptions={basePreviewPlayOptions}
+      resolvePlayOptions={() => getTrackPreviewPlayOptions(getCurrentRecordTime())}
+      selectedNote={selectedNote}
+    />
+  )
+
+  const performPad = <MiniSmcPad onTrigger={triggerSmcPad} />
+
+  const performActions = (
+    <LabActions
+      canExportAudio={allRecordedNotes.length > 0}
+      canPlayRecording={allRecordedNotes.length > 0}
+      isExportingAudio={isExportingAudio}
+      isPlaying={playbackTransport.isPlaying}
+      isRecording={recordingState === "recording"}
+      onClearSession={clearSession}
+      onExportAudio={exportProjectAudio}
+      onExportProject={exportProject}
+      onImportProject={openImportDialog}
+      onPlayRecording={playRecording}
+      onPlayTestChord={playTestChord}
+      onPlayTestNote={playTestNote}
+      onRestartProject={restartProject}
+      onStartRecording={startRecording}
+      onStopPlayback={playbackTransport.stop}
+      onStopRecording={() => stopRecording()}
+    />
+  )
+
+  const performMidiLog = <MidiEventLog events={midiEvents} />
+
   const performWorkspace = (
     <>
-      <LabSoundControls
-        arpeggiatorSettings={arpeggiatorSettings}
-        availableNotes={visibleNotes}
-        onArpeggiatorEnabledChange={handleArpeggiatorEnabledChange}
-        onArpeggiatorGateChange={handleArpeggiatorGateChange}
-        onArpeggiatorLatchChange={handleArpeggiatorLatchChange}
-        onArpeggiatorModeChange={handleArpeggiatorModeChange}
-        onArpeggiatorOctaveRangeChange={handleArpeggiatorOctaveRangeChange}
-        onArpeggiatorRateChange={handleArpeggiatorRateChange}
-        onChordTypeChange={setSelectedChordType}
-        onNoteChange={setSelectedNote}
-        onPreviewOctaveChange={updatePreviewOctave}
-        onPianoModeChange={setPianoMode}
-        onVolumeChange={updateVolume}
-        pianoMode={pianoMode}
-        previewOctave={previewOctave}
-        previewOctaveOptions={previewOctaveOptions}
-        selectedChordType={selectedChordType}
-        selectedNote={selectedNote}
-        volume={volume}
-      />
-
-      <PianoPreview
-        getPlayableNotes={getPianoPlayableNotes}
-        directPlaybackEnabled={!arpeggiatorSettings.enabled}
-        interactionMode={pianoMode}
-        notes={visibleNotes}
-        onNoteOff={
-          arpeggiatorSettings.enabled
-            ? undefined
-            : (note) => handleMidiEvent("note-off", note)
-        }
-        onNoteOn={
-          arpeggiatorSettings.enabled
-            ? undefined
-            : (note) => handleMidiEvent("note-on", note)
-        }
-        onSelectNote={setSelectedNote}
-        onTriggerNoteOff={handlePianoTriggerEnd}
-        onTriggerNoteOn={handlePianoTriggerStart}
-        playOptions={basePreviewPlayOptions}
-        resolvePlayOptions={() => getTrackPreviewPlayOptions(getCurrentRecordTime())}
-        selectedNote={selectedNote}
-      />
-
-      <MiniSmcPad onTrigger={triggerSmcPad} />
-
-      <LabActions
-        canExportAudio={allRecordedNotes.length > 0}
-        canPlayRecording={allRecordedNotes.length > 0}
-        isExportingAudio={isExportingAudio}
-        isPlaying={playbackTransport.isPlaying}
-        isRecording={recordingState === "recording"}
-        onClearSession={clearSession}
-        onExportAudio={exportProjectAudio}
-        onExportProject={exportProject}
-        onImportProject={openImportDialog}
-        onPlayRecording={playRecording}
-        onPlayTestChord={playTestChord}
-        onPlayTestNote={playTestNote}
-        onRestartProject={restartProject}
-        onStartRecording={startRecording}
-        onStopPlayback={playbackTransport.stop}
-        onStopRecording={() => stopRecording()}
-      />
-
-      <MidiEventLog events={midiEvents} />
+      {performControls}
+      {performPiano}
+      {performPad}
+      {performActions}
+      {performMidiLog}
     </>
   )
 
   if (mode === "perform-only") {
-    return performWorkspace
+    return (
+      <>
+        <section className="perform-workspace-primary" aria-label="Panel principal Perform">
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">Interpretacion</span>
+                <h3>{primaryTrack.name}</h3>
+              </div>
+              <span className="app-surface-status">
+                {recordingState === "recording" ? "Grabando" : "Listo"}
+              </span>
+            </div>
+            <p className="app-surface-note">
+              Modo {pianoMode === "note" ? "nota" : "acorde"} · Octava {previewOctave}
+            </p>
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="perform-mode-track-strip">
+              <button
+                aria-label="Pista anterior"
+                disabled={project.tracks[0]?.id === primaryTrack.id}
+                onClick={() => switchTrackByOffset(-1)}
+                type="button"
+              >
+                ←
+              </button>
+              <div className="perform-mode-track-display">
+                <span>Track activa</span>
+                <strong>{primaryTrack.name}</strong>
+              </div>
+              <button
+                aria-label="Pista siguiente"
+                disabled={project.tracks.at(-1)?.id === primaryTrack.id}
+                onClick={() => switchTrackByOffset(1)}
+                type="button"
+              >
+                →
+              </button>
+              <div className="perform-mode-octave-pill" aria-label="Octava visible activa">
+                <span>Octava</span>
+                <strong>{previewOctave}</strong>
+              </div>
+              <button onClick={addTrack} type="button">
+                + Track
+              </button>
+            </div>
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="perform-mode-track-strip">
+              <button
+                aria-label="Bajar octava"
+                disabled={previewOctave === previewOctaveOptions[0]}
+                onClick={() => stepPreviewOctave(-1)}
+                type="button"
+              >
+                −
+              </button>
+              <div className="perform-mode-track-display">
+                <span>Instrumento</span>
+                <strong>{selectedInstrument.name}</strong>
+              </div>
+              <button
+                aria-label="Subir octava"
+                disabled={previewOctave === previewOctaveOptions.at(-1)}
+                onClick={() => stepPreviewOctave(1)}
+                type="button"
+              >
+                +
+              </button>
+              <div className="perform-mode-octave-pill" aria-label="Nota seleccionada activa">
+                <span>Nota</span>
+                <strong>{selectedNote}</strong>
+              </div>
+              <button onClick={playTestNote} type="button">
+                Tocar
+              </button>
+            </div>
+          </section>
+
+          <section className="perform-workspace-card">
+            {performControls}
+          </section>
+
+          <section className="perform-workspace-card">
+            {performPiano}
+          </section>
+        </section>
+
+        <aside className="perform-workspace-secondary">
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">Proyecto</span>
+                <h3>{project.name}</h3>
+              </div>
+            </div>
+            <p className="app-surface-note">{projectMessage || "Listo para tocar y grabar."}</p>
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">SMC Pad</span>
+                <h3>Percusion rapida</h3>
+              </div>
+            </div>
+            {performPad}
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">Acciones</span>
+                <h3>Transporte y toma</h3>
+              </div>
+            </div>
+            {performActions}
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">MIDI</span>
+                <h3>Actividad reciente</h3>
+              </div>
+            </div>
+            {performMidiLog}
+          </section>
+        </aside>
+      </>
+    )
   }
 
   return (

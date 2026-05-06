@@ -24,5 +24,5 @@ export function getAppViewFromSearch(search: string): AppViewId {
     return requestedView
   }
 
-  return "edit"
+  return "perform"
 }

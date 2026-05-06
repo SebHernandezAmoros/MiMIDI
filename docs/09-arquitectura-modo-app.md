@@ -799,3 +799,393 @@ Si seguimos esta ruta, vamos a lograr:
 
 Ese es el siguiente paso correcto antes de empujar mucho mas el sistema de
 plugins.
+
+## 13. Plan inmediato para arrancar el modo app con mockups
+
+Esta seccion baja el documento desde arquitectura general a plan de ejecucion
+concreto para las siguientes iteraciones, asumiendo que ya existen mockups y
+que la prioridad pasa a ser "empezar a hacer visibles las pantallas del modo
+app" sin perder el laboratorio como sandbox.
+
+### 13.1 Objetivo de esta etapa
+
+No se busca aun:
+
+- reescribir todo el producto,
+- abandonar el laboratorio,
+- ni convertir cada vista nueva en implementacion final cerrada.
+
+Se busca:
+
+1. usar los mockups como direccion visible;
+2. consolidar el shell horizontal real;
+3. aterrizar pantallas vivas sobre comportamiento existente;
+4. extraer poco a poco coordinacion del laboratorio hacia fronteras mas
+   reutilizables;
+5. dejar el sistema listo para decidir despues si Expo sera companion app,
+   wrapper o prototipo paralelo.
+
+### 13.2 Resultado esperado al cerrar esta etapa
+
+Al terminar esta etapa inicial del modo app deberiamos tener:
+
+- `AppShell` estable como entrada principal del modo app;
+- vistas `Edit`, `Project` y `Perform` con layout mas cercano a mockup;
+- placeholders restantes (`Plugins`, `Settings`, `Sampler`) con estructura real
+  de pantalla, aunque aun sin toda la logica;
+- menos responsabilidad directa dentro de `LabApp`;
+- y una decision explicitada sobre como convivira la rama web actual con una
+  futura experiencia Expo.
+
+## 14. Orden recomendado de implementacion desde ahora
+
+### Iteracion 1 - Consolidar shell y navegacion
+
+Objetivo:
+
+- dejar el modo app con esqueleto visual serio y coherente con mockups.
+
+Tareas:
+
+- ajustar `AppShell` para que:
+  - topbar
+  - navegacion horizontal
+  - workspace principal
+  - panel contextual opcional
+  queden como regiones claras y estables;
+- mapear los mockups a regiones concretas del shell;
+- mover decisiones visuales comunes a tema/tokens, no a cada pantalla;
+- terminar de limpiar copy temporal o labels que aun se sientan placeholder.
+
+Resultado:
+
+- el modo app deja de verse como maqueta tecnica y empieza a parecer producto.
+
+### Iteracion 2 - Consolidar vistas reales ya iniciadas
+
+Objetivo:
+
+- hacer que `Edit`, `Project` y `Perform` dejen de ser replicas funcionales
+  "crudas" y pasen a ser workspaces adaptados al modo app.
+
+Tareas:
+
+- revisar `EditWorkspace` contra mockup:
+  - layout
+  - bloques
+  - jerarquia
+  - paneles auxiliares;
+- revisar `ProjectWorkspace` contra mockup:
+  - lugar de mezcla
+  - lugar de plugins
+  - acciones de proyecto;
+- revisar `PerformWorkspace` contra mockup:
+  - zona de piano
+  - zona de arpegiador
+  - zona de acciones
+  - log MIDI o panel contextual.
+
+Resultado:
+
+- las vistas vivas se ven intencionales dentro del shell, no solo incrustadas.
+
+### Iteracion 3 - Seguir sacando coordinacion de `LabApp`
+
+Objetivo:
+
+- reducir el costo de seguir replicando pantallas.
+
+Tareas:
+
+- identificar coordinaciones todavia densas en `LabApp`;
+- extraer primero las mas reutilizables:
+  - seleccion de pista
+  - timeline edit state
+  - project actions
+  - plugin activation state
+  - perform interactions;
+- moverlas a hooks, view-models o fronteras por capacidad.
+
+Resultado:
+
+- las vistas dejan de depender tanto del laboratorio como contenedor monolitico.
+
+### Iteracion 4 - Convertir `Plugins`, `Settings` y `Sampler` en pantallas reales
+
+Objetivo:
+
+- cerrar el mapa visible del modo app.
+
+Tareas:
+
+- `Plugins`
+  - manager real
+  - descripcion corta
+  - estados activos/inactivos
+  - espacio reservado para futuras superficies registrables;
+- `Settings`
+  - preferencias globales reales
+  - idioma
+  - tema o variantes futuras si aplica;
+- `Sampler`
+  - aun puede empezar como estructura guiada,
+  - pero con layout real y lugar oficial dentro del shell.
+
+Resultado:
+
+- el modo app ya tiene su mapa completo de pantallas, aunque algunas sigan en
+  version inicial.
+
+### Iteracion 5 - Desacople gradual del laboratorio
+
+Objetivo:
+
+- preparar el momento en que el shell y las pantallas ya no dependan tanto de
+  `LabApp`.
+
+Tareas:
+
+- medir que partes del laboratorio siguen siendo fuente de verdad compartida;
+- convertir las mas sanas en estado compartido reutilizable;
+- dejar `LabApp` como sandbox integral, no como cuello de botella.
+
+Resultado:
+
+- la migracion deja de ser solo "montar LabApp en modos parciales" y pasa a ser
+  separacion estructural real.
+
+## 15. Plan de trabajo guiado por mockups
+
+Cuando haya mockups, el orden sano no es "copiar la imagen completa de una".
+
+El orden recomendado es:
+
+1. detectar regiones fijas del shell;
+2. identificar componentes visuales repetidos;
+3. mapear cada bloque del mockup a:
+   - `AppShell`
+   - `Workspace`
+   - `Context panel`
+   - `Toolbar`
+   - `Transport`
+4. implementar primero layout y jerarquia;
+5. conectar despues comportamiento real.
+
+Regla importante:
+
+- primero se debe parecer al mockup en estructura,
+- luego en comportamiento fino,
+- y recien al final en polish.
+
+Eso evita perder tiempo en detalles visuales sobre una estructura todavia
+equivocada.
+
+## 16. Como decidir si conviene meter Expo
+
+Esta decision no deberia tomarse como "instalar Expo dentro del Vite actual y
+ya".
+
+Hoy `MiMIDI` es una app web React/Vite con arquitectura propia. Expo introduce
+otro runtime, otra estructura de app y otra forma de pensar UI.
+
+Por eso, antes de tocar nada, hay que separar 3 objetivos posibles:
+
+### Opcion A - Expo como prototipo paralelo del modo app
+
+Uso:
+
+- experimentar vistas;
+- validar mockups;
+- explorar navegacion y layout mobile/desktop;
+- aprender que regiones de UI conviene compartir conceptualmente.
+
+Ventajas:
+
+- no rompe la app web actual;
+- no fuerza migracion total;
+- permite experimentar rapido.
+
+Costo:
+
+- duplica parte de la UI temporalmente;
+- la logica compartida tendra que planearse con cuidado despues.
+
+### Opcion B - Expo como segunda app oficial del monorepo
+
+Uso:
+
+- tener `MiMIDI Web` y `MiMIDI Expo` conviviendo.
+
+Ventajas:
+
+- separacion clara entre web actual y app universal;
+- buena base si de verdad quieres version nativa.
+
+Costo:
+
+- requiere plan de monorepo o multi-app;
+- obliga a decidir que compartes y que no;
+- sube el costo de mantenimiento.
+
+### Opcion C - Intentar convertir la app actual directamente a Expo
+
+No es la opcion recomendada hoy.
+
+Riesgos:
+
+- mezclar Vite y Expo sin estrategia;
+- frenar el avance del modo app;
+- abrir demasiados frentes tecnicos al mismo tiempo.
+
+Conclusion recomendada:
+
+- si quieres empezar ya con mockups y vistas del modo app, la opcion mas sana
+  es `Expo como prototipo paralelo` o `Expo como segunda app`, no como
+  sustitucion inmediata del repo actual.
+
+## 17. Recomendacion concreta para Expo en MiMIDI
+
+La recomendacion actual para este proyecto es:
+
+1. mantener este repo web como fuente principal del producto actual;
+2. si decides usar Expo, crearlo como app separada dentro del mismo workspace o
+   como carpeta hermana;
+3. usar Expo para arrancar el shell y los mockups del modo app;
+4. no mover de golpe el motor musical ni la logica completa al lado Expo.
+
+En otras palabras:
+
+- primero prototipa la experiencia;
+- despues decide que compartir realmente.
+
+## 18. Comando base actual para crear Expo
+
+Segun la documentacion oficial de Expo, la forma recomendada actual para crear
+un proyecto es:
+
+```bash
+npx create-expo-app@latest --template default@sdk-55
+```
+
+La documentacion tambien indica que:
+
+- `create-expo-app` es la herramienta oficial para iniciar el proyecto;
+- el template `default` ya viene orientado a apps de multiples pantallas;
+- y `npx expo start` es el flujo base para arrancarlo despues.
+
+Referencia oficial:
+
+- https://docs.expo.dev/more/create-expo/
+- https://docs.expo.dev/router/installation/
+
+## 19. Donde convendria poner Expo si damos ese paso
+
+La opcion mas sana seria una estructura tipo:
+
+```txt
+MiMIDI/
+  src/               <- app web actual
+  docs/
+  apps/
+    mimidi-expo/     <- nueva app Expo
+```
+
+o incluso:
+
+```txt
+MiMIDI/
+  web/
+  expo/
+  docs/
+```
+
+La decision exacta puede depender de cuanto codigo quieras compartir despues,
+pero el principio es el mismo:
+
+- no mezclar el arranque de Expo dentro del `src/` actual.
+
+## 20. Siguiente paso recomendado si ya tienes mockups
+
+Si ya tienes mockups y quieres empezar el modo app en serio, el siguiente paso
+mas sano es:
+
+1. consolidar `AppShell` web actual contra esos mockups;
+2. mapear cada mockup a una de las vistas:
+   - `Perform`
+   - `Edit`
+   - `Project`
+   - `Plugins`
+   - `Settings`
+   - `Sampler`
+3. implementar primero esas vistas dentro del modo app web actual;
+4. dejar como tarea importante para despues:
+   - seguir sacando coordinacion de `App.tsx`
+   - seguir desacoplando `LabApp`
+   - preparar correctamente Expo como app separada;
+5. solo despues decidir si Expo sera:
+   - prototipo paralelo,
+   - o segunda app del workspace;
+6. solo despues crear la app Expo.
+
+La razon es simple:
+
+- primero debes tener claro que experiencia construyes,
+- luego eliges el casco tecnico correcto,
+- y no al reves.
+
+## 21. Actualizacion: Expo ya existe en `apps/`
+
+La situacion del proyecto ya cambio respecto de secciones anteriores:
+
+- la app Expo ya fue creada en:
+  - `apps/mimidi-expo`
+
+Eso obliga a ajustar la lectura de esta arquitectura.
+
+### 21.1 Nuevo estado correcto
+
+Expo ya no es solo una opcion teorica pendiente de crear.
+
+Ahora pasa a ser:
+
+- una app separada real dentro del workspace;
+- un prototipo paralelo del modo app;
+- una superficie util para mockups, layout y navegacion;
+- una app todavia no integrada al core musical completo.
+
+### 21.2 Lo que no debe asumirse
+
+La existencia de `apps/mimidi-expo` no significa aun que:
+
+- el modo app principal ya se haya mudado a Expo;
+- la logica de MiMIDI ya sea compartida entre web y native;
+- el laboratorio web haya dejado de ser la fuente principal de comportamiento;
+- Expo ya este listo como experiencia completa de producto.
+
+### 21.3 Regla de orientacion vigente
+
+Para esta etapa, la direccion de Expo debe ser:
+
+- horizontal primero
+
+Si algun archivo de configuracion o layout lo contradice, la arquitectura debe
+considerar eso como desalineacion a corregir, no como nueva direccion oficial.
+
+### 21.4 Prioridad inmediata con Expo ya creado
+
+Ahora que la app ya existe, el siguiente orden sano pasa a ser:
+
+1. ordenar la estructura base de Expo;
+2. alinear tabs, orientacion y documentacion de esa app;
+3. seguir usandola como prototipo paralelo del modo app;
+4. decidir mas adelante que partes del core conviene compartir de verdad.
+
+### 21.5 Fuente de verdad complementaria
+
+El estado real de Expo debe seguirse tambien en:
+
+- `docs/10-app-expo-actual.md`
+
+porque este documento (`09`) describe la direccion arquitectonica general del
+modo app, mientras que `10` deja trazado el estado concreto de la app Expo del
+workspace.

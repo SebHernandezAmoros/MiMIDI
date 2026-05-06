@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import "./App.css"
+import "./app/styles/appModeCatalog.css"
 import { getAppLanguageFromSearch } from "./app/appI18n"
 import { AppMode } from "./app/AppMode"
 import { APP_LAB_ROUTE, getAppViewFromSearch, normalizeAppRoute } from "./app/appRoutes"

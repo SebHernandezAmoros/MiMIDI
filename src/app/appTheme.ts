@@ -2,7 +2,13 @@ import type { CSSProperties } from "react"
 
 export const classicAppTheme = {
   colors: {
+    backgroundCanvas: "#505050",
+    borderSoft: "#B8B0A8",
+    surfacePaper: "#F4F1EC",
+    surfacePaperAlt: "#E8E1D8",
     textStrong: "#2B2B2B",
+    textMuted: "#6D665F",
+    accent: "#E24B32",
     borderDark: "#555555",
     surfaceMid: "#808080",
     surfaceLight: "#C0C0C0",
@@ -15,7 +21,13 @@ export const classicAppTheme = {
 
 export function getClassicAppThemeStyle() {
   return {
+    "--app-color-background-canvas": classicAppTheme.colors.backgroundCanvas,
+    "--app-color-border-soft": classicAppTheme.colors.borderSoft,
+    "--app-color-surface-paper": classicAppTheme.colors.surfacePaper,
+    "--app-color-surface-paper-alt": classicAppTheme.colors.surfacePaperAlt,
     "--app-color-text-strong": classicAppTheme.colors.textStrong,
+    "--app-color-text-muted": classicAppTheme.colors.textMuted,
+    "--app-color-accent": classicAppTheme.colors.accent,
     "--app-color-border-dark": classicAppTheme.colors.borderDark,
     "--app-color-surface-mid": classicAppTheme.colors.surfaceMid,
     "--app-color-surface-light": classicAppTheme.colors.surfaceLight,
