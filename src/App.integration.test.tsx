@@ -352,7 +352,6 @@ describe("App integration: timeline history", () => {
 
     expect(screen.getByRole("button", { name: "Perform" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Ir al laboratorio" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Edit")).toBeTruthy()
     expect(screen.getByLabelText("Duracion timeline notas (s)")).toBeTruthy()
   })
@@ -376,6 +375,7 @@ describe("App integration: timeline history", () => {
     expect(screen.getByRole("button", { name: "Perform" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Perform")).toBeTruthy()
     expect(screen.getByLabelText("Modo del piano")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Tocar nota" })).toBeTruthy()
+    expect(screen.getByLabelText("Controles de grabacion")).toBeTruthy()
+    expect(screen.getByLabelText("Octava visible activa")).toBeTruthy()
   })
 })

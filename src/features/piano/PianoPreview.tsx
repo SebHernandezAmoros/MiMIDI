@@ -153,7 +153,8 @@ export function PianoPreview({
     const keyClassName = [
       "piano-key",
       className,
-      note === selectedNote || isActive ? "piano-key-selected" : "",
+      note === selectedNote ? "piano-key-selected" : "",
+      isActive ? "piano-key-active" : "",
     ]
       .filter(Boolean)
       .join(" ")

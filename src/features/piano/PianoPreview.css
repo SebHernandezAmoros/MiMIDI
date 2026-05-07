@@ -33,34 +33,45 @@
 }
 
 .piano-key {
-  border: 1px solid #444444;
+  border: 1px solid #b3aba2;
   border-radius: 0 0 6px 6px;
+  outline: none;
+  appearance: none;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   padding: 0.5rem 0.2rem;
   touch-action: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .piano-key:hover,
 .piano-key:focus-visible {
   border-color: #ff3150;
+  outline: none;
+  box-shadow: none;
+}
+
+.piano-key:focus,
+.piano-key:active {
+  outline: none;
+  box-shadow: none;
 }
 
 .piano-key-natural {
   width: 100%;
   min-width: 0;
   height: 8.75rem;
-  color: #111111;
-  background: #f4f4f4;
+  color: #2d2d2d;
+  background: #efefef;
 }
 
 .piano-key-sharp {
   width: min(72%, 3rem);
   height: 5.75rem;
   color: #f5f5f5;
-  background: #111111;
+  background: #222222;
   pointer-events: auto;
   z-index: 1;
 }
@@ -68,4 +79,23 @@
 .piano-key-selected {
   border-color: #ff3150;
   box-shadow: inset 0 -0.35rem 0 #ff3150;
+}
+
+.piano-key-active {
+  box-shadow: none;
+}
+
+.piano-key-natural.piano-key-active,
+.piano-key-natural:active {
+  border-color: #8c8379;
+  color: #f4f4f4;
+  background: #1f1f1f;
+}
+
+.piano-key-sharp.piano-key-active,
+.piano-key-sharp:active {
+  color: #f5f5f5;
+  border-color: #8c8379;
+  background: #222222;
+  box-shadow: inset 0 -0.18rem 0 rgb(245 240 233 / 0.24);
 }

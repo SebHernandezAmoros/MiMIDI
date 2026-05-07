@@ -98,6 +98,8 @@ import { TrackTimelinePreview } from "../timeline/TrackTimelinePreview"
 import { TimelinePreview } from "../timeline/TimelinePreview"
 import { useProjectHistory } from "../history/useProjectHistory"
 import { usePlaybackTransport } from "../transport/usePlaybackTransport"
+import { AppDialog } from "../../app/components/AppDialog"
+import { PerformResponsiveToolbar } from "../perform/components/PerformResponsiveToolbar"
 
 const HISTORY_LIMIT = 20
 
@@ -165,6 +167,11 @@ function LabApp({ mode = "full" }: LabAppProps) {
   )
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
   const [isExportingAudio, setIsExportingAudio] = useState(false)
+  const [isTrackRemovalConfirmOpen, setIsTrackRemovalConfirmOpen] = useState(false)
+  const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
+  const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
+    MathematicalInstrument["category"]
+  >("base")
   const {
     state: project,
     undoStack,
@@ -216,6 +223,13 @@ function LabApp({ mode = "full" }: LabAppProps) {
         }
       }),
     [project.pluginStates, visibleInstruments],
+  )
+  const dialogVisibleInstruments = useMemo(
+    () =>
+      availableInstruments.filter(
+        (instrument) => instrument.category === instrumentDialogCategory,
+      ),
+    [availableInstruments, instrumentDialogCategory],
   )
   const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
   const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
@@ -281,6 +295,24 @@ function LabApp({ mode = "full" }: LabAppProps) {
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isTrackRemovalConfirmOpen) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsTrackRemovalConfirmOpen(false)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [isTrackRemovalConfirmOpen])
 
   function updateVolume(nextVolume: number) {
     setVolume(nextVolume)
@@ -558,6 +590,33 @@ function LabApp({ mode = "full" }: LabAppProps) {
     setActiveTrackId(fallbackTrackId ?? "track-1")
     setSelectedRecordedNoteId(null)
     setProjectMessage(`Pista eliminada: ${primaryTrack.name}.`)
+  }
+
+  function confirmRemoveActiveTrack() {
+    if (project.tracks.length <= 1) {
+      removeActiveTrack()
+      return
+    }
+
+    setIsTrackRemovalConfirmOpen(true)
+  }
+
+  function cancelRemoveActiveTrack() {
+    setIsTrackRemovalConfirmOpen(false)
+  }
+
+  function acceptRemoveActiveTrack() {
+    setIsTrackRemovalConfirmOpen(false)
+    removeActiveTrack()
+  }
+
+  function openInstrumentDialog() {
+    setInstrumentDialogCategory(activeInstrumentCategory)
+    setIsInstrumentDialogOpen(true)
+  }
+
+  function closeInstrumentDialog() {
+    setIsInstrumentDialogOpen(false)
   }
 
   function updateProjectName(name: string) {
@@ -1358,6 +1417,118 @@ function LabApp({ mode = "full" }: LabAppProps) {
   )
 
   if (mode === "perform-only") {
+    return (
+      <>
+        <section className="perform-workspace-primary" aria-label="Panel principal Perform">
+          <section className="perform-workspace-card perform-mode-toolbar-card">
+            <PerformResponsiveToolbar
+              activeInstrumentCategory={instrumentDialogCategory}
+              allRecordedNotesCount={allRecordedNotes.length}
+              instrumentCategories={instrumentCategories}
+              isInstrumentDialogOpen={isInstrumentDialogOpen}
+              isPlaying={playbackTransport.isPlaying}
+              isRecording={recordingState === "recording"}
+              octave={previewOctave}
+              onAddTrack={addTrack}
+              onCloseInstrumentDialog={closeInstrumentDialog}
+              onConfirmRemoveTrack={confirmRemoveActiveTrack}
+              onInstrumentCategoryChange={setInstrumentDialogCategory}
+              onInstrumentDialogOpen={openInstrumentDialog}
+              onInstrumentSelect={updateTrackInstrumentId}
+              onOctaveDown={() => stepPreviewOctave(-1)}
+              onOctaveUp={() => stepPreviewOctave(1)}
+              onPlayToggle={playbackTransport.isPlaying ? playbackTransport.stop : playRecording}
+              onRecordToggle={
+                recordingState === "recording" ? () => stopRecording() : startRecording
+              }
+              onSelectNextTrack={() => switchTrackByOffset(1)}
+              onSelectPreviousTrack={() => switchTrackByOffset(-1)}
+              primaryTrackName={primaryTrack.name}
+              removeTrackDisabled={project.tracks.length <= 1}
+              selectedInstrumentId={selectedInstrument.id}
+              selectedInstrumentName={selectedInstrument.name}
+              trackNextDisabled={project.tracks.at(-1)?.id === primaryTrack.id}
+              trackPreviousDisabled={project.tracks[0]?.id === primaryTrack.id}
+              visibleInstruments={dialogVisibleInstruments}
+            />
+          </section>
+
+          <section className="perform-workspace-card perform-workspace-card-piano">
+            {performPiano}
+          </section>
+
+          <div className="sr-only">
+            {performControls}
+          </div>
+        </section>
+
+        <AppDialog
+          actions={
+            <>
+              <button onClick={cancelRemoveActiveTrack} type="button">
+                Cancelar
+              </button>
+              <button
+                className="app-dialog-confirm"
+                onClick={acceptRemoveActiveTrack}
+                type="button"
+              >
+                Eliminar
+              </button>
+            </>
+          }
+          description="La pista activa y sus notas se eliminaran de esta toma."
+          onClose={cancelRemoveActiveTrack}
+          open={isTrackRemovalConfirmOpen}
+          title={`Eliminar ${primaryTrack.name}?`}
+        />
+
+        <aside className="perform-workspace-secondary perform-workspace-secondary-hidden">
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">Proyecto</span>
+                <h3>{project.name}</h3>
+              </div>
+            </div>
+            <p className="app-surface-note">{projectMessage || "Listo para tocar y grabar."}</p>
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">SMC Pad</span>
+                <h3>Percusion rapida</h3>
+              </div>
+            </div>
+            {performPad}
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">Acciones</span>
+                <h3>Transporte y toma</h3>
+              </div>
+            </div>
+            {performActions}
+          </section>
+
+          <section className="perform-workspace-card">
+            <div className="app-surface-title-row">
+              <div>
+                <span className="app-surface-eyebrow">MIDI</span>
+                <h3>Actividad reciente</h3>
+              </div>
+            </div>
+            {performMidiLog}
+          </section>
+        </aside>
+      </>
+    )
+  }
+
+  if (false) {
     return (
       <>
         <section className="perform-workspace-primary" aria-label="Panel principal Perform">

@@ -2,17 +2,17 @@ import type { CSSProperties } from "react"
 
 export const classicAppTheme = {
   colors: {
-    backgroundCanvas: "#505050",
-    borderSoft: "#B8B0A8",
-    surfacePaper: "#F4F1EC",
-    surfacePaperAlt: "#E8E1D8",
-    textStrong: "#2B2B2B",
-    textMuted: "#6D665F",
+    backgroundCanvas: "#bcbcbc",
+    borderSoft: "#b3aba2",
+    surfacePaper: "#efefef",
+    surfacePaperAlt: "#dddddd",
+    textStrong: "#303030",
+    textMuted: "#686868",
     accent: "#E24B32",
-    borderDark: "#555555",
-    surfaceMid: "#808080",
-    surfaceLight: "#C0C0C0",
-    surfaceBright: "#E0E0E0",
+    borderDark: "#9b938a",
+    surfaceMid: "#bdbdbd",
+    surfaceLight: "#d4d4d4",
+    surfaceBright: "#ececec",
   },
   fonts: {
     primary: '"VT323", "IBM Plex Mono", "Courier New", monospace',

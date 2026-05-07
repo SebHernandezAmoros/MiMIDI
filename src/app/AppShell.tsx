@@ -8,17 +8,19 @@ type AppShellProps = PropsWithChildren<{
 }>
 
 export function AppShell({ children, subtitle, title, toolbar }: AppShellProps) {
+  void subtitle
+  void toolbar
+
   return (
     <main className="app-shell app-theme-classic" style={getClassicAppThemeStyle()}>
-      <header className="app-shell-header" aria-label="Shell principal MiMIDI">
-        <div>
-          <span className="app-shell-eyebrow">MiMIDI App Mode</span>
-          <h1>{title}</h1>
-          <p>{subtitle}</p>
-        </div>
-        {toolbar ? <div className="app-shell-toolbar">{toolbar}</div> : null}
-      </header>
-      <section className="app-shell-workspace">{children}</section>
+      <section className="app-shell-portrait-blocker" aria-label="Modo vertical no disponible">
+        <strong>{title}</strong>
+        <p>Gira el dispositivo a horizontal para usar esta vista.</p>
+      </section>
+
+      <div className="app-shell-live-content">
+        <section className="app-shell-workspace">{children}</section>
+      </div>
     </main>
   )
 }

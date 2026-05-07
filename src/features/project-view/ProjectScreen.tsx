@@ -6,13 +6,5 @@ type ProjectScreenProps = {
 }
 
 export function ProjectScreen({ copy }: ProjectScreenProps) {
-  return (
-    <section className="app-view-screen" aria-label="Pantalla Project">
-      <div className="app-view-intro">
-        <h2>{copy.label}</h2>
-        <p>{copy.intro}</p>
-      </div>
-      <ProjectWorkspace body={copy.workspaceBody} title={copy.workspaceTitle} />
-    </section>
-  )
+  return <ProjectWorkspace body={copy.workspaceBody} title={copy.workspaceTitle} />
 }
