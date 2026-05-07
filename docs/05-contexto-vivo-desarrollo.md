@@ -4882,3 +4882,490 @@ Expo deja de ser una coleccion de restos del template y pasa a ser una base
 seria del modo app paralelo. Ya existe una estructura clara para seguir
 refinando pantallas y luego decidir con mas criterio que parte del dominio del
 proyecto web merece compartirse.
+
+## Movimiento 87 - Correccion del shell Expo para horizontal responsive
+
+Fase: Bloque I / endurecimiento del shell Expo
+
+Archivos movidos:
+
+- `apps/mimidi-expo/src/components/PrototypeShell.tsx`
+- `apps/mimidi-expo/src/features/perform/PerformPrototypeScreen.tsx`
+
+Intencion:
+
+Corregir un problema visible del prototipo Expo: aunque la app ya estaba en
+horizontal, el shell seguia comportandose como una tarjeta demasiado rigida.
+En pantallas bajas o estrechas eso dejaba partes del contenido fuera de vista,
+recortaba menus y generaba sensacion de espacios en blanco torpes.
+
+Como se movio:
+
+- `PrototypeShell` deja de depender de scroll como solucion.
+- El shell vuelve a un layout fijo sin scroll y ahora se adapta por
+  breakpoints.
+- Se agregan dos niveles de compactacion:
+  - `compact`
+  - `tight`
+- Se reducen paddings, gaps y escala visual cuando la pantalla horizontal es
+  baja o estrecha.
+- La fila superior del shell compacta mejor marca y navegacion.
+- `PerformPrototypeScreen` adopta tambien un modo compacto:
+  - filas menos rigidas
+  - teclado mas bajo
+  - botones de control mas pequenos
+  - track selector con mejor tolerancia a ancho reducido
+  - cluster de octava menos agresivo
+  - bloque inferior mas comprimido
+
+Decision tecnica:
+
+Se mantiene Screaming Architecture:
+
+- `app/` y shell para infraestructura de navegacion y layout
+- `perform/` para la capacidad visible de piano/grabacion
+
+La correccion se hizo sin mezclar el problema responsive con dominio musical o
+con logica de otras pantallas.
+
+Validacion:
+
+- `npm run lint` dentro de `apps/mimidi-expo`
+
+Resultado:
+
+La app Expo sigue en horizontal, pero ahora intenta entrar completa en pantalla
+sin recurrir a scroll. El shell queda mejor preparado para seguir refinando
+`Perform` y para aplicar despues la misma estrategia a `Plugins`, `Settings`,
+`SMC Pad` y `Edit`.
+
+## Movimiento 88 - Primer comportamiento real local para `Perform` en Expo
+
+Fase: Bloque I / primer estado funcional de Expo
+
+Archivos movidos:
+
+- `apps/mimidi-expo/src/features/perform/PerformPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/perform/usePerformPrototypeState.ts`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Dar el primer paso desde maqueta visual hacia comportamiento real dentro de
+Expo, pero sin conectar todavia la app al core musical web.
+
+El objetivo de esta iteracion fue volver funcional `Perform` con estado local
+del feature, manteniendo Screaming Architecture y evitando meter reglas de
+interaccion directamente desordenadas dentro del shell.
+
+Como se movio:
+
+- Se creo `usePerformPrototypeState.ts` dentro del feature `perform`.
+- El estado local ahora vive en una frontera propia del producto y no pegado al
+  shell general.
+- `Perform` ya soporta:
+  - estado `idle / recording`
+  - agregar track
+  - cambiar track activo con flechas
+  - cambiar octava con `- / +`
+  - activar nota desde teclas blancas y negras
+  - reflejar ultima nota activa en el panel inferior
+  - reflejar cantidad de tracks y estado de transporte
+- Los controles muestran estados deshabilitados cuando corresponde:
+  - primera pista
+  - ultima pista
+  - minimo y maximo de octava
+
+Decision tecnica:
+
+Se mantiene Screaming Architecture tambien en Expo:
+
+- el shell vive en `app/` y `src/components/PrototypeShell.tsx`
+- la capacidad funcional vive en `src/features/perform/`
+
+No se compartio aun dominio real con web porque la prioridad sigue siendo
+madurar la experiencia de pantalla antes de abrir una capa comun mas profunda.
+
+Validacion:
+
+- `npm run lint` dentro de `apps/mimidi-expo`
+
+Resultado:
+
+Expo ya no solo se ve como modo app: `Perform` ahora tiene primer
+comportamiento local usable. Esto deja una base mas honesta para la siguiente
+iteracion sobre `Plugins`, `Settings` o la profundizacion de `Perform`.
+
+## Movimiento 89 - Ajuste fino de `Perform` y primer sonido real del teclado en web
+
+Fase: Bloque I / endurecimiento de `Perform`
+
+Archivos movidos:
+
+- `apps/mimidi-expo/src/features/perform/PerformPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/perform/usePerformPrototypeAudio.ts`
+- `apps/mimidi-expo/src/features/perform/usePerformPrototypeAudio.web.ts`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Resolver dos vacios que todavia hacian sentir a `Perform` como demo a medias:
+
+- demasiado aire visual en pantallas horizontales bajas
+- interaccion de teclado sin sonido real
+
+Como se movio:
+
+- Se ajusto otra vez la altura del piano para que responda mejor al alto real
+  disponible.
+- Se compactaron paneles y pills inferiores para consumir menos altura.
+- Se corrigio la interaccion de teclas para evitar re-disparos innecesarios al
+  soltar.
+- Se creo una primera capa de audio propia del feature:
+  - `usePerformPrototypeAudio.web.ts`
+- Esa capa usa `AudioContext` en web para sintetizar tono simple al tocar notas.
+- Se agrego un fallback neutral:
+  - `usePerformPrototypeAudio.ts`
+  para mantener el feature estable fuera de web por ahora.
+- El boton `Stop` ahora tambien apaga notas activas del audio local.
+
+Decision tecnica:
+
+Se mantiene Screaming Architecture:
+
+- el sonido de este prototipo vive en el feature `perform`
+- no se subio al shell
+- no se mezclo todavia con el core musical web
+
+Esto permite validar experiencia real de pantalla sin comprometer aun la
+arquitectura compartida entre runtimes.
+
+Validacion:
+
+- `npm run lint` dentro de `apps/mimidi-expo`
+
+Resultado:
+
+`Perform` queda mas compacto y ya produce sonido real al tocar teclas en web.
+Eso no significa aun integracion total con el motor de MiMIDI, pero si marca la
+primera transicion clara desde prototipo visual hacia experiencia musical viva
+dentro de Expo.
+
+## Movimiento 90 - Guia simple de las 4 capas para replicar web hacia Expo
+
+Fase: convivencia web + Expo / claridad de migracion
+
+Archivos movidos:
+
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Dejar explicado de forma simple que "llevar MiMIDI web a Expo" no significa
+copiar toda la app tal cual, sino replicarla por capas con distinto nivel de
+portabilidad.
+
+Como se movio:
+
+- Se agrego en `docs/10-app-expo-actual.md` una guia operativa de 4 capas:
+  - producto
+  - dominio puro
+  - casos de uso
+  - UI e infraestructura
+- Se documento que:
+  - producto si se replica en Expo
+  - dominio luego puede compartirse o adaptarse
+  - casos de uso pueden migrarse parcialmente
+  - UI/infraestructura no se copia tal cual y se rehace por plataforma
+
+Decision tecnica:
+
+Esto refuerza Screaming Architecture tambien en la convivencia web + Expo:
+
+- no pensamos la migracion como copia de componentes;
+- la pensamos como traslado de capacidades y fronteras del producto.
+
+Resultado:
+
+Queda una guia mucho mas facil para decidir que pasa de web a Expo y que no,
+sin reabrir la misma discusion en cada iteracion.
+
+## Movimiento 91 - `Plugins`, `Settings` y `Edit` dejan de ser puro placeholder en Expo
+
+Fase: Bloque I / crecimiento funcional por features en Expo
+
+Archivos movidos:
+
+- `apps/mimidi-expo/src/features/plugins/usePluginsPrototypeState.ts`
+- `apps/mimidi-expo/src/features/plugins/PluginsPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/settings/useSettingsPrototypeState.ts`
+- `apps/mimidi-expo/src/features/settings/SettingsPrototypeScreen.tsx`
+- `apps/mimidi-expo/src/features/edit/useEditPrototypeState.ts`
+- `apps/mimidi-expo/src/features/edit/EditPrototypeScreen.tsx`
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Continuar la ruta acordada para Expo sin saltar aun al dominio real del
+proyecto web:
+
+- mantener `Perform` como primera pantalla viva;
+- volver `Plugins`, `Settings` y `Edit` mas honestos como superficies de app;
+- y sostener Screaming Architecture tambien dentro de Expo, separando shell,
+  pantalla y estado local por capacidad.
+
+Como se movio:
+
+- Se creo `usePluginsPrototypeState.ts` dentro del feature `plugins`.
+- `PluginsPrototypeScreen` ya soporta:
+  - seleccion local de plugin
+  - activar/desactivar plugins mock
+  - resumen del rack activo
+  - detalle del plugin seleccionado
+  - contadores mock de `IMPORT` y `PLUGIN FOLDER`
+- Se creo `useSettingsPrototypeState.ts` dentro del feature `settings`.
+- `SettingsPrototypeScreen` ya soporta:
+  - idioma ciclico local
+  - cambio mock de salida de audio
+  - cambio mock de estado MIDI
+  - switch de tema oscuro
+  - resumen local de la sesion
+- Se creo `useEditPrototypeState.ts` dentro del feature `edit`.
+- `EditPrototypeScreen` ya soporta:
+  - alternar vista mock `notes / tracks`
+  - cambiar rango mock de barras
+  - mover playhead
+  - seleccionar nota en la timeline
+  - alternar `mute / solo` por pista
+  - reflejar estado actual en un panel de resumen
+
+Decision tecnica:
+
+Se mantiene Screaming Architecture:
+
+- `PrototypeShell` sigue siendo infraestructura de app/layout
+- cada feature ahora administra su propio estado local
+- no se subio esa logica al shell ni a carpetas genericas de `utils`
+
+Todavia no se comparte dominio real con web. Esta iteracion sigue orientada a
+madurar experiencia de pantalla y comportamiento local antes de abrir una capa
+comun mas profunda.
+
+Validacion:
+
+- `npm run lint` dentro de `apps/mimidi-expo`
+
+Resultado:
+
+Expo ya no tiene solo una pantalla viva (`Perform`). Ahora tambien `Plugins`,
+`Settings` y `Edit` cuentan con primer comportamiento local real. El siguiente
+paso sano ya no es "hacer que se vea", sino decidir donde conviene empujar:
+
+- mejorar aun mas el layout horizontal de `Perform`
+- llevar sonido tambien a Expo native
+- o empezar a enriquecer datos y acciones de `Edit` y `Plugins`
+
+## Movimiento 92 - Primer sonido real tambien para Expo native en `Perform`
+
+Fase: Bloque I / audio local por plataforma en Expo
+
+Archivos movidos:
+
+- `apps/mimidi-expo/package.json`
+- `apps/mimidi-expo/src/features/perform/performToneWav.ts`
+- `apps/mimidi-expo/src/features/perform/usePerformPrototypeAudio.native.ts`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Cerrar una confusion valida del estado Expo: `Perform` ya sonaba en web, pero
+seguia mudo dentro de la app del celular porque solo existia implementacion
+`.web`.
+
+Como se movio:
+
+- Se instalo `expo-audio`.
+- Se instalo `expo-file-system`.
+- Se creo `performToneWav.ts` dentro del feature `perform` para:
+  - convertir nota a frecuencia
+  - generar bytes `WAV` sinteticos por nota
+  - definir nombres de archivo temporales
+- Se creo `usePerformPrototypeAudio.native.ts`.
+- Esa implementacion native:
+  - configura modo de audio con `expo-audio`
+  - genera archivos `WAV` temporales por nota en cache
+  - reproduce esos tonos al presionar teclas
+  - corta y libera players al soltar o detener
+
+Decision tecnica:
+
+Se mantiene Screaming Architecture tambien aqui:
+
+- web sigue usando `usePerformPrototypeAudio.web.ts`
+- native ahora usa `usePerformPrototypeAudio.native.ts`
+- la sintesis temporal vive en el feature `perform`
+- no se subio al shell ni se mezclo con el core musical web
+
+Todavia no es el motor real de MiMIDI compartido entre runtimes. Es una capa
+local de experiencia para validar interpretacion dentro de Expo native.
+
+Validacion:
+
+- `npm run lint` dentro de `apps/mimidi-expo`
+
+Resultado:
+
+`Perform` deja de sonar solo en navegador y pasa a tener tambien primer sonido
+real dentro de la app Expo native.
+
+## Movimiento 93 - Agenda abierta de convivencia web + Expo + publicacion temprana
+
+Fase: Bloque I / alineacion estrategica antes de seguir migrando
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Dejar por escrito varias incomodidades reales del proyecto antes de seguir
+empujando Expo por inercia:
+
+- la version web todavia necesita cierres para dar confianza;
+- Expo sigue demasiado inmaduro comparado con web;
+- y ya aparece una necesidad practica de mostrar algo publicamente antes de que
+  el modo app este terminado.
+
+Como se movio:
+
+- Se documento que conviene cerrar primero fricciones pendientes de la version
+  web antes de migrar con ansiedad el laboratorio hacia vistas bonitas.
+- Se dejo explicitado que `Perform` en Expo native hoy tiene problemas reales a
+  resolver:
+  - no soporta varias teclas a la vez como deberia
+  - la activacion del sonido aun se siente lenta
+  - sigue desperdiciando espacio visual
+- Se documento que Expo aun debe acercarse mucho mas a la funcionalidad real de
+  la app web:
+  - selector de instrumento
+  - controles perform
+  - mas estado real de proyecto y edicion
+- Se agrego como frente real la posibilidad de publicar primero la version web
+  como demo visible del proyecto mientras el modo app madura.
+- Se dejo asentada la necesidad de evaluar una separacion mas limpia de
+  workspace si el crecimiento sigue asi:
+  - `apps/web`
+  - `apps/app`
+  - `packages/core`
+- Se documento tambien la preocupacion correcta sobre plugins:
+  la compatibilidad futura entre web y app debe apoyarse en core/dominio
+  compartido, no en tratar de compartir UI.
+
+Decision tecnica:
+
+La direccion recomendada por ahora es esta:
+
+- no abandonar web;
+- no intentar portar todo a Expo de golpe;
+- seguir usando web como fuente de verdad funcional;
+- seguir usando Expo como frente de modo app;
+- y preparar una capa compartida de core solo cuando el dominio a compartir
+  este suficientemente estable.
+
+Eso significa que Expo como "app paralela" puede seguir sirviendo un poco mas,
+pero no deberia convertirse en un callejon largo. Si el frente sigue creciendo,
+la salida sana probablemente sera:
+
+- conservar ambos frentes
+- pero reorganizados como apps hermanas sobre un core compartido
+
+Validacion:
+
+- revision manual de consistencia entre plan, contexto vivo y estado real del
+  frente Expo / frente web
+
+Resultado:
+
+Queda una agenda honesta para revisar manana:
+
+1. que cerrar primero en web
+2. que arreglar urgente en `Perform` native
+3. si publicar ya una demo web
+4. si conviene reestructurar a `apps/web` + `apps/app` + `packages/core`
+5. como pensar compatibilidad de plugins sin volver la arquitectura un dolor de
+   cabeza mayor
+
+## Movimiento 94 - Reenfoque oficial: web responsive primero y Expo en posible purga
+
+Fase: Bloque I / realineacion estrategica posterior a la exploracion en Expo
+
+Archivos movidos:
+
+- `docs/04-plan-desarrollo.md`
+- `docs/05-contexto-vivo-desarrollo.md`
+- `docs/10-app-expo-actual.md`
+
+Intencion:
+
+Cerrar con claridad una decision de producto y de inversion tecnica que ya se
+venia insinuando en movimientos anteriores:
+
+- Expo sirvio para explorar;
+- pero no conviene seguir empujandolo como si fuera el frente principal;
+- el valor mas acumulado hoy sigue estando en la app web;
+- y el siguiente tramo del proyecto debe concentrarse en hacer que el modo app
+  web, especialmente su responsive, se parezca de forma mucho mas fiel a los
+  mockups compartidos.
+
+Tambien hacia falta dejar por escrito que un futuro modulo mobile no deberia
+nacer rehaciendo todo desde cero, sino aprovechando lo que el frente web ya
+resuelva bien y, mas adelante, lo que pueda extraerse como core compartido.
+
+Como se movio:
+
+- Se actualizo `docs/04-plan-desarrollo.md` para cambiar el foco inmediato del
+  Bloque I:
+  - web como frente principal
+  - responsive guiado por mockups
+  - Expo congelado por ahora
+- Se corrigio `docs/10-app-expo-actual.md` para reflejar dos cosas a la vez:
+  - Expo si llego a tener primer audio local prototipo
+  - pero deja de ser frente activo y pasa a quedar en posible purga
+- Se dejo explicito que la prioridad inmediata es:
+  - consolidar `Perform`, `SMC Pad`, `Plugins`, `Settings` y `Edit /
+    Timelines` dentro del modo app web
+  - mejorar jerarquia visual, densidad y comportamiento responsive antes de
+    abrir nuevas vistas o nuevas migraciones
+
+Decision tecnica:
+
+La direccion activa queda asi:
+
+- la app web vuelve a ser el foco total de iteracion;
+- el responsive ya no es ajuste secundario, sino frente principal de producto;
+- Expo queda congelado y en posible purga, sin borrarlo todavia;
+- el futuro mobile se pensara despues, apoyado en lo validado en web y no como
+  reinicio paralelo desde cero.
+
+Esto protege mejor la inversion ya hecha y evita que el proyecto se rompa en
+dos frentes incompletos al mismo tiempo.
+
+Resultado:
+
+Queda fijado el punto exacto en el que nos quedamos:
+
+- web como fuente de verdad funcional y visual inmediata
+- responsive como prioridad visible numero uno
+- mockups como referencia obligatoria de estructura y densidad
+- Expo documentado, congelado y en observacion para posible purga posterior
+- mobile futuro entendido como derivacion del trabajo web y no como reemplazo
+  apresurado

@@ -1,128 +1,221 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { PrototypeShell } from '@/src/components/PrototypeShell';
-import { SelectLike, SurfacePanel } from '@/src/components/PrototypeUI';
+import { SurfacePanel } from '@/src/components/PrototypeUI';
 import { mimidiTheme } from '@/src/theme/mimidiTheme';
+import { useEditPrototypeState } from './useEditPrototypeState';
 
 const laneLabels = ['C5', 'A4', 'G4', 'F4', 'E4', 'D4', 'C4'] as const;
-const noteBlocks = [
-  { lane: 6, start: 0.02, width: 0.12 },
-  { lane: 4, start: 0.16, width: 0.11 },
-  { lane: 2, start: 0.3, width: 0.08 },
-  { lane: 5, start: 0.41, width: 0.09 },
-  { lane: 3, start: 0.52, width: 0.1 },
-  { lane: 1, start: 0.69, width: 0.08 },
-  { lane: 4, start: 0.82, width: 0.08 },
-] as const;
-
-const trackRows = [
-  { name: 'Track 1', start: 0.34, width: 0.56 },
-  { name: 'Track 2', start: 0.39, width: 0.5 },
-  { name: 'Track 3', start: 0.42, width: 0.22 },
-  { name: 'Track 4', start: 0.46, width: 0.45 },
-] as const;
 
 export function EditPrototypeScreen() {
+  const {
+    barRange,
+    cycleBarRange,
+    movePlayhead,
+    noteBlocks,
+    playheadPosition,
+    selectNote,
+    selectedNote,
+    selectedNoteId,
+    toggleTrackMute,
+    toggleTrackSolo,
+    toggleViewMode,
+    trackRows,
+    viewMode,
+  } = useEditPrototypeState();
+  const { height, width } = useWindowDimensions();
+  const isCompact = width < 940 || height < 560;
+
   return (
     <PrototypeShell currentRoute="edit">
-      <View style={styles.toolbar}>
-        <SelectLike value="NOTAS" width={112} />
-        <SelectLike value="1 BAR" width={120} />
-        <View style={styles.searchButton}>
-          <Ionicons color={mimidiTheme.colors.ink} name="search" size={18} />
+      <View style={[styles.layout, isCompact ? styles.layoutCompact : null]}>
+        <View style={[styles.toolbar, isCompact ? styles.toolbarCompact : null]}>
+          <ToolbarButton
+            icon={viewMode === 'notes' ? 'grid-outline' : 'albums-outline'}
+            label={viewMode === 'notes' ? 'NOTAS' : 'TRACKS'}
+            onPress={toggleViewMode}
+          />
+          <ToolbarButton icon="resize-outline" label={barRange} onPress={cycleBarRange} />
+          <ToolbarButton icon="play-outline" label="MOVER" onPress={movePlayhead} />
+        </View>
+
+        <SurfacePanel title="Timeline de notas">
+          <View style={styles.scaleHeader}>
+            <View style={styles.leftSpacer} />
+            <Text style={styles.scaleLabel}>1</Text>
+            <Text style={styles.scaleLabel}>1.2</Text>
+            <Text style={styles.scaleLabel}>1.3</Text>
+            <Text style={styles.scaleLabel}>1.4</Text>
+            <Text style={styles.scaleLabel}>2</Text>
+          </View>
+
+          <View style={styles.notesGrid}>
+            <View style={styles.keyboardLanes}>
+              {laneLabels.map((lane) => (
+                <View key={lane} style={styles.keyboardLane}>
+                  <Text style={styles.keyboardLabel}>{lane}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.timelineArea}>
+              <View style={[styles.playhead, { left: `${playheadPosition * 100}%` }]} />
+              {Array.from({ length: laneLabels.length }).map((_, laneIndex) => (
+                <View key={`lane-${laneIndex}`} style={styles.timelineLane} />
+              ))}
+              {noteBlocks.map((note) => {
+                const isSelected = note.id === selectedNoteId;
+
+                return (
+                  <Pressable
+                    key={note.id}
+                    onPress={() => selectNote(note.id)}
+                    style={[
+                      styles.noteBlock,
+                      isSelected ? styles.noteBlockSelected : null,
+                      {
+                        left: `${note.start * 100}%`,
+                        top: note.lane * 38 + 11,
+                        width: `${note.width * 100}%`,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        </SurfacePanel>
+
+        <View style={[styles.bottomRow, isCompact ? styles.bottomRowCompact : null]}>
+          <SurfacePanel title="Tracks">
+            <View style={styles.trackPreview}>
+              {trackRows.map((track, index) => (
+                <View key={track.id} style={styles.trackRow}>
+                  <View style={styles.trackMeta}>
+                    <Text style={styles.trackIndex}>{index + 1}</Text>
+                    <Text style={styles.trackName}>{track.name}</Text>
+                    <Pressable
+                      onPress={() => toggleTrackMute(track.id)}
+                      style={[
+                        styles.trackMiniButton,
+                        track.muted ? styles.trackMiniButtonActive : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.trackMiniText,
+                          track.muted ? styles.trackMiniTextActive : null,
+                        ]}
+                      >
+                        M
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => toggleTrackSolo(track.id)}
+                      style={[
+                        styles.trackMiniButton,
+                        track.solo ? styles.trackMiniButtonActive : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.trackMiniText,
+                          track.solo ? styles.trackMiniTextActive : null,
+                        ]}
+                      >
+                        S
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.trackTimeline}>
+                    <View
+                      style={[
+                        styles.trackClip,
+                        {
+                          left: `${track.start * 100}%`,
+                          width: `${track.width * 100}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </SurfacePanel>
+
+          <SurfacePanel title="Estado de edicion">
+            <View style={styles.summaryStack}>
+              <SummaryPill label={`Vista ${viewMode === 'notes' ? 'notas' : 'tracks'}`} />
+              <SummaryPill label={barRange} />
+              <SummaryPill label={`Playhead ${(playheadPosition * 100).toFixed(0)}%`} />
+              <SummaryPill label={`Nota ${selectedNote.id}`} />
+              <SummaryPill label={`Lane ${selectedNote.lane + 1}`} />
+            </View>
+          </SurfacePanel>
         </View>
       </View>
-
-      <SurfacePanel>
-        <View style={styles.scaleHeader}>
-          <View style={styles.leftSpacer} />
-          <Text style={styles.scaleLabel}>1</Text>
-          <Text style={styles.scaleLabel}>1.2</Text>
-          <Text style={styles.scaleLabel}>1.3</Text>
-          <Text style={styles.scaleLabel}>1.4</Text>
-          <Text style={styles.scaleLabel}>2</Text>
-        </View>
-
-        <View style={styles.notesGrid}>
-          <View style={styles.keyboardLanes}>
-            {laneLabels.map((lane) => (
-              <View key={lane} style={styles.keyboardLane}>
-                <Text style={styles.keyboardLabel}>{lane}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.timelineArea}>
-            <View style={styles.playhead} />
-            {Array.from({ length: laneLabels.length }).map((_, laneIndex) => (
-              <View key={`lane-${laneIndex}`} style={styles.timelineLane} />
-            ))}
-            {noteBlocks.map((note, index) => (
-              <View
-                key={`note-${index}`}
-                style={[
-                  styles.noteBlock,
-                  {
-                    left: `${note.start * 100}%`,
-                    top: note.lane * 38 + 11,
-                    width: `${note.width * 100}%`,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-      </SurfacePanel>
-
-      <SurfacePanel title="Vista de tracks siguiente">
-        <View style={styles.trackPreview}>
-          {trackRows.map((track, index) => (
-            <View key={track.name} style={styles.trackRow}>
-              <View style={styles.trackMeta}>
-                <Text style={styles.trackIndex}>{index + 1}</Text>
-                <Text style={styles.trackName}>{track.name}</Text>
-                <View style={styles.trackMiniButton}>
-                  <Text style={styles.trackMiniText}>M</Text>
-                </View>
-                <View style={styles.trackMiniButton}>
-                  <Text style={styles.trackMiniText}>S</Text>
-                </View>
-              </View>
-              <View style={styles.trackTimeline}>
-                <View
-                  style={[
-                    styles.trackClip,
-                    {
-                      left: `${track.start * 100}%`,
-                      width: `${track.width * 100}%`,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-          ))}
-        </View>
-      </SurfacePanel>
     </PrototypeShell>
   );
 }
 
+function ToolbarButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.toolbarButton}>
+      <Ionicons color={mimidiTheme.colors.ink} name={icon} size={18} />
+      <Text style={styles.toolbarButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SummaryPill({ label }: { label: string }) {
+  return (
+    <View style={styles.summaryPill}>
+      <Text style={styles.summaryPillText}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  layout: {
+    flex: 1,
+    gap: mimidiTheme.spacing.md,
+  },
+  layoutCompact: {
+    gap: mimidiTheme.spacing.sm,
+  },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: mimidiTheme.spacing.md,
   },
-  searchButton: {
-    width: 42,
-    height: 42,
+  toolbarCompact: {
+    gap: mimidiTheme.spacing.sm,
+  },
+  toolbarButton: {
+    minHeight: 42,
+    minWidth: 118,
     borderRadius: mimidiTheme.radius.sm,
     borderWidth: 1,
     borderColor: mimidiTheme.colors.borderStrong,
     backgroundColor: mimidiTheme.colors.cardAlt,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: mimidiTheme.spacing.md,
+  },
+  toolbarButtonText: {
+    color: mimidiTheme.colors.ink,
+    fontSize: 14,
+    fontWeight: '700',
   },
   scaleHeader: {
     flexDirection: 'row',
@@ -174,7 +267,6 @@ const styles = StyleSheet.create({
   },
   playhead: {
     position: 'absolute',
-    left: '15%',
     top: 0,
     bottom: 0,
     width: 2,
@@ -186,6 +278,16 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 3,
     backgroundColor: '#707070',
+  },
+  noteBlockSelected: {
+    backgroundColor: mimidiTheme.colors.accent,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    gap: mimidiTheme.spacing.md,
+  },
+  bottomRowCompact: {
+    gap: mimidiTheme.spacing.sm,
   },
   trackPreview: {
     gap: mimidiTheme.spacing.sm,
@@ -221,10 +323,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  trackMiniButtonActive: {
+    backgroundColor: mimidiTheme.colors.ink,
+    borderColor: mimidiTheme.colors.ink,
+  },
   trackMiniText: {
     color: mimidiTheme.colors.ink,
     fontSize: 11,
     fontWeight: '700',
+  },
+  trackMiniTextActive: {
+    color: mimidiTheme.colors.keyWhite,
   },
   trackTimeline: {
     flex: 1,
@@ -240,5 +349,25 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 2,
     backgroundColor: '#707070',
+  },
+  summaryStack: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: mimidiTheme.spacing.sm,
+  },
+  summaryPill: {
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: mimidiTheme.colors.border,
+    backgroundColor: mimidiTheme.colors.cardAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  summaryPillText: {
+    color: mimidiTheme.colors.ink,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

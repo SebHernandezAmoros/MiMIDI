@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -28,6 +27,14 @@ export function PrototypeShell({
 }: PrototypeShellProps) {
   const { height, width } = useWindowDimensions();
   const isPortrait = height > width;
+  const isCompact = width < 960 || height < 560;
+  const isTight = width < 840 || height < 500;
+  const shellPaddingHorizontal = isCompact
+    ? mimidiTheme.spacing.md
+    : mimidiTheme.spacing.lg;
+  const shellPaddingVertical = isCompact
+    ? mimidiTheme.spacing.sm
+    : mimidiTheme.spacing.lg;
 
   if (isPortrait) {
     return (
@@ -46,11 +53,39 @@ export function PrototypeShell({
   }
 
   const content = (
-    <View style={styles.viewport}>
+    <View
+      style={[
+        styles.viewport,
+        {
+          paddingHorizontal: shellPaddingHorizontal,
+          paddingVertical: shellPaddingVertical,
+        },
+      ]}
+    >
       <View style={styles.deviceCard}>
-        <View style={styles.topRow}>
-          <Text style={styles.brand}>{title}</Text>
-          <View style={styles.navRow}>
+        <View
+          style={[
+            styles.topRow,
+            isCompact ? styles.topRowCompact : null,
+            isTight ? styles.topRowTight : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.brand,
+              isCompact ? styles.brandCompact : null,
+              isTight ? styles.brandTight : null,
+            ]}
+          >
+            {title}
+          </Text>
+          <View
+            style={[
+              styles.navRow,
+              isCompact ? styles.navRowCompact : null,
+              isTight ? styles.navRowTight : null,
+            ]}
+          >
             {mimidiTabs.map((tab) => {
               const isActive = tab.id === currentRoute;
 
@@ -58,7 +93,11 @@ export function PrototypeShell({
                 <Pressable
                   key={tab.id}
                   onPress={() => router.replace(tab.href)}
-                  style={styles.navButton}
+                  style={[
+                    styles.navButton,
+                    isCompact ? styles.navButtonCompact : null,
+                    isTight ? styles.navButtonTight : null,
+                  ]}
                 >
                   {tab.icon.family === 'material' ? (
                     <MaterialCommunityIcons
@@ -93,20 +132,22 @@ export function PrototypeShell({
           </View>
         </View>
         <View style={styles.divider} />
-        <View style={styles.body}>{children}</View>
+        <View
+          style={[
+            styles.body,
+            isCompact ? styles.bodyCompact : null,
+            isTight ? styles.bodyTight : null,
+          ]}
+        >
+          {children}
+        </View>
       </View>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {scrollable ? (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {content}
-        </ScrollView>
-      ) : (
-        content
-      )}
+      {content}
     </SafeAreaView>
   );
 }
@@ -116,16 +157,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: mimidiTheme.colors.background,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
   viewport: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: mimidiTheme.spacing.lg,
-    paddingVertical: mimidiTheme.spacing.lg,
   },
   deviceCard: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    alignSelf: 'center',
     borderRadius: mimidiTheme.radius.xl,
     backgroundColor: mimidiTheme.colors.card,
     overflow: 'hidden',
@@ -138,21 +178,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: mimidiTheme.spacing.lg,
     paddingVertical: mimidiTheme.spacing.md,
   },
+  topRowCompact: {
+    paddingHorizontal: mimidiTheme.spacing.md,
+    paddingVertical: mimidiTheme.spacing.sm,
+  },
+  topRowTight: {
+    paddingHorizontal: mimidiTheme.spacing.sm,
+    paddingVertical: mimidiTheme.spacing.xs,
+  },
   brand: {
     color: mimidiTheme.colors.ink,
     fontSize: 22,
     fontWeight: '700',
   },
+  brandCompact: {
+    fontSize: 20,
+  },
+  brandTight: {
+    fontSize: 18,
+  },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: mimidiTheme.spacing.lg,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    flexShrink: 1,
+  },
+  navRowCompact: {
+    gap: mimidiTheme.spacing.md,
+  },
+  navRowTight: {
+    gap: mimidiTheme.spacing.sm,
   },
   navButton: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     minWidth: 34,
+  },
+  navButtonCompact: {
+    gap: 4,
+    minWidth: 30,
+  },
+  navButtonTight: {
+    minWidth: 28,
   },
   navIndicator: {
     width: 28,
@@ -168,8 +238,18 @@ const styles = StyleSheet.create({
     backgroundColor: mimidiTheme.colors.border,
   },
   body: {
+    flex: 1,
+    minHeight: 0,
     padding: mimidiTheme.spacing.md,
     gap: mimidiTheme.spacing.md,
+  },
+  bodyCompact: {
+    padding: mimidiTheme.spacing.sm,
+    gap: mimidiTheme.spacing.sm,
+  },
+  bodyTight: {
+    padding: mimidiTheme.spacing.xs,
+    gap: mimidiTheme.spacing.xs,
   },
   rotateOuter: {
     flex: 1,

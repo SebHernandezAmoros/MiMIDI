@@ -523,26 +523,49 @@ Estado:
   - primer aterrizaje visual real de `Perform` guiado por mockup
   - catalogo inicial de estilos compartidos del modo app
   - app Expo separada creada en `apps/mimidi-expo`
-- pendiente:
+  - pendiente:
   - foco inmediato:
-    - seguir refinando `Perform` en Expo contra el placeholder objetivo
-    - pulir `Plugins` y `Settings` ya aterrizados en Expo
-    - abrir la siguiente iteracion de `Edit / Timelines` en Expo
-    - decidir cuando bajar `Sampler` a vista propia dentro de Expo
+    - consolidar la app web actual como frente principal y fuente de verdad del
+      producto
+    - llevar el responsive del modo app web a una lectura lo mas fiel posible a
+      los mockups actuales, especialmente en `Perform`, `SMC Pad`, `Plugins`,
+      `Settings` y `Edit / Timelines`
+    - priorizar primero estructura, densidad visual, jerarquia y comportamiento
+      responsive antes de abrir mas features o mas vistas
+    - completar en web lo necesario para que cada vista existente tenga base
+      suficiente antes de seguir creciendo superficie
+    - documentar cada ajuste visible y cada decision de alcance en `docs/05`
+      para no perder continuidad durante la iteracion de mockups
+    - dejar Expo congelado por ahora, en posible purga, sin seguir invirtiendo
+      tiempo de producto hasta que el frente web quede mas solido
   - tareas importantes para despues:
+    - evaluar si conviene separar formalmente el repo en:
+      - `apps/web`
+      - `apps/app`
+      - `packages/core`
+      si luego se decide extraer un modulo mobile serio a partir del trabajo web
+      y no desde un reinicio paralelo
+    - preparar una publicacion temprana de la version web para mostrar el
+      instrumento mientras el modo app madura
+    - evaluar despliegue de demo publica en:
+      - GitHub Pages o similar para web estatica
+      - `itch.io` si termina teniendo sentido como instrumento interactivo
     - seguir extrayendo coordinacion de `App.tsx` hacia hooks/fronteras mas
       reutilizables
     - consolidar `LabApp` como fuente de verdad reutilizable durante la
       migracion
     - desacoplar gradualmente cada vista del laboratorio sin destruir el
       sandbox
-    - evaluar si `SMC Pad` y `Edit` en Expo ya justifican datos/mock state mas
-      ricos antes de compartir dominio real
-    - decidir si Expo seguira como prototipo paralelo o si pasara a segunda app
-      oficial mas integrada al core
+    - evaluar mas adelante si `SMC Pad`, `Edit` y el resto del modo app mobile
+      convienen nacer desde un core compartido extraido del web ya maduro
+    - decidir despues si Expo sigue teniendo sentido, si se purga, o si el
+      futuro modulo mobile nace con otra base mas alineada al producto web
+    - disenar compatibilidad de plugins entre web y app alrededor de un dominio
+      compartido y no de componentes compartidos
   - decision posterior:
-    - definir si la entrada futura del modo app web convivira con una app Expo
-      paralela o si Expo sera solo casco de prototipado para mockups
+    - definir si la entrada futura del modo app web convivira con una app mobile
+      separada o si el modo responsive web cubrira primero parte importante de
+      esa necesidad antes de abrir una segunda app
 
 ---
 

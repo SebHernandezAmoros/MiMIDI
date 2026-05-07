@@ -6,9 +6,11 @@ import { mimidiTheme } from '@/src/theme/mimidiTheme';
 export function SurfaceButton({
   children,
   compact = false,
-}: PropsWithChildren<{ compact?: boolean }>) {
+  onPress,
+}: PropsWithChildren<{ compact?: boolean; onPress?: () => void }>) {
   return (
     <Pressable
+      onPress={onPress}
       style={[styles.button, compact ? styles.buttonCompact : styles.buttonWide]}
     >
       {typeof children === 'string' ? (
