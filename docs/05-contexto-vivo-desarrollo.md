@@ -4491,6 +4491,7 @@ Fase: Bloque I - Modo app / migracion por vistas
 
 Archivos movidos:
 
+
 - `src/features/lab/LabApp.tsx`
 - `src/features/perform/PerformWorkspace.tsx`
 - `src/App.integration.test.tsx`
@@ -5442,761 +5443,6 @@ Validacion:
 - `npm run test`
 - `npm run build`
 
-## Movimiento 107 - Toolbar responsive ya extraido y picker de instrumentos integrado
-
-Fase: Bloque I / descomposicion real de `Perform`
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/components/PerformResponsiveToolbar.tsx`
-- `src/features/perform/components/PerformInstrumentDialog.tsx`
-- `src/features/perform/PerformWorkspace.css`
-- `src/features/piano/PianoPreview.css`
-- `src/app/styles/appModeCatalog.css`
-- `docs/11-catalogo-componentes-ui.md`
-
-Intencion:
-
-Pasar de "componentes preparados" a "componentes realmente conectados", y al
-mismo tiempo corregir las fricciones visibles que seguian pendientes:
-
-- basurero poco legible
-- modal de instrumentos que todavia podia cortar contenido
-- teclas negras invirtiendose cuando no debian
-
-Como se movio:
-
-- `Perform` ya consume `PerformResponsiveToolbar` como toolbar oficial del modo
-  responsive horizontal.
-- El picker de instrumentos en dos pasos vive dentro de ese toolbar mediante
-  `PerformInstrumentDialog`.
-- El modal ahora usa scroll interno sin desalinear la vista y el contenedor
-  principal limita su altura.
-- Se mejoro el basurero:
-  - icono mas limpio
-  - mejor centrado
-  - mejor peso visual en el pill
-- Las teclas negras activas dejaron de invertirse:
-  - conservan fondo oscuro
-  - mantienen texto claro
-  - solo reciben un refuerzo visual sutil
-- Se actualizo el catalogo UI para reflejar que el toolbar ya no es una pieza
-  experimental sino parte activa del flujo.
-
-Resultado:
-
-`Perform` queda mejor organizado internamente y empieza a comportarse como una
-vista compuesta por piezas reutilizables de verdad, no por bloques embebidos en
-`LabApp`.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 106 - Instrument picker en dos pasos y semilla del catalogo UI
-
-Fase: Bloque I / organizacion de `Perform` como laboratorio y antesala del resto
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-- `src/features/perform/components/PerformInstrumentDialog.tsx`
-- `src/features/perform/components/PerformResponsiveToolbar.tsx`
-- `src/features/perform/PerformWebWorkspace.tsx`
-- `src/app/components/AppDialog.tsx`
-- `docs/11-catalogo-componentes-ui.md`
-
-Intencion:
-
-Empezar a salir del estado de mezcla improvisada en `Perform` y preparar la
-base para reutilizar piezas en las demas vistas.
-
-Como se movio:
-
-- Se preparo un modal de instrumentos en dos pasos reales:
-  - elegir `Base` o `Avanzado`
-  - luego elegir el instrumento con scroll interno
-- El cambio de categoria del modal ya no obliga a cambiar el instrumento de la
-  pista hasta que el usuario elige uno.
-- Se agrego el boton de instrumento dentro del toolbar de `Perform`.
-- Se corrigio el render de glifos del transporte usando escapes unicode
-  estables.
-- Se ajustaron detalles visuales del toolbar:
-  - `TRACK` mas centrado
-  - `+ TRACK` con estilo consistente
-  - icono de basurero mas claro
-- Se dejo un espacio explicito para la futura vista web en
-  `PerformWebWorkspace`.
-- Se creo un documento semilla para el catalogo de componentes UI del proyecto.
-
-Decision tecnica:
-
-Todavia no conviene partir todo en dos sistemas completos web/responsive.
-Primero hay que consolidar primitives reales desde `Perform`, porque ya es la
-vista que mas presion visual y funcional esta recibiendo.
-
-Resultado:
-
-`Perform` gana un selector de instrumentos compatible con el layout horizontal,
-y el proyecto ya tiene un punto de partida documentado para extraer una
-libreria visual compartida sin volver a mezclar todo dentro del `LabApp`.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 105 - Transporte con glifos estables y prioridad al estado activo del piano
-
-Fase: Bloque I / correccion de fricciones finas en `Perform`
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/piano/PianoPreview.css`
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Corregir dos fallos que seguian visibles incluso despues de la gran limpieza del
-layout:
-
-- los iconos de transporte seguian viendose fragiles o demasiado pequenos;
-- y el piano todavia no imponia bien la inversion blanco/negro al presionar
-  teclas porque el estado visual activo seguia compitiendo con el estado
-  seleccionado.
-
-Como se movio:
-
-- Los iconos de transporte dejaron de usar SVG internos y pasaron a glifos
-  tipograficos controlados:
-  - `●` para grabar
-  - `■` para detener
-  - `▶` para reproducir
-- Eso estabiliza su render dentro de los pills del toolbar.
-- En el piano se reforzo que el estado `active` tenga prioridad visual:
-  - teclas blancas activas a fondo oscuro
-  - teclas negras activas a fondo claro
-  - sin outline / box-shadow heredado del browser en `focus` o `active`
-- Tambien se replico esa prioridad en la capa de estilos de `Perform`, donde el
-  acento rojo de seleccion estaba interfiriendo con la inversion de color.
-
-Resultado:
-
-La barra de transporte gana iconos mas legibles y el piano ya puede expresar la
-inversion de color al tocar sin pelear con el estado de seleccion.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 104 - Modal reusable, fullscreen provisional y piano sin azul
-
-Fase: Bloque I / consolidacion de primitives desde `Perform`
-
-Archivos movidos:
-
-- `src/app/components/AppDialog.tsx`
-- `src/app/AppMode.tsx`
-- `src/app/styles/appModeCatalog.css`
-- `src/features/lab/LabApp.tsx`
-- `src/features/piano/PianoPreview.tsx`
-- `src/features/piano/PianoPreview.css`
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Resolver el siguiente lote de fricciones ya no como parches aislados sino como
-recursos base reutilizables:
-
-- confirmacion de borrado como modal del sistema;
-- fullscreen provisional activable desde el shell;
-- iconografia mas robusta para transporte y borrado;
-- y limpieza de la interaccion visual del piano para eliminar el azul del
-  navegador y acercar las teclas activas al lenguaje deseado.
-
-Como se movio:
-
-- Se creo `AppDialog` como componente reutilizable del sistema visual.
-- La confirmacion de borrado de pista ya no depende del browser y reutiliza ese
-  dialogo.
-- Se agrego un toggle provisional de pantalla completa al header del modo app.
-- El boton de borrar pista dejo el simbolo `-` y paso a icono de basurero.
-- El piano ahora separa:
-  - tecla seleccionada
-  - tecla activa
-- Se elimino el highlight azul nativo:
-  - sin `tap highlight`
-  - sin outline azul por foco visible
-- Las teclas blancas activas invierten a fondo oscuro y las negras activas a
-  fondo claro.
-
-Decision tecnica:
-
-No se necesita instalar algo tipo SweetAlert para el flujo actual. Ya conviene
-construir estas piezas como primitives internas porque se van a reutilizar en
-`Perform`, `Plugins`, `Settings` y futuras confirmaciones del modo app.
-
-Resultado:
-
-`Perform` no solo mejora como pantalla final: tambien empieza a producir
-componentes reutilizables de verdad para el resto del sistema.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 103 - Iconos SVG en transporte, modal propio y etiqueta `OCT`
-
-Fase: Bloque I / maduracion de `Perform` como laboratorio de UI responsive
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Corregir tres roces que ya no eran de layout sino de experiencia:
-
-- los iconos de transporte todavia fallaban visualmente;
-- el borrado de pista seguia usando el cuadro nativo del navegador;
-- y `8VA`, aunque musicalmente valido, no era la etiqueta mas clara para una
-  UI generalista de control rapido.
-
-Como se movio:
-
-- Los botones de grabar / stop / play dejaron de depender de formas CSS y ahora
-  renderizan iconos SVG reales dentro del mismo lenguaje de pills.
-- El modal nativo `window.confirm` fue reemplazado por un dialogo propio del
-  modo app con fondo desenfocado, texto de contexto y acciones explicitas.
-- La etiqueta de octava paso a `OCT` para priorizar claridad de interfaz sobre
-  notacion musical especializada.
-- El modal se puede cerrar con click fuera o con `Escape`.
-
-Decision tecnica:
-
-No hace falta instalar algo tipo SweetAlert para este caso. Ya tenemos una
-direccion visual propia y es mejor consolidar un modal chico interno antes que
-sumar una dependencia externa solo para confirmaciones simples.
-
-Resultado:
-
-`Perform` gana controles de transporte mas confiables, una confirmacion mucho
-mas coherente con el sistema visual y una etiqueta de octava mas intuitiva.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 102 - Octava inline, iconos visibles y borrado de pista con confirmacion
-
-Fase: Bloque I / refinado de la variante responsive especializada de `Perform`
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Resolver tres inconsistencias de la barra especializada de `Perform`:
-
-- los iconos de grabar / stop / play no se estaban dibujando con claridad;
-- la etiqueta superior `OCTAVA` seguia rompiendo la alineacion de la fila;
-- y hacia falta una accion minima para borrar pista sin volver al laboratorio.
-
-Como se movio:
-
-- Los iconos visuales de transporte ahora tienen `display` real para que el
-  punto, el square y el triangulo de play se rendericen correctamente.
-- El bloque de octava paso de composicion vertical a inline:
-  - etiqueta corta `8VA`
-  - controles al lado
-  - botones circulares del mismo lenguaje que el resto
-- Se agrego un boton minimo para eliminar la pista activa junto a `+ TRACK`.
-- La eliminacion ahora pide confirmacion antes de ejecutar el borrado.
-
-Resultado:
-
-La barra de `Perform` queda mas alineada porque la octava deja de empujar desde
-arriba y los iconos de transporte vuelven a comunicar mejor la accion de cada
-boton.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 101 - Correccion de desbalance en barra `Perform`
-
-Fase: Bloque I / ajuste estructural de la toolbar responsive
-
-Archivos movidos:
-
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Corregir una descompensacion puntual del toolbar:
-
-- el selector de track estaba ocupando demasiado ancho;
-- las flechas parecian botones gigantes;
-- y el conjunto no se leia como una fila de controles con pesos parecidos.
-
-Como se movio:
-
-- La barra `perform-mode-toolbar` dejo de usar una columna flexible central.
-- Ahora reparte sus cuatro bloques por contenido real:
-  - transporte
-  - cambio de track
-  - `+ TRACK`
-  - octava
-- El `track strip` paso a usar anchos fijos para flecha izquierda, pill de
-  track y flecha derecha.
-- Las flechas dejaron de estirarse como items de grid y pasaron a tener un
-  tamano propio consistente.
-- Tambien se ajusto la misma logica para landscape bajo.
-
-Resultado:
-
-La barra de `Perform` deja de regalar media fila al selector de track y queda
-mas alineada con una composicion de controles balanceados.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 100 - `Perform` como vista especializada responsive y toolbar de captura
-
-Fase: Bloque I / consolidacion de `Perform` como laboratorio visual base
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-- `src/app/styles/appModeCatalog.css`
-
-Intencion:
-
-Dar el siguiente paso logico despues de casi eliminar el scroll:
-
-- dejar de tratar la barra superior como una adaptacion torpe del laboratorio;
-- convertir `Perform` en una vista especializada del responsive horizontal;
-- y usarla como terreno de prueba para la futura libreria visual del resto de
-  vistas.
-
-Como se movio:
-
-- El primer control de transporte ya no es "grabar" y "stop" separados.
-  Ahora es un mismo boton que alterna:
-  - grabar
-  - detener grabacion
-- El segundo control ya no se desperdicia como stop de grabacion.
-  Ahora alterna:
-  - reproducir grabacion
-  - detener reproduccion
-- Se reequilibraron tamanos de la barra:
-  - botones de transporte mas legibles
-  - triangulo de play visible
-  - square de stop mas contrastado
-  - pill de track con ancho mas estable
-  - `+ TRACK` y controles de octava mas cercanos al mismo lenguaje
-- Se bajo aun mas el contraste del contenedor de navegacion superior para que
-  la carcasa no se siga viendo como un bloque gris ajeno al resto.
-
-Decision tecnica:
-
-La idea de tratar `Perform` como laboratorio de componentes queda validada.
-Antes de separar todo el sistema en variantes completas para web y responsive,
-conviene endurecer aqui la libreria base de pills, icon buttons, barras y
-carcasas.
-
-Resultado:
-
-`Perform` ya no solo entra en horizontal: empieza a tener un toolbar propio,
-con semantica mas util para captura y reproduccion, y con una base visual mas
-coherente para escalar luego a `SMC Pad`, `Plugins`, `Settings` y `Edit`.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 99 - Recuperacion de estilo en toolbar `Perform` y carcasa gris unificada
-
-Fase: Bloque I / refinado visual sobre la vista de piano responsive
-
-Archivos movidos:
-
-- `src/features/perform/PerformWorkspace.css`
-- `src/app/styles/appModeCatalog.css`
-
-Intencion:
-
-Despues de lograr casi eliminar el scroll, la siguiente friccion visible fue
-esta:
-
-- la barra del piano ya entraba en una linea, pero habia perdido parte del
-  look del mockup;
-- y la carcasa principal seguia mezclando tonos que hacian sentir un marco
-  distinto al resto de la pantalla.
-
-Como se movio:
-
-- Se recalibraron las proporciones del bloque de track para que vuelva a leerse
-  como pill central y no como barra estirada sin personalidad.
-- Se fijaron anchos mas controlados para el selector de track en responsive
-  horizontal bajo.
-- Se preservo la linea unica del toolbar, pero devolviendo algo mas de ritmo a
-  los botones.
-- Se unifico mejor la carcasa del modo app:
-  - header interno con gris mas consistente
-  - contenedor de navegacion con gris suave integrado
-  - `app-surface-window` sin sombra oscura residual
-  - bordes aclarados para que el marco deje de "cortar" la interfaz
-
-Resultado:
-
-La vista `Perform` mantiene el avance funcional de entrar casi completa en
-pantalla, pero recupera mejor el lenguaje visual del mockup y reduce la
-sensacion de piezas con colores distintos.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 98 - Toolbar de `Perform` en una sola linea y bordes neutralizados
-
-Fase: Bloque I / afinado responsive del mockup de piano
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-- `src/app/styles/appModeCatalog.css`
-
-Intencion:
-
-Resolver dos molestias concretas del responsive horizontal:
-
-- la barra de `Perform` seguia apilando controles aunque ya existian todos los
-  botones correctos;
-- y el borde exterior del shell seguia generando desconexion visual frente al
-  lenguaje gris del mockup.
-
-Como se movio:
-
-- Se aplano el JSX de la barra `perform-mode-toolbar` para quitar wrappers que
-  forzaban varias filas.
-- La barra ahora se compone en una sola linea con cuatro bloques:
-  - transporte
-  - selector de track
-  - `+ TRACK`
-  - `OCTAVA`
-- Se redujeron anchos y alturas de controles en responsive bajo para que toda
-  la linea entre mejor en `667x375`.
-- Se neutralizaron los bordes visibles del shell principal y de las cards de
-  `Perform`, acercandolos al mismo gris del fondo para que dejen de cortar la
-  pantalla.
-
-Resultado:
-
-`Perform` queda mas cerca del placeholder real: una sola barra funcional arriba
-y una ventana principal con menos borde perceptible.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 97 - Alineacion real de `Perform` y limpieza gris del shell
-
-Fase: Bloque I / ajuste fino de `Perform` responsive horizontal
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-- `src/app/appTheme.ts`
-- `src/app/styles/appModeCatalog.css`
-
-Intencion:
-
-Salir del bucle de "compactar" sin resolver la composicion real. El problema no
-era solo altura: la barra del piano seguia apilando controles a la izquierda y
-dejando aire inutil, y ademas el shell todavia conservaba sombras y bordes
-oscuros que cortaban el lenguaje gris del mockup.
-
-Como se movio:
-
-- La barra superior de `Perform` dejo de depender de una fila flexible unica.
-- Ahora usa una grilla explicita con dos zonas:
-  - fila principal para transporte, selector de track y `+ TRACK`
-  - fila secundaria para `OCTAVA`
-- El selector de track se centra dentro del ancho disponible en vez de quedarse
-  pegado al transporte.
-- `+ TRACK` queda anclado a la derecha como accion primaria de esa barra.
-- El bloque de `OCTAVA` queda alineado abajo a la derecha, liberando espacio
-  util para el teclado.
-- Se suavizo el contraste del shell:
-  - bordes mas grises
-  - sombras menos oscuras
-  - estados presionados con relieve gris en vez de negro
-  - icono de stop mas neutro dentro del toolbar
-
-Decision tecnica:
-
-Se priorizo una correccion estructural de layout antes que seguir reduciendo
-pixeles sin criterio. El objetivo es que el ancho disponible trabaje a favor
-del mockup, no que los controles simplemente queden mas pequenos.
-
-Resultado:
-
-`Perform` gana una barra superior mas ordenada y una continuidad visual mucho
-mas gris, con menos sensacion de "borde negro" o de bloques desconectados.
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 100 - Alineacion explicita de la barra superior en `Perform`
-
-Fase: Bloque I / correccion fina de posicionamiento contra mockup
-
-Archivos movidos:
-
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Corregir el ultimo problema estructural visible de la barra del piano:
-
-- los botones ya eran los correctos
-- pero seguian ocupando mal el espacio porque la barra se resolvia como una
-  sola grilla demasiado implicita
-- y eso dejaba el contenido apilado a la izquierda con aire muerto alrededor
-
-Como se movio:
-
-- La barra de `Perform` se separo en dos filas explicitas:
-  - fila principal:
-    - transporte
-    - selector de track
-    - `+ TRACK`
-  - fila secundaria:
-    - bloque de octava
-- En CSS se reemplazo la grilla por areas implicitas por una estructura mas
-  clara:
-  - `perform-mode-toolbar-main`
-  - `perform-mode-toolbar-bottom`
-- El selector de track ahora se centra mejor dentro de la fila principal.
-- La octava queda anclada abajo a la derecha en landscape y abajo a la
-  izquierda cuando el ancho obliga a apilar.
-
-Decision tecnica:
-
-La vista deja de depender de "a ver si CSS lo acomoda solo" y pasa a tener una
-barra superior con subestructuras claras. Eso reduce retrabajo y acerca mucho
-mas la composicion real al mockup.
-
-Resultado:
-
-`Perform` queda bastante mejor encaminado:
-
-- controles mejor alineados
-- menos apariencia de columna improvisada
-- mejor uso horizontal de la barra superior
-- base mas estable para el ajuste visual final
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 99 - Corte del header duplicado y alineacion real de `Perform`
-
-Fase: Bloque I / correccion estructural de la vista del piano
-
-Archivos movidos:
-
-- `src/app/AppShell.tsx`
-- `src/features/perform/PerformWorkspace.tsx`
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-
-Intencion:
-
-Cortar un bucle de iteraciones cosmeticas que ya no estaba ayudando:
-
-- existian dos headers visibles antes de llegar al contenido util;
-- `Perform` seguia teniendo los botones correctos pero mal distribuidos;
-- y el problema real no era compactar por capricho, sino alinear la barra de
-  controles como la del mockup para dejar de desperdiciar espacio.
-
-Como se movio:
-
-- Se elimino el header superior vivo del `AppShell` en modo app.
-- Se dejo un solo header visible real: el de la ventana principal con marca +
-  tabs.
-- Se elimino tambien la cabecera `PERFORM WORKSPACE` de la vista `Perform`.
-- La barra superior de `Perform` se rehizo con posiciones fijas:
-  - transporte a la izquierda
-  - selector de track al centro
-  - `+ TRACK` a la derecha
-  - octava debajo a la derecha
-- Se saco el bloque de estado, porque no pertenecia al mockup y robaba altura.
-
-Decision tecnica:
-
-La prioridad deja de ser "seguir escondiendo cosas" y pasa a ser:
-
-- una sola jerarquia de headers
-- una sola barra de control principal
-- y posiciones estables que respondan al layout del mockup
-
-Resultado:
-
-`Perform` queda mejor orientado para parecerse a la referencia:
-
-- un header menos
-- menos ruido arriba
-- controles alineados por regiones
-- mejor uso del ancho horizontal antes de llegar al piano
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 98 - `Perform` mas compacto y laboratorio movido a `Settings`
-
-Fase: Bloque I / compactacion fina del modo app web horizontal
-
-Archivos movidos:
-
-- `src/app/AppMode.tsx`
-- `src/features/settings-view/SettingsScreen.tsx`
-- `src/features/lab/LabApp.tsx`
-- `src/features/perform/PerformWorkspace.css`
-- `src/App.integration.test.tsx`
-
-Intencion:
-
-Atacar dos fricciones visibles que seguian ensuciando el responsive:
-
-- el boton `Ir al laboratorio` seguia gastando altura en el shell global;
-- y `Perform` todavia desperdiciaba demasiado espacio vertical en sus bloques
-  superiores, empujando el teclado hacia abajo.
-
-Como se movio:
-
-- Se retiro por completo `Ir al laboratorio` del shell principal.
-- Ese acceso pasa a vivir dentro de `Settings`, junto con el cambio de idioma.
-- En `perform-only` se colapso el area superior:
-  - transporte
-  - track
-  - `+ TRACK`
-  - estado
-  - octava
-  ahora conviven dentro de una sola tarjeta compacta.
-- Se comprimieron paddings, gaps y alturas del teclado para pantallas bajas en
-  horizontal.
-- Se actualizaron pruebas de integracion para reflejar la nueva ubicacion del
-  boton de laboratorio.
-
-Decision tecnica:
-
-El shell global ya no debe cargar acciones que pertenecen mas a configuracion o
-flujo secundario. Esa superficie superior debe reservarse para sostener el modo
-app, no para crecer como barra de utilidades.
-
-Resultado:
-
-`Perform` queda menos desalineado y mas compacto:
-
-- menos aire muerto arriba
-- menos chrome global
-- laboratorio reubicado donde corresponde
-- mejor chance de ver toda la vista del piano en una sola pantalla horizontal
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
-## Movimiento 97 - Bloqueo de portrait y traslado de idioma a `Settings`
-
-Fase: Bloque I / endurecimiento del responsive web horizontal
-
-Archivos movidos:
-
-- `src/app/AppShell.tsx`
-- `src/app/AppMode.tsx`
-- `src/app/styles/appModeCatalog.css`
-- `src/features/settings-view/SettingsScreen.tsx`
-
-Intencion:
-
-Corregir dos problemas de direccion que seguian rompiendo la lectura del modo
-app web:
-
-- el shell seguia gastando espacio valioso con el selector de idioma arriba;
-- y la app seguia intentando mostrarse en vertical aunque todavia no existe una
-  version portrait digna de enseñar.
-
-Tambien hacia falta reforzar la regla de no depender de scroll en esta etapa
-responsive, especialmente en pantallas bajas usadas en horizontal.
-
-Como se movio:
-
-- Se saco el selector de idioma del toolbar superior.
-- El shell superior queda reducido a:
-  - marca
-  - boton de laboratorio
-- `Settings` pasa a ser la superficie correcta para cambiar idioma.
-- Se agrego un bloqueo explicito de portrait para mobile:
-  - en vertical se oculta la app
-  - se muestra un mensaje corto pidiendo girar el dispositivo
-- Se endurecio el shell para landscape bajo:
-  - menos padding
-  - menos altura visual en header
-  - navegacion compacta
-  - contenido principal con `overflow` controlado
-
-Decision tecnica:
-
-La regla activa del modo app web queda asi:
-
-- horizontal primero;
-- portrait bloqueado por ahora;
-- idioma dentro de `Settings`;
-- y responsive pensado para mostrar la vista util sin depender de scroll.
-
-Resultado:
-
-La app deja de desperdiciar altura con controles globales mal ubicados y se
-alinea mejor con la direccion marcada por los placeholders:
-
-- menos chrome arriba
-- vertical bloqueado de forma honesta
-- shell mas apto para que `Perform` entre completo en horizontal
-
-Validacion:
-
-- `npm run test`
-- `npm run build`
-
 ## Movimiento 96 - `Perform` web reenfocado a responsive horizontal tipo mockup
 
 Fase: Bloque I / `Perform` como primera vista fuerte del modo app web
@@ -6257,3 +5503,328 @@ Validacion:
 
 - `npm run test`
 - `npm run build`
+
+---
+
+## Sesion 2026-05-09 � CSS Library, Catalogo UI y vistas restantes
+
+### Que se hizo
+
+#### Bloque 1: CSS Library ()
+
+Se creo la libreria central de primitivos CSS del modo app.
+
+Incluye:
+
+- Sistema de tokens claro/oscuro via 
+-  � cuadrado con etiqueta (plugins)
+-  � switch iOS (settings, plugins)
+-  � checkbox con checkmark grafico
+-  /  � filas de lista con icono, label, valor, flecha
+-  � bloque de texto de dos lineas
+-  /  � grid 4x2 de pads con variantes de color
+-  � boton capsula con texto
+-  � boton circular con icono SVG
+-  /  � control - valor +
+-  � selector < TRACK 1 >
+-  /  � barra horizontal de controles
+-  � select estilizado con flecha
+-  � tarjeta de superficie
+-  � modificador de dialog para contenido ancho (2 columnas)
+
+La inversion de color (dark mode) se activa con  en
+cualquier contenedor padre. Los tokens cambian automaticamente.
+
+La libreria se importa via  en .
+
+#### Bloque 2: Catalogo visual
+
+Se creo  con su CSS.
+
+Accesible en: 
+
+Muestra todos los primitivos en modo claro y oscuro con toggle interactivo.
+Permite verificar visualmente tokens y variantes antes de usarlos en vistas.
+
+Se agrego la ruta  en  y .
+
+#### Bloque 3: Reparacion de vistas
+
+- **PerformInstrumentDialog**: ahora usa  via prop 
+  en . Ancho aumentado a  para el layout
+  de dos columnas (tipo / instrumentos).
+
+- **SamplerScreen** (SMC Pad): reemplazado el placeholder por una vista real.
+  - 8 pads en grid 4x2 usando primitivos  + 
+  - 4 pads activos (kick, snare, hat, clap) conectados a 
+  - 4 pads placeholder (PERC 1-4) desactivados, listos para expansion
+  - Toolbar con selects de modo y afinacion, mas boton reset
+
+- **EditWorkspace** (Timeline): toolbar mejorada con primitivos de la libreria.
+  - Select NOTAS / TRACKS con clase 
+  - Select 1 BAR / 2 BARS / 4 BARS / 8 BARS con clase 
+  - Boton de busqueda con 
+  - Contenido sigue montando  (comportamiento real)
+
+- **PluginsWorkspace**: conectado al  real.
+  - Lee  en lugar de datos hardcodeados
+  - El toggle modifica el estado local de plugins
+  - Usa , , , 
+  - La funcion  genera etiquetas desde el nombre del plugin
+
+### Archivos modificados / creados
+
+Nuevos:
+- 
+- 
+- 
+
+Modificados:
+-  � agrega 
+-  � agrega 
+-  � agrega rama para ruta 
+- { is a shell keyword � agrega prop opcional 
+-  � usa 
+-  � reemplazado por vista SMC Pad real
+- { is a shell keyword � toolbar mejorada con primitivos
+-  � conectado a pluginRegistry
+-  � actualizado con todos los primitivos
+
+### Decisiones tecnicas
+
+- Los primitivos  y  estan definidos en la libreria
+  pero aun no reemplazaron a los componentes equivalentes en
+  . Esa extraccion es la siguiente tarea.
+
+- El toggle de plugins en  modifica estado local de la vista.
+  No persiste al proyecto todavia porque la coordinacion de 
+  global vive en . Conectar al estado global es tarea futura.
+
+- La vista  no se modifico porque ya tenia el boton de idioma y el
+  acceso al laboratorio funcionando correctamente.
+
+### Siguiente paso recomendado
+
+1. Extraer los primitivos de  a  y
+    para que Perform use la libreria como las demas vistas.
+2. Revisar proporcion y fidelidad visual de cada vista contra los mockups.
+3. Decidir como conectar el estado de plugins de la vista al proyecto real.
+
+---
+
+## Sesion 2026-05-09 — CSS Library, Catalogo UI y vistas restantes
+
+### Que se hizo
+
+#### Bloque 1: CSS Library
+
+Se creo `src/app/styles/ui-library.css` con todos los primitivos CSS del modo app.
+Sistema de tokens claro/oscuro via `[data-ui-theme]`. Importado desde `appModeCatalog.css`.
+
+Primitivos incluidos: ui-badge, ui-toggle, ui-checkbox, ui-list-row, ui-list-section,
+ui-plugin-copy, ui-smc-grid, ui-smc-btn, ui-pill-btn, ui-icon-btn, ui-counter,
+ui-track-pill, ui-toolbar, ui-select, ui-surface-card, app-dialog-wide.
+
+La inversion de color se activa con `data-ui-theme="dark"` en un contenedor padre.
+
+#### Bloque 2: Catalogo visual
+
+Se creo `src/features/catalog/CatalogPage.tsx` con su CSS.
+Ruta de acceso: `http://localhost:5173/catalog`
+Muestra todos los primitivos en modo claro y oscuro con toggle interactivo.
+Se agrego la ruta `/catalog` en `App.tsx` y `appRoutes.ts`.
+
+#### Bloque 3: Reparacion de vistas
+
+- PerformInstrumentDialog: ahora usa `app-dialog-wide` via prop `className` en `AppDialog`.
+  Ancho aumentado a min(100%, 36rem) para el layout de dos columnas.
+
+- SamplerScreen (SMC Pad): reemplazado el placeholder por vista real con 8 pads en grid 4x2.
+  4 pads activos (kick, snare, hat, clap) conectados a `playSmcPadHit`.
+  4 pads placeholder (PERC 1-4) desactivados, listos para expansion.
+
+- EditWorkspace (Timeline): toolbar mejorada. Select NOTAS/TRACKS y 1 BAR/2 BARS/4 BARS/8 BARS
+  con clase `ui-select`. Boton busqueda con `ui-icon-btn`. Contenido sigue en `LabApp mode="edit-only"`.
+
+- PluginsWorkspace: conectado a `getRegisteredPluginSummaries()` del pluginRegistry real.
+  Usa ui-badge, ui-toggle, ui-plugin-copy, ui-list-arrow.
+
+### Archivos creados
+
+- `src/app/styles/ui-library.css`
+- `src/features/catalog/CatalogPage.tsx`
+- `src/features/catalog/CatalogPage.css`
+
+### Archivos modificados
+
+- `src/app/styles/appModeCatalog.css` (import ui-library)
+- `src/app/appRoutes.ts` (ruta /catalog)
+- `src/App.tsx` (rama /catalog)
+- `src/app/components/AppDialog.tsx` (prop className opcional)
+- `src/features/perform/components/PerformInstrumentDialog.tsx` (app-dialog-wide)
+- `src/features/sampler/SamplerScreen.tsx` (SMC Pad real)
+- `src/features/edit/EditWorkspace.tsx` (toolbar mejorada)
+- `src/features/plugins-view/PluginsWorkspace.tsx` (pluginRegistry real)
+- `docs/11-catalogo-componentes-ui.md` (actualizado)
+
+### Siguiente paso recomendado
+
+1. Extraer ui-counter y ui-track-pill a PerformResponsiveToolbar.
+2. Revisar fidelidad visual de cada vista contra mockups.
+3. Conectar estado de plugins de la vista al proyecto real.
+
+---
+
+## Sesion 2026-05-10 — Mejoras UI masivas, Lucide React, edit view completo
+
+### Que se hizo
+
+#### Bloque 1: ARP inline y dialog de eliminacion de pista
+
+- El checkbox ARP se movio dentro del bloque de transporte en `PerformResponsiveToolbar`.
+  Usa `perform-mode-transport-group` (inline-flex) para agrupar transporte + divisor + ARP en
+  una sola linea sin romper el grid de 4 columnas.
+- Dialog de eliminacion de pista ahora distingue dos casos:
+  - 1 pista: abre `isRestartConfirmOpen` → dialog "Reiniciar proyecto?"
+  - 2+ pistas: abre `isTrackRemovalConfirmOpen` → dialog "Eliminar [pista]?"
+  - `removeTrackDisabled={false}` siempre habilitado; la logica esta en `confirmRemoveActiveTrack`.
+
+#### Bloque 2: Regla de diseno — toolbar una linea + boton 3-puntos
+
+- Se documento en `docs/13-reglas-diseno-ui.md`.
+- El boton 3-puntos (`MoreVertical`) siempre va al extremo derecho del header, despues del
+  boton de pantalla completa. Orden del header: `[nav] [Maximize2/Minimize2] [MoreVertical]`.
+- Se implemento el patron `ViewSettingsProps`: `settingsOpen: boolean` + `onSettingsClose: () => void`
+  viven en `AppMode.tsx`, se pasan via `resolveScreen`, cada Screen renderiza su propio `AppDialog`.
+- Para la vista Edit, el `AppDialog` lo maneja `LabApp` internamente (no `EditScreen`).
+  El flujo es: `AppMode` → `EditScreen` → `EditWorkspace` → `LabApp` → `AppDialog`.
+
+#### Bloque 3: Color de teclas negras y toggle de etiquetas
+
+- Problema de especificidad: `.app-theme-classic button { color: var(--app-color-text-strong) }`
+  (0,1,1) pisaba `.piano-key-sharp { color: #f5f5f5 }` (0,1,0).
+  Fix: `.perform-workspace .piano-key-sharp { color: #f5f5f5 }` (0,2,1).
+- Estado activo: `.perform-workspace .piano-key-sharp.piano-key-active` → fondo degradado blanco,
+  texto `#1f1f1f`.
+- Toggle "Mostrar etiquetas de teclas" en Settings usa `data-show-key-labels="false"` en el
+  `<section>` raiz de `AppMode` + selector CSS `[data-show-key-labels="false"] .piano-key-label`.
+  Sin prop drilling. El texto de cada tecla se envolvi en `<span className="piano-key-label">`.
+
+#### Bloque 4: Libreria de iconos — Lucide React
+
+- Se adopto `lucide-react` como libreria oficial de iconos (MIT, tree-shakeable, stroke uniforme).
+- Se reemplazaron todos los SVGs inline por componentes Lucide en todos los archivos tocados.
+- Uso: `import { NombreIcono } from "lucide-react"` → `<NombreIcono size={16} />`.
+- Se documento en `/catalog` con seccion "Iconos — Lucide React" listando todos los usados.
+- Iconos activos: `Piano, Grid2x2, AudioWaveform, Plug, Settings, FileText, Maximize2, Minimize2,
+  MoreVertical, Search, Play, Square, Trash2, ArrowLeft, Upload, Folder, Undo2, Redo2`.
+
+#### Bloque 5: Vista Edit — toolbar y modal de opciones completo
+
+- El icono de navegacion de Edit se movio entre Sampler y Plugins en `appNavigation.ts`.
+  Orden: `perform, sampler, edit, plugins, settings`.
+- Se elimino el boton de busqueda de la toolbar de Edit (no corresponde a esta vista).
+- La toolbar del editor (`LabApp mode="edit-only"`) ahora tiene en una sola linea:
+  1. Segmented control NOTAS / TRACKS (`edit-view-switch`, pills redondeados).
+  2. Select de pista (solo en modo NOTAS).
+  3. Select de rango (1 BAR / 2 BARS / 4 BARS / 8 BARS).
+  4. Boton Play/Stop — modo NOTAS reproduce solo el track activo; modo TRACKS reproduce todo.
+  5. Divisor vertical.
+  6. Checkbox SNAP + select de paso (0.05s / 0.10s / 0.25s / 0.50s, visible solo si SNAP activo).
+  7. Boton Undo2 (deshabilitado si !canUndo).
+  8. Boton Redo2 (deshabilitado si !canRedo).
+  9. Boton Trash2 eliminar nota seleccionada (solo en modo NOTAS, deshabilitado si no hay nota).
+- `LabNoteEditor` fue simplificado: solo muestra nota, inicio, duracion, duplicar y revertir.
+  Retorna `null` si no hay nota seleccionada.
+- El modal 3-puntos de la vista Edit (via `settingsOpen` prop) muestra:
+  - Input de duracion del timeline (notas o tracks segun modo activo).
+  - Boton "Ajustar al contenido".
+  - Boton "Compactar inicio" (solo en modo NOTAS).
+- Se agrego en `/catalog` la "Plantilla toolbar de vista" con la regla documentada.
+
+### Archivos creados
+
+- `docs/13-reglas-diseno-ui.md`
+
+### Archivos modificados
+
+- `src/features/perform/components/PerformResponsiveToolbar.tsx`
+- `src/features/perform/PerformWorkspace.css`
+- `src/features/perform/PerformScreen.tsx`
+- `src/features/piano/PianoPreview.tsx`
+- `src/features/piano/PianoPreview.css`
+- `src/features/lab/LabApp.tsx`
+- `src/features/lab/LabNoteEditor.tsx`
+- `src/features/edit/EditWorkspace.tsx`
+- `src/features/edit/EditScreen.tsx`
+- `src/features/sampler/SamplerScreen.tsx`
+- `src/features/plugins-view/PluginsScreen.tsx`
+- `src/features/plugins-view/PluginsWorkspace.tsx`
+- `src/features/settings-view/SettingsScreen.tsx`
+- `src/features/catalog/CatalogPage.tsx`
+- `src/app/AppMode.tsx`
+- `src/app/appNavigation.ts`
+- `src/app/styles/appModeCatalog.css`
+- `docs/13-reglas-diseno-ui.md`
+
+### Pendiente
+
+- Conectar `timelineRange` (1 BAR / 2 BARS...) a funcionalidad real de la timeline.
+- Conectar estado de plugins de `PluginsWorkspace` al proyecto real (vive en `LabApp`).
+- Vista Project (`?view=project`) sigue siendo placeholder.
+- Modo oscuro parcial: solo tokens `ui-*`, no `--app-color-*`.
+
+---
+
+## Sesion 2026-05-10 — Conexion del modal 3-puntos en vista Edit
+
+### Que se hizo
+
+Se corrigio el flujo del modal de opciones de la vista Edit, que estaba roto:
+`EditScreen` tenia su propio `AppDialog` vacio y no pasaba `settingsOpen`/`onSettingsClose`
+a `EditWorkspace`, por lo que `LabApp` nunca recibia el estado del modal.
+
+- `EditWorkspace.tsx`: se añadieron props `settingsOpen?: boolean` y `onSettingsClose?: () => void`,
+  ahora se pasan directamente a `<LabApp mode="edit-only" />`.
+- `EditScreen.tsx`: se elimino su propio `AppDialog`. Ahora es un wrapper puro que pasa
+  `settingsOpen` y `onSettingsClose` hacia `EditWorkspace`.
+- `LabApp.tsx`: dentro del bloque `if (mode === "edit-only")` se envuelve en fragment y se añade
+  el `AppDialog` de settings con:
+  - Input de duracion del timeline (adapta entre notas y tracks segun `timelineView`).
+  - Boton "Ajustar al contenido" (`resetPrimaryTrackNoteTimelineDuration` o `resetProjectTrackTimelineDuration`).
+  - Boton "Compactar inicio" (solo visible en modo NOTAS, llama `compactPrimaryTrackNoteTimelineStart`).
+
+### Archivos modificados
+
+- `src/features/edit/EditWorkspace.tsx`
+- `src/features/edit/EditScreen.tsx`
+- `src/features/lab/LabApp.tsx`
+
+---
+
+## Sesion 2026-05-10 — Editor de nota inline en toolbar de Edit
+
+### Que se hizo
+
+Se movieron los controles de edicion de nota seleccionada al toolbar (barra superior),
+eliminando el bloque oscuro que aparecia debajo del toolbar al seleccionar una nota.
+
+**Comportamiento del toolbar en modo NOTAS:**
+- Sin nota seleccionada: `[NOTAS|TRACKS] [Track selector] [4 BARS] [▶] | [SNAP] [↩] [↪] [🗑]`
+- Con nota seleccionada: `[NOTAS|TRACKS] [chip con nombre nota] [input inicio] [input duracion] [Copy] [RotateCcw] | [SNAP] [↩] [↪] [🗑]`
+
+**Cambios:**
+- `LabApp.tsx`: toolbar en modo NOTAS ahora es condicional segun `selectedRecordedNote`.
+  Cuando hay nota seleccionada: oculta el track selector, 4 BARS y boton play; muestra chip
+  con el nombre de la nota, dos inputs numericos (inicio/duracion) y botones icono Copy/RotateCcw.
+  Iconos nuevos importados de lucide-react: `Copy`, `RotateCcw`.
+- `LabApp.tsx`: se elimino el render de `<LabNoteEditor>` de debajo del toolbar.
+  Se elimino `onRemoveSelectedNote` de `<TimelinePreview>` (el Trash2 del toolbar lo cubre).
+  Se elimino el import de `LabNoteEditor` y la variable `selectedNoteHistoryStatus` (sin uso).
+- `appModeCatalog.css`: se añadieron clases `.edit-note-chip` (pill gris con nombre de nota)
+  y `.edit-note-input` (input numerico compacto 4.2rem de ancho).
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx`
+- `src/app/styles/appModeCatalog.css`

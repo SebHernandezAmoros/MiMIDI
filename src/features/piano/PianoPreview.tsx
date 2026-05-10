@@ -180,7 +180,7 @@ export function PianoPreview({
         }}
         type="button"
       >
-        {note}
+        <span className="piano-key-label">{note}</span>
       </button>
     )
   }

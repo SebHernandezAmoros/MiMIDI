@@ -4,8 +4,9 @@ type AppDialogProps = {
   open: boolean
   title: string
   description?: string
+  className?: string
   onClose: () => void
-  actions: ReactNode
+  actions?: ReactNode
   children?: ReactNode
 }
 
@@ -13,6 +14,7 @@ export function AppDialog({
   open,
   title,
   description,
+  className,
   onClose,
   actions,
   children,
@@ -30,7 +32,7 @@ export function AppDialog({
       <section
         aria-labelledby="app-dialog-title"
         aria-modal="true"
-        className="app-dialog"
+        className={["app-dialog", className].filter(Boolean).join(" ")}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
@@ -41,7 +43,7 @@ export function AppDialog({
 
         {children}
 
-        <div className="app-dialog-actions">{actions}</div>
+        {actions ? <div className="app-dialog-actions">{actions}</div> : null}
       </section>
     </div>
   )

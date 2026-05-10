@@ -1,23 +1,35 @@
-import { useState } from "react"
+import { AppDialog } from "../../app/components/AppDialog"
 import type { AppLanguage } from "../../app/appI18n"
 import type { AppViewMessages } from "../../app/appI18n"
 
 type SettingsScreenProps = {
   activeLanguage: AppLanguage
   copy: AppViewMessages
+  darkMode: boolean
+  onDarkModeChange: (v: boolean) => void
   onLanguageChange: (language: AppLanguage) => void
   onOpenLab: () => void
+  settingsOpen: boolean
+  onSettingsClose: () => void
+  showKeyLabels: boolean
+  onShowKeyLabelsChange: (v: boolean) => void
 }
 
 export function SettingsScreen({
   activeLanguage,
   copy,
+  darkMode,
+  onDarkModeChange,
   onLanguageChange,
   onOpenLab,
+  settingsOpen,
+  onSettingsClose,
+  showKeyLabels,
+  onShowKeyLabelsChange,
 }: SettingsScreenProps) {
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false)
 
   return (
+    <>
     <section className="app-mock-screen" aria-label="Workspace Settings">
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-copy">
@@ -50,11 +62,27 @@ export function SettingsScreen({
             <button
               aria-label="Modo Oscuro"
               className={
-                darkModeEnabled
+                darkMode
                   ? "app-settings-toggle app-settings-toggle-on"
                   : "app-settings-toggle"
               }
-              onClick={() => setDarkModeEnabled((current) => !current)}
+              onClick={() => onDarkModeChange(!darkMode)}
+              type="button"
+            >
+              <span />
+            </button>
+          </div>
+        </section>
+
+        <section className="app-settings-group" aria-label="Piano">
+          <span className="app-settings-group-title">PIANO</span>
+          <div className="app-settings-row app-settings-row-static">
+            <span className="app-settings-row-icon">K</span>
+            <span className="app-settings-row-label">Mostrar etiquetas de teclas</span>
+            <button
+              aria-label="Mostrar etiquetas de teclas"
+              className={showKeyLabels ? "app-settings-toggle app-settings-toggle-on" : "app-settings-toggle"}
+              onClick={() => onShowKeyLabelsChange(!showKeyLabels)}
               type="button"
             >
               <span />
@@ -98,5 +126,13 @@ export function SettingsScreen({
         </section>
       </div>
     </section>
+
+    <AppDialog
+      description="Opciones adicionales de configuración."
+      onClose={onSettingsClose}
+      open={settingsOpen}
+      title="Opciones — Ajustes"
+    />
+    </>
   )
 }

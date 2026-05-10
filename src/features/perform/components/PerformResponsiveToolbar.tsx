@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react"
 import type {
   MathematicalInstrument,
   MathematicalInstrumentId,
@@ -8,10 +9,12 @@ type PerformResponsiveToolbarProps = {
   activeInstrumentCategory: MathematicalInstrument["category"]
   allRecordedNotesCount: number
   instrumentCategories: MathematicalInstrument["category"][]
+  isArpEnabled: boolean
   isInstrumentDialogOpen: boolean
   isPlaying: boolean
   isRecording: boolean
   onAddTrack: () => void
+  onArpToggle: () => void
   onCloseInstrumentDialog: () => void
   onConfirmRemoveTrack: () => void
   onInstrumentCategoryChange: (category: MathematicalInstrument["category"]) => void
@@ -37,10 +40,12 @@ export function PerformResponsiveToolbar({
   activeInstrumentCategory,
   allRecordedNotesCount,
   instrumentCategories,
+  isArpEnabled,
   isInstrumentDialogOpen,
   isPlaying,
   isRecording,
   onAddTrack,
+  onArpToggle,
   onCloseInstrumentDialog,
   onConfirmRemoveTrack,
   onInstrumentCategoryChange,
@@ -64,49 +69,63 @@ export function PerformResponsiveToolbar({
   return (
     <>
       <div className="perform-mode-toolbar">
-        <div className="perform-mode-transport" aria-label="Controles de grabacion">
-          <button
-            aria-label={isRecording ? "Detener grabacion" : "Iniciar grabacion"}
-            className={`perform-mode-transport-button ${
-              isRecording ? "perform-mode-transport-button-active" : "perform-mode-transport-record"
-            }`}
-            onClick={onRecordToggle}
-            type="button"
-          >
-            <span aria-hidden="true" className="perform-mode-transport-icon">
-              <span
-                className={
-                  isRecording
-                    ? "perform-mode-transport-glyph perform-mode-transport-glyph-stop"
-                    : "perform-mode-transport-glyph perform-mode-transport-glyph-record"
-                }
-              >
-                {isRecording ? "\u25A0" : "\u25CF"}
+        <div className="perform-mode-transport-group">
+          <div className="perform-mode-transport" aria-label="Controles de grabacion">
+            <button
+              aria-label={isRecording ? "Detener grabacion" : "Iniciar grabacion"}
+              className={`perform-mode-transport-button ${
+                isRecording ? "perform-mode-transport-button-active" : "perform-mode-transport-record"
+              }`}
+              onClick={onRecordToggle}
+              type="button"
+            >
+              <span aria-hidden="true" className="perform-mode-transport-icon">
+                <span
+                  className={
+                    isRecording
+                      ? "perform-mode-transport-glyph perform-mode-transport-glyph-stop"
+                      : "perform-mode-transport-glyph perform-mode-transport-glyph-record"
+                  }
+                >
+                  {isRecording ? "\u25A0" : "\u25CF"}
+                </span>
               </span>
-            </span>
-          </button>
+            </button>
 
-          <button
-            aria-label={isPlaying ? "Detener reproduccion" : "Reproducir grabacion"}
-            className={`perform-mode-transport-button ${
-              isPlaying ? "perform-mode-transport-button-active" : "perform-mode-transport-play"
-            }`}
-            disabled={isRecording || (!allRecordedNotesCount && !isPlaying)}
-            onClick={onPlayToggle}
-            type="button"
-          >
-            <span aria-hidden="true" className="perform-mode-transport-icon">
-              <span
-                className={
-                  isPlaying
-                    ? "perform-mode-transport-glyph perform-mode-transport-glyph-stop"
-                    : "perform-mode-transport-glyph perform-mode-transport-glyph-play"
-                }
-              >
-                {isPlaying ? "\u25A0" : "\u25B6"}
+            <button
+              aria-label={isPlaying ? "Detener reproduccion" : "Reproducir grabacion"}
+              className={`perform-mode-transport-button ${
+                isPlaying ? "perform-mode-transport-button-active" : "perform-mode-transport-play"
+              }`}
+              disabled={isRecording || (!allRecordedNotesCount && !isPlaying)}
+              onClick={onPlayToggle}
+              type="button"
+            >
+              <span aria-hidden="true" className="perform-mode-transport-icon">
+                <span
+                  className={
+                    isPlaying
+                      ? "perform-mode-transport-glyph perform-mode-transport-glyph-stop"
+                      : "perform-mode-transport-glyph perform-mode-transport-glyph-play"
+                  }
+                >
+                  {isPlaying ? "\u25A0" : "\u25B6"}
+                </span>
               </span>
-            </span>
-          </button>
+            </button>
+          </div>
+
+          <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+          <label className="perform-mode-arp-toggle" aria-label="Arpegiador">
+            <input
+              checked={isArpEnabled}
+              className="ui-checkbox"
+              onChange={onArpToggle}
+              type="checkbox"
+            />
+            <span>ARP</span>
+          </label>
         </div>
 
         <div className="perform-mode-track-strip perform-mode-track-strip-primary">
@@ -149,16 +168,7 @@ export function PerformResponsiveToolbar({
             onClick={onConfirmRemoveTrack}
             type="button"
           >
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path
-                d="M8.75 5.5h6.5M10 4h4m-7 2.2h10m-8.8 2.1.55 8.1a1 1 0 0 0 1 .93h4.5a1 1 0 0 0 1-.93l.55-8.1M10.75 10.1v4.9m2.5-4.9v4.9"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.7"
-              />
-            </svg>
+            <Trash2 size={16} />
           </button>
         </div>
 
@@ -174,6 +184,7 @@ export function PerformResponsiveToolbar({
             </button>
           </div>
         </div>
+
       </div>
 
       <PerformInstrumentDialog

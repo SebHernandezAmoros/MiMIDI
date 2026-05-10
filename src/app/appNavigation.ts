@@ -12,11 +12,10 @@ export type AppViewDefinition = {
 
 export const appViewDefinitions: AppViewDefinition[] = [
   { id: "perform" },
+  { id: "sampler" },
   { id: "edit" },
-  { id: "project" },
   { id: "plugins" },
   { id: "settings" },
-  { id: "sampler" },
 ]
 
 export const defaultAppView: AppViewId = "perform"

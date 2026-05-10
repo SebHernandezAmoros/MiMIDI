@@ -15,6 +15,17 @@ import { PluginsScreen } from "../features/plugins-view/PluginsScreen"
 import { ProjectScreen } from "../features/project-view/ProjectScreen"
 import { SamplerScreen } from "../features/sampler/SamplerScreen"
 import { SettingsScreen } from "../features/settings-view/SettingsScreen"
+import {
+  AudioWaveform,
+  FileText,
+  Grid2x2,
+  Maximize2,
+  Minimize2,
+  MoreVertical,
+  Piano,
+  Plug,
+  Settings,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 
 type AppModeProps = {
@@ -22,81 +33,66 @@ type AppModeProps = {
   activeView?: AppViewId
 }
 
-function resolveScreen(activeView: AppViewId, activeLanguage: AppLanguage) {
+type ViewSettingsProps = {
+  settingsOpen: boolean
+  onSettingsClose: () => void
+}
+
+function resolveScreen(
+  activeView: AppViewId,
+  activeLanguage: AppLanguage,
+  darkMode: boolean,
+  onDarkModeChange: (v: boolean) => void,
+  viewSettings: ViewSettingsProps,
+  showKeyLabels: boolean,
+  onShowKeyLabelsChange: (v: boolean) => void,
+) {
   const messages = resolveAppMessages(activeLanguage)
   const viewCopy = messages.views[activeView]
 
   switch (activeView) {
     case "perform":
-      return <PerformScreen copy={viewCopy} />
+      return <PerformScreen copy={viewCopy} {...viewSettings} />
     case "project":
       return <ProjectScreen copy={viewCopy} />
     case "plugins":
-      return <PluginsScreen copy={viewCopy} />
+      return <PluginsScreen copy={viewCopy} {...viewSettings} />
     case "settings":
       return (
         <SettingsScreen
           activeLanguage={activeLanguage}
           copy={viewCopy}
+          darkMode={darkMode}
+          onDarkModeChange={onDarkModeChange}
           onLanguageChange={(language) => navigateTo(`/?view=settings&lang=${language}`)}
           onOpenLab={() => navigateTo(`/lab?lang=${activeLanguage}`)}
+          onShowKeyLabelsChange={onShowKeyLabelsChange}
+          showKeyLabels={showKeyLabels}
+          {...viewSettings}
         />
       )
     case "sampler":
-      return <SamplerScreen copy={viewCopy} />
+      return <SamplerScreen copy={viewCopy} {...viewSettings} />
     case "edit":
     default:
-      return <EditScreen copy={viewCopy} />
+      return <EditScreen copy={viewCopy} {...viewSettings} />
   }
 }
 
 function AppViewIcon({ viewId }: { viewId: AppViewId }) {
   switch (viewId) {
     case "perform":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <rect x="3" y="5" width="18" height="14" rx="2" />
-          <path d="M8 5v8M12 5v8M16 5v8M6 13h2M10 13h2M14 13h2" />
-        </svg>
-      )
-    case "edit":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <rect x="4" y="4" width="6" height="6" rx="1.2" />
-          <rect x="14" y="4" width="6" height="6" rx="1.2" />
-          <rect x="4" y="14" width="6" height="6" rx="1.2" />
-          <rect x="14" y="14" width="6" height="6" rx="1.2" />
-        </svg>
-      )
-    case "project":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M9 5v5a3 3 0 0 0 6 0V5" />
-          <path d="M12 13v6" />
-          <path d="M6 19h12" />
-        </svg>
-      )
-    case "plugins":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M3 12h4l2-5 4 10 2-5h6" />
-        </svg>
-      )
-    case "settings":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M12 3v3M12 18v3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 2.1M3 12h3M18 12h3M4.8 19.2l2.1-2.1M17.1 6.9l2.1-2.1" />
-          <circle cx="12" cy="12" r="3.2" />
-        </svg>
-      )
+      return <Piano size={18} />
     case "sampler":
+      return <Grid2x2 size={18} />
+    case "plugins":
+      return <Plug size={18} />
+    case "edit":
+      return <AudioWaveform size={18} />
+    case "settings":
+      return <Settings size={18} />
     default:
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <rect x="4" y="4" width="16" height="16" rx="2" />
-          <path d="M8 8h8M8 12h8M8 16h5" />
-        </svg>
-      )
+      return <FileText size={18} />
   }
 }
 
@@ -105,6 +101,9 @@ export function AppMode({
   activeView = defaultAppView,
 }: AppModeProps) {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
+  const [isViewSettingsOpen, setIsViewSettingsOpen] = useState(false)
+  const [showKeyLabels, setShowKeyLabels] = useState(true)
   const messages = resolveAppMessages(activeLanguage)
   const activeDefinition =
     appViewDefinitions.find((view) => view.id === activeView) ?? appViewDefinitions[0]
@@ -139,9 +138,18 @@ export function AppMode({
     await document.documentElement.requestFullscreen().catch(() => {})
   }
 
+  const viewSettings: ViewSettingsProps = {
+    settingsOpen: isViewSettingsOpen,
+    onSettingsClose: () => setIsViewSettingsOpen(false),
+  }
+
   return (
     <AppShell subtitle={messages.appMode.subtitle} title={messages.appMode.title}>
-      <section className="app-mode-window app-surface-window">
+      <section
+        className="app-mode-window app-surface-window"
+        data-show-key-labels={showKeyLabels ? undefined : "false"}
+        data-ui-theme={darkMode ? "dark" : undefined}
+      >
         <header className="app-mode-window-header">
           <strong className="app-mode-window-brand">{messages.appMode.title.toLowerCase()}</strong>
           <div className="app-mode-header-actions">
@@ -168,19 +176,23 @@ export function AppMode({
               title={isFullscreenActive ? "Salir de pantalla completa" : "Pantalla completa"}
               type="button"
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                {isFullscreenActive ? (
-                  <path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4" />
-                ) : (
-                  <path d="M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5" />
-                )}
-              </svg>
+              {isFullscreenActive ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+
+            <button
+              aria-label="Opciones de la vista"
+              className="app-mode-fullscreen-toggle"
+              onClick={() => setIsViewSettingsOpen(true)}
+              title="Opciones de la vista"
+              type="button"
+            >
+              <MoreVertical size={18} />
             </button>
           </div>
         </header>
 
         <div className="app-mode-window-content">
-          {resolveScreen(activeDefinition.id, activeLanguage)}
+          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, setDarkMode, viewSettings, showKeyLabels, setShowKeyLabels)}
         </div>
       </section>
     </AppShell>

@@ -27,6 +27,11 @@ modular preparada para plugins/mods.
   sin romper la arquitectura.
 - `10-app-expo-actual.md` -> estado real de la app Expo en `apps/`,
   decisiones activas, limites actuales y siguiente tramo recomendado.
+- `11-catalogo-componentes-ui.md` -> inventario del lenguaje visual, patrones
+  de interfaz y piezas reutilizables del modo app.
+- `12-guia-estudio-proyecto.md` -> guia practica para entender rapido el
+  proyecto actual, su arquitectura real, el stack y un plan de estudio
+  funcional.
 
 ## Proposito de esta carpeta
 

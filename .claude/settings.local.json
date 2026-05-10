@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-Content 'c:\\\\SEBASTIAN\\\\5. EMPRENDIMIENTO\\\\REACT\\\\MiMIDI\\\\docs\\\\05-contexto-vivo-desarrollo.md' | Select-Object -Last 40\")",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
+    ]
+  }
+}

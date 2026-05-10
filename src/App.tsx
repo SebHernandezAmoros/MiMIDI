@@ -3,7 +3,8 @@ import "./App.css"
 import "./app/styles/appModeCatalog.css"
 import { getAppLanguageFromSearch } from "./app/appI18n"
 import { AppMode } from "./app/AppMode"
-import { APP_LAB_ROUTE, getAppViewFromSearch, normalizeAppRoute } from "./app/appRoutes"
+import { APP_CATALOG_ROUTE, APP_LAB_ROUTE, getAppViewFromSearch, normalizeAppRoute } from "./app/appRoutes"
+import { CatalogPage } from "./features/catalog/CatalogPage"
 import LabApp from "./features/lab/LabApp"
 
 function App() {
@@ -33,6 +34,10 @@ function App() {
 
   if (activeRoute === APP_LAB_ROUTE) {
     return <LabApp />
+  }
+
+  if (activeRoute === APP_CATALOG_ROUTE) {
+    return <CatalogPage />
   }
 
   return <AppMode activeLanguage={activeLanguage} activeView={activeView} />

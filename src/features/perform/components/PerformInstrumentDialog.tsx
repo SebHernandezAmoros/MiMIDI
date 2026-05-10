@@ -29,23 +29,18 @@ export function PerformInstrumentDialog({
 }: PerformInstrumentDialogProps) {
   return (
     <AppDialog
-      actions={
-        <button onClick={onClose} type="button">
-          Cerrar
-        </button>
-      }
-      description="Selecciona primero el tipo de instrumento y luego el sonido disponible."
+      description="Selecciona el tipo y el instrumento."
       onClose={onClose}
       open={open}
       title="Instrumentos"
     >
-      <div className="perform-instrument-dialog-layout">
-        <section className="perform-instrument-dialog-panel">
+      <div className="perform-instrument-dialog-v">
+        <div className="perform-instrument-dialog-section">
           <span className="perform-instrument-dialog-title">Tipo</span>
-          <div className="perform-instrument-dialog-list">
+          <div className="perform-instrument-dialog-tabs">
             {instrumentCategories.map((category) => (
               <button
-                className={category === activeCategory ? "mode-switch-active" : ""}
+                className={`ui-pill-btn${category === activeCategory ? " ui-pill-btn-active" : ""}`}
                 key={category}
                 onClick={() => onCategoryChange(category)}
                 type="button"
@@ -57,9 +52,9 @@ export function PerformInstrumentDialog({
           <p className="perform-instrument-dialog-note">
             {getInstrumentCategoryDescription(activeCategory)}
           </p>
-        </section>
+        </div>
 
-        <section className="perform-instrument-dialog-panel">
+        <div className="perform-instrument-dialog-section">
           <span className="perform-instrument-dialog-title">Instrumentos</span>
           <div className="perform-instrument-dialog-list perform-instrument-dialog-list-scroll">
             {instruments.map((instrument) => (
@@ -76,7 +71,7 @@ export function PerformInstrumentDialog({
               </button>
             ))}
           </div>
-        </section>
+        </div>
       </div>
     </AppDialog>
   )

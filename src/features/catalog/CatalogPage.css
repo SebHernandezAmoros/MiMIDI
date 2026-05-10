@@ -1,0 +1,185 @@
+.catalog-page {
+  min-height: 100dvh;
+  padding: 2rem 1.5rem 4rem;
+  font-family: var(--app-font-primary, "IBM Plex Mono", monospace);
+  color: var(--ui-color-text, #303030);
+  background: #d4d4d4;
+}
+
+.catalog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.catalog-header-copy h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
+  color: #303030;
+}
+
+.catalog-header-copy p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #686868;
+}
+
+.catalog-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.catalog-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgb(184 176 168 / 0.72);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(250 250 250 / 0.95), rgb(234 234 234 / 0.98));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  color: #303030;
+}
+
+.catalog-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgb(184 176 168 / 0.72);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(250 250 250 / 0.95), rgb(234 234 234 / 0.98));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  color: #303030;
+  text-decoration: none;
+}
+
+.catalog-sections {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.catalog-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.catalog-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgb(155 147 138 / 0.48);
+}
+
+.catalog-section-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #303030;
+}
+
+.catalog-section-tag {
+  font-size: 0.75rem;
+  color: #686868;
+  letter-spacing: 0.04em;
+}
+
+.catalog-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.catalog-item {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.catalog-item-label {
+  font-size: 0.72rem;
+  color: #686868;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Contenedor de preview con modo oscuro */
+.catalog-preview {
+  padding: 1.25rem;
+  border: 1px solid rgb(184 176 168 / 0.72);
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(180deg, rgb(248 248 248 / 0.94), rgb(231 231 231 / 0.96));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
+}
+
+.catalog-preview-dark {
+  background:
+    linear-gradient(180deg, rgb(32 32 32 / 0.98), rgb(22 22 22 / 0.98));
+  border-color: rgb(68 68 68 / 0.88);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+/* Sección de lista completa */
+.catalog-list-demo {
+  display: grid;
+  gap: 0.5rem;
+  width: min(100%, 28rem);
+}
+
+/* Demo de SMC grid */
+.catalog-smc-demo {
+  width: min(100%, 34rem);
+}
+
+/* Demo de toolbar */
+.catalog-toolbar-demo {
+  width: min(100%, 36rem);
+}
+
+/* Token swatches */
+.catalog-token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.65rem;
+}
+
+.catalog-token-swatch {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.catalog-token-color {
+  height: 3rem;
+  border: 1px solid rgb(155 147 138 / 0.48);
+  border-radius: 0.7rem;
+}
+
+.catalog-token-name {
+  font-size: 0.7rem;
+  color: #686868;
+  word-break: break-all;
+}
+
+.catalog-token-value {
+  font-size: 0.7rem;
+  color: #303030;
+  font-weight: 600;
+}

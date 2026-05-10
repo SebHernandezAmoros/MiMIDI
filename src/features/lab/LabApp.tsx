@@ -72,13 +72,13 @@ import {
   updateTrackVolume,
   type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import {
   findRegisteredPluginByInstrumentId,
   getRegisteredPluginSummaries,
 } from "../../engine/plugins/pluginRegistry"
 import { LabActions } from "./LabActions"
-import { LabNoteEditor } from "./LabNoteEditor"
 import { LabProjectPanel } from "./LabProjectPanel"
 import { LabSoundControls } from "./LabSoundControls"
 import { useLabRecordingSession } from "./useLabRecordingSession"
@@ -88,7 +88,6 @@ import {
   type SmcPadSoundId,
 } from "../../application/use-cases/playSmcPadHit"
 import { MidiEventLog } from "../midi-events/MidiEventLog"
-import { RecordedNoteList } from "../midi-events/RecordedNoteList"
 import {
   PianoPreview,
   type PianoInteractionMode,
@@ -146,9 +145,11 @@ type LabAppMode = "full" | "edit-only" | "project-only" | "perform-only"
 
 type LabAppProps = {
   mode?: LabAppMode
+  settingsOpen?: boolean
+  onSettingsClose?: () => void
 }
 
-function LabApp({ mode = "full" }: LabAppProps) {
+function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabAppProps) {
   const [volume, setVolume] = useState(0.8)
   const [selectedNote, setSelectedNote] = useState<MusicalNote>("A4")
   const [selectedChordType, setSelectedChordType] = useState<ChordType>("major")
@@ -157,6 +158,8 @@ function LabApp({ mode = "full" }: LabAppProps) {
     defaultArpeggiatorSettings,
   )
   const [previewOctave, setPreviewOctave] = useState<Octave>(4)
+  const [timelineView, setTimelineView] = useState<"notes" | "tracks">("notes")
+  const [timelineRange, setTimelineRange] = useState<"1bar" | "2bars" | "4bars" | "8bars">("1bar")
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
   const [isTimelineDragging, setIsTimelineDragging] = useState(false)
@@ -168,6 +171,7 @@ function LabApp({ mode = "full" }: LabAppProps) {
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
   const [isExportingAudio, setIsExportingAudio] = useState(false)
   const [isTrackRemovalConfirmOpen, setIsTrackRemovalConfirmOpen] = useState(false)
+  const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false)
   const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
   const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
     MathematicalInstrument["category"]
@@ -239,27 +243,6 @@ function LabApp({ mode = "full" }: LabAppProps) {
   const isPrimaryTrackAudible = isTrackAudible(primaryTrack, project.tracks)
   const selectedRecordedNote =
     primaryTrack.notes.find((note) => note.id === selectedRecordedNoteId) ?? null
-  let selectedNoteHistoryStatus: "modificada" | "sin-cambios" | null = null
-
-  if (selectedRecordedNoteId && selectedRecordedNote) {
-    const latestSnapshot = undoStack.at(-1)
-
-    if (!latestSnapshot) {
-      selectedNoteHistoryStatus = "sin-cambios"
-    } else {
-      const snapshotTrack = latestSnapshot.tracks.find((track) => track.id === primaryTrack.id)
-      const snapshotNote = snapshotTrack?.notes.find(
-        (note) => note.id === selectedRecordedNoteId,
-      )
-
-      selectedNoteHistoryStatus =
-        !snapshotNote ||
-        snapshotNote.startTime !== selectedRecordedNote.startTime ||
-        snapshotNote.duration !== selectedRecordedNote.duration
-          ? "modificada"
-          : "sin-cambios"
-    }
-  }
   const shortcutHint = useMemo(() => {
     const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
     const mod = isMac ? "Cmd" : "Ctrl"
@@ -593,8 +576,8 @@ function LabApp({ mode = "full" }: LabAppProps) {
   }
 
   function confirmRemoveActiveTrack() {
-    if (project.tracks.length <= 1) {
-      removeActiveTrack()
+    if (project.tracks.length === 1) {
+      setIsRestartConfirmOpen(true)
       return
     }
 
@@ -1179,61 +1162,242 @@ function LabApp({ mode = "full" }: LabAppProps) {
     }
   }
 
+  const editNotesToPlay = timelineView === "notes"
+    ? { ...project, tracks: [primaryTrack] }
+    : project
+
+  const editSettingsDuration = timelineView === "notes"
+    ? primaryTrack.noteTimelineDuration
+    : project.trackTimelineDuration
+
   const editWorkspace = (
     <section className="timeline-workspace" aria-label="Workspace de timeline">
-      <TrackTimelinePreview
-        activeTrackId={primaryTrack.id}
-        onSelectTrack={switchActiveTrack}
-        onDragStateChange={setIsTimelineDragging}
-        onUpdateTrackStartTime={updateTrackStartTime}
-        timelineLength={projectTrackTimelineLength}
-        tracks={project.tracks}
-      />
-      <RecordedNoteList
-        notes={primaryTrack.notes}
-        onRemoveNote={removeRecordedNote}
-        onSelectNote={selectRecordedNote}
-        selectedNoteId={selectedRecordedNoteId}
-      />
-      <LabNoteEditor
-        canRedo={canRedo}
-        canUndo={canUndo}
-        historyLimit={HISTORY_LIMIT}
-        isTimelineDragging={isTimelineDragging}
-        noteTimelineDuration={primaryTrack.noteTimelineDuration}
-        onCompactNoteTimelineStart={compactPrimaryTrackNoteTimelineStart}
-        onDuplicateSelectedNote={duplicateSelectedRecordedNote}
-        onNoteTimelineDurationChange={updatePrimaryTrackNoteTimelineDurationValue}
-        onRedo={redoProjectEdit}
-        onResetNoteTimelineDuration={resetPrimaryTrackNoteTimelineDuration}
-        onRevertSelectedNote={revertSelectedNoteToLastCommit}
-        onSelectedNoteDurationChange={updateSelectedNoteDuration}
-        onSelectedNoteStartTimeChange={updateSelectedNoteStartTime}
-        onTimelineSnapStepChange={setTimelineSnapStep}
-        onToggleTimelineSnap={setTimelineSnapEnabled}
-        onUndo={undoProjectEdit}
-        redoCount={redoStack.length}
-        selectedNoteHistoryStatus={selectedNoteHistoryStatus}
-        selectedRecordedNote={selectedRecordedNote}
-        shortcutHint={shortcutHint}
-        timelineSnapEnabled={timelineSnapEnabled}
-        timelineSnapStep={timelineSnapStep}
-        undoCount={undoStack.length}
-      />
-      <TimelinePreview
-        notes={primaryTrack.notes}
-        onRemoveSelectedNote={removeRecordedNote}
-        onDragStateChange={setIsTimelineDragging}
-        onSelectNote={selectRecordedNote}
-        onUpdateNote={updateRecordedNote}
-        selectedNoteId={selectedRecordedNoteId}
-        timelineLength={primaryTrackNoteTimelineLength}
-      />
+      <header className="app-mock-toolbar">
+        <div className="app-mock-toolbar-controls">
+          <div className="edit-view-switch" role="group" aria-label="Vista del timeline">
+            <button
+              aria-pressed={timelineView === "notes"}
+              onClick={() => setTimelineView("notes")}
+              type="button"
+            >
+              NOTAS
+            </button>
+            <button
+              aria-pressed={timelineView === "tracks"}
+              onClick={() => setTimelineView("tracks")}
+              type="button"
+            >
+              TRACKS
+            </button>
+          </div>
+          {timelineView === "notes" && !selectedRecordedNote && (
+            <select
+              aria-label="Seleccionar pista"
+              className="ui-select"
+              value={primaryTrack.id}
+              onChange={(e) => switchActiveTrack(e.target.value)}
+            >
+              {project.tracks.map((track) => (
+                <option key={track.id} value={track.id}>{track.name}</option>
+              ))}
+            </select>
+          )}
+          {timelineView === "notes" && selectedRecordedNote ? (
+            <>
+              <span className="edit-note-chip">{selectedRecordedNote.note}</span>
+              <input
+                aria-label="Inicio (s)"
+                className="edit-note-input"
+                min="0"
+                step="0.01"
+                type="number"
+                value={selectedRecordedNote.startTime.toFixed(2)}
+                onChange={(e) => updateSelectedNoteStartTime(Number(e.target.value))}
+              />
+              <input
+                aria-label="Duracion (s)"
+                className="edit-note-input"
+                disabled={isSmcPadRecordedNote(selectedRecordedNote)}
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={selectedRecordedNote.duration.toFixed(2)}
+                onChange={(e) => updateSelectedNoteDuration(Number(e.target.value))}
+              />
+              <button
+                className="ui-icon-btn"
+                onClick={duplicateSelectedRecordedNote}
+                title="Duplicar nota"
+                type="button"
+              >
+                <Copy size={15} />
+              </button>
+              <button
+                className="ui-icon-btn"
+                onClick={revertSelectedNoteToLastCommit}
+                title="Revertir nota"
+                type="button"
+              >
+                <RotateCcw size={15} />
+              </button>
+            </>
+          ) : (
+            <>
+              <select
+                aria-label="Rango del timeline"
+                className="ui-select"
+                value={timelineRange}
+                onChange={(e) => setTimelineRange(e.target.value as "1bar" | "2bars" | "4bars" | "8bars")}
+              >
+                <option value="1bar">1 BAR</option>
+                <option value="2bars">2 BARS</option>
+                <option value="4bars">4 BARS</option>
+                <option value="8bars">8 BARS</option>
+              </select>
+              <button
+                aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
+                className={`perform-mode-transport-button ${playbackTransport.isPlaying ? "perform-mode-transport-button-active" : "perform-mode-transport-play"}`}
+                disabled={allRecordedNotes.length === 0 && !playbackTransport.isPlaying}
+                onClick={() => playbackTransport.isPlaying ? playbackTransport.stop() : playbackTransport.play(editNotesToPlay)}
+                type="button"
+              >
+                {playbackTransport.isPlaying ? <Square size={14} /> : <Play size={14} />}
+              </button>
+            </>
+          )}
+
+          <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+          <label className="perform-mode-arp-toggle" aria-label="Snap al paso">
+            <input
+              checked={timelineSnapEnabled}
+              className="ui-checkbox"
+              onChange={(e) => setTimelineSnapEnabled(e.target.checked)}
+              type="checkbox"
+            />
+            <span>SNAP</span>
+          </label>
+          {timelineSnapEnabled && (
+            <select
+              aria-label="Paso de snap"
+              className="ui-select"
+              value={timelineSnapStep}
+              onChange={(e) => setTimelineSnapStep(Number(e.target.value))}
+            >
+              <option value={0.05}>0.05s</option>
+              <option value={0.1}>0.10s</option>
+              <option value={0.25}>0.25s</option>
+              <option value={0.5}>0.50s</option>
+            </select>
+          )}
+
+          <button
+            aria-label="Deshacer"
+            className="ui-icon-btn"
+            disabled={!canUndo}
+            onClick={undoProjectEdit}
+            title="Deshacer"
+            type="button"
+          >
+            <Undo2 size={15} />
+          </button>
+          <button
+            aria-label="Rehacer"
+            className="ui-icon-btn"
+            disabled={!canRedo}
+            onClick={redoProjectEdit}
+            title="Rehacer"
+            type="button"
+          >
+            <Redo2 size={15} />
+          </button>
+          {timelineView === "notes" && (
+            <button
+              aria-label="Eliminar nota seleccionada"
+              className="ui-icon-btn"
+              disabled={!selectedRecordedNote}
+              onClick={() => selectedRecordedNote && removeRecordedNote(selectedRecordedNote.id)}
+              title="Eliminar nota"
+              type="button"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {timelineView === "tracks" ? (
+        <TrackTimelinePreview
+          activeTrackId={primaryTrack.id}
+          onSelectTrack={switchActiveTrack}
+          onDragStateChange={setIsTimelineDragging}
+          onUpdateTrackStartTime={updateTrackStartTime}
+          timelineLength={projectTrackTimelineLength}
+          tracks={project.tracks}
+        />
+      ) : (
+        <TimelinePreview
+          notes={primaryTrack.notes}
+          onDragStateChange={setIsTimelineDragging}
+          onSelectNote={selectRecordedNote}
+          onUpdateNote={updateRecordedNote}
+          selectedNoteId={selectedRecordedNoteId}
+          timelineLength={primaryTrackNoteTimelineLength}
+        />
+      )}
     </section>
   )
 
   if (mode === "edit-only") {
-    return editWorkspace
+    return (
+      <>
+        {editWorkspace}
+        <AppDialog
+          actions={
+            <button onClick={onSettingsClose} type="button">
+              Cerrar
+            </button>
+          }
+          description="Ajusta la duracion del timeline y las opciones de visualizacion."
+          onClose={onSettingsClose ?? (() => {})}
+          open={settingsOpen}
+          title="Opciones — Editor"
+        >
+          <div className="control-group">
+            <label>
+              Duracion ({timelineView === "notes" ? "notas" : "tracks"}) (s)
+            </label>
+            <input
+              min="1"
+              step="0.5"
+              type="number"
+              value={editSettingsDuration.toFixed(1)}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                if (timelineView === "notes") updatePrimaryTrackNoteTimelineDurationValue(v)
+                else updateProjectTrackTimelineDurationValue(v)
+              }}
+            />
+            <button
+              onClick={() => {
+                if (timelineView === "notes") resetPrimaryTrackNoteTimelineDuration()
+                else resetProjectTrackTimelineDuration()
+              }}
+              type="button"
+            >
+              Ajustar al contenido
+            </button>
+          </div>
+          {timelineView === "notes" && (
+            <div className="control-group">
+              <button onClick={compactPrimaryTrackNoteTimelineStart} type="button">
+                Compactar inicio
+              </button>
+            </div>
+          )}
+        </AppDialog>
+      </>
+    )
   }
 
   const projectPanel = (
@@ -1429,7 +1593,9 @@ function LabApp({ mode = "full" }: LabAppProps) {
               isPlaying={playbackTransport.isPlaying}
               isRecording={recordingState === "recording"}
               octave={previewOctave}
+              isArpEnabled={arpeggiatorSettings.enabled}
               onAddTrack={addTrack}
+              onArpToggle={() => setArpeggiatorSettings((s) => ({ ...s, enabled: !s.enabled }))}
               onCloseInstrumentDialog={closeInstrumentDialog}
               onConfirmRemoveTrack={confirmRemoveActiveTrack}
               onInstrumentCategoryChange={setInstrumentDialogCategory}
@@ -1444,7 +1610,7 @@ function LabApp({ mode = "full" }: LabAppProps) {
               onSelectNextTrack={() => switchTrackByOffset(1)}
               onSelectPreviousTrack={() => switchTrackByOffset(-1)}
               primaryTrackName={primaryTrack.name}
-              removeTrackDisabled={project.tracks.length <= 1}
+              removeTrackDisabled={false}
               selectedInstrumentId={selectedInstrument.id}
               selectedInstrumentName={selectedInstrument.name}
               trackNextDisabled={project.tracks.at(-1)?.id === primaryTrack.id}
@@ -1481,6 +1647,30 @@ function LabApp({ mode = "full" }: LabAppProps) {
           onClose={cancelRemoveActiveTrack}
           open={isTrackRemovalConfirmOpen}
           title={`Eliminar ${primaryTrack.name}?`}
+        />
+
+        <AppDialog
+          actions={
+            <>
+              <button onClick={() => setIsRestartConfirmOpen(false)} type="button">
+                Cancelar
+              </button>
+              <button
+                className="ui-btn-danger"
+                onClick={() => {
+                  setIsRestartConfirmOpen(false)
+                  restartProject()
+                }}
+                type="button"
+              >
+                Reiniciar
+              </button>
+            </>
+          }
+          description="Al eliminar esta pista solo quedara una. El proyecto se reiniciara y se perderan todas las notas grabadas."
+          onClose={() => setIsRestartConfirmOpen(false)}
+          open={isRestartConfirmOpen}
+          title="Reiniciar proyecto?"
         />
 
         <aside className="perform-workspace-secondary perform-workspace-secondary-hidden">
