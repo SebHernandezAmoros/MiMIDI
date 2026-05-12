@@ -72,13 +72,14 @@ import {
   updateTrackVolume,
   type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
-import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw } from "lucide-react"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import {
   findRegisteredPluginByInstrumentId,
   getRegisteredPluginSummaries,
 } from "../../engine/plugins/pluginRegistry"
 import { LabActions } from "./LabActions"
+import { LabNoteEditor } from "./LabNoteEditor"
 import { LabProjectPanel } from "./LabProjectPanel"
 import { LabSoundControls } from "./LabSoundControls"
 import { useLabRecordingSession } from "./useLabRecordingSession"
@@ -141,7 +142,7 @@ function getPerformanceTimestamp() {
   return performance.now()
 }
 
-type LabAppMode = "full" | "edit-only" | "project-only" | "perform-only"
+type LabAppMode = "full" | "edit-only" | "project-only" | "perform-only" | "plugins-only"
 
 type LabAppProps = {
   mode?: LabAppMode
@@ -159,7 +160,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   )
   const [previewOctave, setPreviewOctave] = useState<Octave>(4)
   const [timelineView, setTimelineView] = useState<"notes" | "tracks">("notes")
-  const [timelineRange, setTimelineRange] = useState<"1bar" | "2bars" | "4bars" | "8bars">("1bar")
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
   const [isTimelineDragging, setIsTimelineDragging] = useState(false)
@@ -230,10 +230,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   )
   const dialogVisibleInstruments = useMemo(
     () =>
-      availableInstruments.filter(
-        (instrument) => instrument.category === instrumentDialogCategory,
-      ),
-    [availableInstruments, instrumentDialogCategory],
+      availableInstruments
+        .filter((instrument) => instrument.category === instrumentDialogCategory)
+        .map((instrument) => {
+          const plugin = findRegisteredPluginByInstrumentId(instrument.id, project.pluginStates)
+          return { ...instrument, sourceLabel: plugin ? plugin.name : "Core" }
+        }),
+    [availableInstruments, instrumentDialogCategory, project.pluginStates],
   )
   const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
   const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
@@ -243,6 +246,24 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const isPrimaryTrackAudible = isTrackAudible(primaryTrack, project.tracks)
   const selectedRecordedNote =
     primaryTrack.notes.find((note) => note.id === selectedRecordedNoteId) ?? null
+
+  let selectedNoteHistoryStatus: "modificada" | "sin-cambios" | null = null
+  if (selectedRecordedNoteId && selectedRecordedNote) {
+    const latestSnapshot = undoStack.at(-1)
+    if (!latestSnapshot) {
+      selectedNoteHistoryStatus = "sin-cambios"
+    } else {
+      const snapshotTrack = latestSnapshot.tracks.find((t) => t.id === primaryTrack.id)
+      const snapshotNote = snapshotTrack?.notes.find((n) => n.id === selectedRecordedNoteId)
+      selectedNoteHistoryStatus =
+        !snapshotNote ||
+        snapshotNote.startTime !== selectedRecordedNote.startTime ||
+        snapshotNote.duration !== selectedRecordedNote.duration
+          ? "modificada"
+          : "sin-cambios"
+    }
+  }
+
   const shortcutHint = useMemo(() => {
     const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
     const mod = isMac ? "Cmd" : "Ctrl"
@@ -1190,7 +1211,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               TRACKS
             </button>
           </div>
-          {timelineView === "notes" && !selectedRecordedNote && (
+          {timelineView === "notes" && !(mode === "edit-only" && selectedRecordedNote) && (
             <select
               aria-label="Seleccionar pista"
               className="ui-select"
@@ -1202,7 +1223,18 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               ))}
             </select>
           )}
-          {timelineView === "notes" && selectedRecordedNote ? (
+          {timelineView === "tracks" && (
+            <input
+              aria-label="Nombre de la pista activa"
+              className="edit-note-input edit-track-name-input"
+              defaultValue={primaryTrack.name}
+              key={primaryTrack.id}
+              onBlur={(e) => updateTrackName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+              type="text"
+            />
+          )}
+          {mode === "edit-only" && timelineView === "notes" && selectedRecordedNote && (
             <>
               <span className="edit-note-chip">{selectedRecordedNote.note}</span>
               <input
@@ -1241,29 +1273,26 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 <RotateCcw size={15} />
               </button>
             </>
-          ) : (
-            <>
-              <select
-                aria-label="Rango del timeline"
-                className="ui-select"
-                value={timelineRange}
-                onChange={(e) => setTimelineRange(e.target.value as "1bar" | "2bars" | "4bars" | "8bars")}
-              >
-                <option value="1bar">1 BAR</option>
-                <option value="2bars">2 BARS</option>
-                <option value="4bars">4 BARS</option>
-                <option value="8bars">8 BARS</option>
-              </select>
-              <button
-                aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
-                className={`perform-mode-transport-button ${playbackTransport.isPlaying ? "perform-mode-transport-button-active" : "perform-mode-transport-play"}`}
-                disabled={allRecordedNotes.length === 0 && !playbackTransport.isPlaying}
-                onClick={() => playbackTransport.isPlaying ? playbackTransport.stop() : playbackTransport.play(editNotesToPlay)}
-                type="button"
-              >
-                {playbackTransport.isPlaying ? <Square size={14} /> : <Play size={14} />}
-              </button>
-            </>
+          )}
+          <button
+            aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
+            className="ui-icon-btn"
+            disabled={allRecordedNotes.length === 0 && !playbackTransport.isPlaying}
+            onClick={() => playbackTransport.isPlaying ? playbackTransport.stop() : playbackTransport.play(editNotesToPlay)}
+            title={playbackTransport.isPlaying ? "Detener" : "Reproducir"}
+            type="button"
+          >
+            {playbackTransport.isPlaying ? <Square size={14} /> : <Play size={14} />}
+          </button>
+          {mode === "edit-only" && timelineView === "notes" && (
+            <button
+              className="ui-icon-btn"
+              onClick={compactPrimaryTrackNoteTimelineStart}
+              title="Compactar inicio"
+              type="button"
+            >
+              <ChevronsLeft size={15} />
+            </button>
           )}
 
           <span aria-hidden="true" className="perform-mode-transport-divider" />
@@ -1291,6 +1320,28 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             </select>
           )}
 
+          {mode === "edit-only" && (
+            <>
+              <button
+                aria-label="Silenciar pista"
+                className={`ui-icon-btn edit-mute-solo-btn${primaryTrack.muted ? " edit-mute-solo-btn-active" : ""}`}
+                onClick={togglePrimaryTrackMuted}
+                title="Mute"
+                type="button"
+              >
+                <VolumeX size={14} />
+              </button>
+              <button
+                aria-label="Solo pista"
+                className={`ui-icon-btn edit-mute-solo-btn${primaryTrack.solo ? " edit-mute-solo-btn-active" : ""}`}
+                onClick={togglePrimaryTrackSolo}
+                title="Solo"
+                type="button"
+              >
+                Solo
+              </button>
+            </>
+          )}
           <button
             aria-label="Deshacer"
             className="ui-icon-btn"
@@ -1336,14 +1387,27 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           tracks={project.tracks}
         />
       ) : (
-        <TimelinePreview
-          notes={primaryTrack.notes}
-          onDragStateChange={setIsTimelineDragging}
-          onSelectNote={selectRecordedNote}
-          onUpdateNote={updateRecordedNote}
-          selectedNoteId={selectedRecordedNoteId}
-          timelineLength={primaryTrackNoteTimelineLength}
-        />
+        <>
+          {mode !== "edit-only" && (
+            <LabNoteEditor
+              onDuplicateSelectedNote={duplicateSelectedRecordedNote}
+              onRevertSelectedNote={revertSelectedNoteToLastCommit}
+              onSelectedNoteDurationChange={updateSelectedNoteDuration}
+              onSelectedNoteStartTimeChange={updateSelectedNoteStartTime}
+              selectedNoteHistoryStatus={selectedNoteHistoryStatus}
+              selectedRecordedNote={selectedRecordedNote}
+            />
+          )}
+          <TimelinePreview
+            notes={primaryTrack.notes}
+            onDragStateChange={setIsTimelineDragging}
+            onRemoveSelectedNote={mode !== "edit-only" ? removeRecordedNote : undefined}
+            onSelectNote={selectRecordedNote}
+            onUpdateNote={updateRecordedNote}
+            selectedNoteId={selectedRecordedNoteId}
+            timelineLength={primaryTrackNoteTimelineLength}
+          />
+        </>
       )}
     </section>
   )
@@ -1353,11 +1417,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       <>
         {editWorkspace}
         <AppDialog
-          actions={
-            <button onClick={onSettingsClose} type="button">
-              Cerrar
-            </button>
-          }
           description="Ajusta la duracion del timeline y las opciones de visualizacion."
           onClose={onSettingsClose ?? (() => {})}
           open={settingsOpen}
@@ -1395,6 +1454,71 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               </button>
             </div>
           )}
+
+          <div className="edit-settings-track-section">
+            <span className="perform-instrument-dialog-title">Pista activa — {primaryTrack.name}</span>
+
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="edit-track-volume">
+                Volumen
+              </label>
+              <input
+                id="edit-track-volume"
+                max={1}
+                min={0}
+                onChange={(e) => updatePrimaryTrackVolume(parseFloat(e.target.value))}
+                step={0.01}
+                type="range"
+                value={primaryTrack.volume}
+              />
+              <span className="edit-settings-track-value">{Math.round(primaryTrack.volume * 100)}%</span>
+            </div>
+
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="edit-track-pan">
+                Pan
+              </label>
+              <input
+                id="edit-track-pan"
+                max={1}
+                min={-1}
+                onChange={(e) => updatePrimaryTrackPan(parseFloat(e.target.value))}
+                step={0.01}
+                type="range"
+                value={primaryTrack.pan}
+              />
+              <span className="edit-settings-track-value">
+                {primaryTrack.pan === 0
+                  ? "C"
+                  : primaryTrack.pan > 0
+                    ? `R${Math.round(primaryTrack.pan * 100)}`
+                    : `L${Math.round(Math.abs(primaryTrack.pan) * 100)}`}
+              </span>
+            </div>
+
+            <span className="perform-instrument-dialog-title" style={{ marginTop: "0.3rem" }}>ADSR</span>
+            {(["attack", "decay", "sustain", "release"] as const).map((param) => (
+              <div className="edit-settings-track-row" key={param}>
+                <label className="edit-settings-track-label" htmlFor={`edit-adsr-${param}`}>
+                  {param.charAt(0).toUpperCase() + param.slice(1)}
+                </label>
+                <input
+                  id={`edit-adsr-${param}`}
+                  max={param === "sustain" ? 1 : 2}
+                  min={0.01}
+                  onChange={(e) => updatePrimaryTrackEnvelope(param, parseFloat(e.target.value))}
+                  step={0.01}
+                  type="range"
+                  value={primaryTrack.envelope?.[param] ?? (param === "sustain" ? 0.72 : param === "attack" ? 0.01 : param === "decay" ? 0.12 : 0.18)}
+                />
+                <span className="edit-settings-track-value">
+                  {param === "sustain"
+                    ? `${Math.round((primaryTrack.envelope?.[param] ?? 0.72) * 100)}%`
+                    : `${((primaryTrack.envelope?.[param] ?? 0.01) * 1000).toFixed(0)}ms`}
+                </span>
+              </div>
+            ))}
+          </div>
         </AppDialog>
       </>
     )
@@ -1444,42 +1568,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     />
   )
 
-  const projectActionSection = (
-    <div className="actions" aria-label="Acciones del proyecto">
-      <button
-        disabled={!allRecordedNotes.length || playbackTransport.isPlaying}
-        onClick={playRecording}
-        type="button"
-      >
-        {playbackTransport.isPlaying ? "Reproduciendo" : "Reproducir grabacion"}
-      </button>
-      <button
-        disabled={!allRecordedNotes.length || isExportingAudio}
-        onClick={exportProjectAudio}
-        type="button"
-      >
-        {isExportingAudio ? "Exportando audio..." : "Exportar WAV"}
-      </button>
-      <button onClick={playbackTransport.stop} type="button">
-        Detener
-      </button>
-      <button onClick={clearSession} type="button">
-        Limpiar notas
-      </button>
-      <button onClick={restartProject} type="button">
-        Reiniciar proyecto
-      </button>
-      <button onClick={openImportDialog} type="button">
-        Importar JSON
-      </button>
-      <button onClick={exportProject} type="button">
-        Exportar JSON
-      </button>
-    </div>
-  )
-
   const projectWorkspace = (
-    <>
+    <section className="app-mock-screen" aria-label="Exportar proyecto">
       <input
         accept=".json,application/json"
         hidden
@@ -1487,13 +1577,110 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         ref={importInputRef}
         type="file"
       />
-      {projectPanel}
-      {projectActionSection}
-    </>
+      <header className="app-mock-toolbar">
+        <div className="app-mock-toolbar-copy">
+          <strong>{project.name || "Proyecto"}</strong>
+          {projectMessage && <span>{projectMessage}</span>}
+        </div>
+      </header>
+      <div className="project-compact-body">
+        <div className="project-compact-name-row">
+          <span className="perform-instrument-dialog-title">Nombre</span>
+          <input
+            className="project-compact-name-input"
+            onChange={(e) => updateProjectName(e.target.value)}
+            placeholder="Nombre del proyecto"
+            type="text"
+            value={project.name}
+          />
+        </div>
+
+        <div className="project-compact-grid">
+          <button
+            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
+            disabled={allRecordedNotes.length === 0 && !playbackTransport.isPlaying}
+            onClick={playbackTransport.isPlaying ? playbackTransport.stop : playRecording}
+            type="button"
+          >
+            {playbackTransport.isPlaying ? <><Square size={13} /> Detener</> : <><Play size={13} /> Reproducir</>}
+          </button>
+          <button
+            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
+            disabled={allRecordedNotes.length === 0 || isExportingAudio}
+            onClick={exportProjectAudio}
+            type="button"
+          >
+            {isExportingAudio ? "Exportando..." : <><Play size={13} /> Exportar WAV</>}
+          </button>
+          <button
+            className="project-export-btn"
+            onClick={exportProject}
+            type="button"
+          >
+            Guardar JSON
+          </button>
+          <button
+            className="project-export-btn"
+            onClick={openImportDialog}
+            type="button"
+          >
+            Importar JSON
+          </button>
+        </div>
+      </div>
+    </section>
   )
 
   if (mode === "project-only") {
     return projectWorkspace
+  }
+
+  if (mode === "plugins-only") {
+    return (
+      <section className="app-mock-screen" aria-label="Plugins">
+        <header className="app-mock-toolbar">
+          <div className="app-mock-toolbar-actions">
+            <button className="ui-pill-btn" type="button">
+              <Upload size={14} />
+              IMPORT
+            </button>
+            <button className="ui-pill-btn" type="button">
+              <Folder size={14} />
+              PLUGIN FOLDER
+            </button>
+          </div>
+        </header>
+        <div className="app-plugin-list" aria-label="Lista de plugins">
+          {registeredPlugins.map((plugin) => {
+            const words = plugin.name.trim().split(/\s+/)
+            const shortLabel = words.length === 1
+              ? plugin.name.slice(0, 2).toUpperCase()
+              : words.slice(0, 2).map((w) => w[0]).join("").toUpperCase()
+            return (
+              <article className="app-plugin-row" key={plugin.id}>
+                <span className="ui-badge" aria-hidden="true">{shortLabel}</span>
+                <div className="ui-plugin-copy">
+                  <strong>{plugin.name}</strong>
+                  <span>{plugin.version} · {plugin.description}</span>
+                </div>
+                <label
+                  className="ui-toggle"
+                  aria-label={`${plugin.enabled ? "Desactivar" : "Activar"} ${plugin.name}`}
+                >
+                  <input
+                    checked={plugin.enabled}
+                    onChange={() => updatePluginEnabled(plugin.id, !plugin.enabled)}
+                    type="checkbox"
+                  />
+                  <span />
+                </label>
+                <span className="ui-list-arrow" aria-hidden="true">›</span>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+    )
   }
 
   const performControls = (
@@ -1584,7 +1771,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     return (
       <>
         <section className="perform-workspace-primary" aria-label="Panel principal Perform">
-          <section className="perform-workspace-card perform-mode-toolbar-card">
+          <header className="app-mock-toolbar perform-mode-toolbar-bar">
             <PerformResponsiveToolbar
               activeInstrumentCategory={instrumentDialogCategory}
               allRecordedNotesCount={allRecordedNotes.length}
@@ -1603,6 +1790,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               onInstrumentSelect={updateTrackInstrumentId}
               onOctaveDown={() => stepPreviewOctave(-1)}
               onOctaveUp={() => stepPreviewOctave(1)}
+              onPianoModeChange={setPianoMode}
+              pianoMode={pianoMode}
               onPlayToggle={playbackTransport.isPlaying ? playbackTransport.stop : playRecording}
               onRecordToggle={
                 recordingState === "recording" ? () => stopRecording() : startRecording
@@ -1617,7 +1806,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               trackPreviousDisabled={project.tracks[0]?.id === primaryTrack.id}
               visibleInstruments={dialogVisibleInstruments}
             />
-          </section>
+          </header>
 
           <section className="perform-workspace-card perform-workspace-card-piano">
             {performPiano}
@@ -1672,6 +1861,112 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           open={isRestartConfirmOpen}
           title="Reiniciar proyecto?"
         />
+
+        <AppDialog
+          description="Configura el modo de acorde y el arpegiador."
+          onClose={onSettingsClose ?? (() => {})}
+          open={settingsOpen}
+          title="Opciones — Piano"
+        >
+          <div className="perform-settings-dialog-v">
+            <div className="perform-settings-dialog-section">
+              <span className="perform-instrument-dialog-title">Tipo de acorde</span>
+              <div className="perform-instrument-dialog-tabs">
+                {(["major", "minor", "power"] as const).map((type) => (
+                  <button
+                    className={`ui-pill-btn${selectedChordType === type ? " ui-pill-btn-active" : ""}`}
+                    key={type}
+                    onClick={() => setSelectedChordType(type)}
+                    type="button"
+                  >
+                    {type === "major" ? "Mayor" : type === "minor" ? "Menor" : "Power"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="perform-settings-dialog-section">
+              <span className="perform-instrument-dialog-title">ARP — Modo</span>
+              <div className="perform-instrument-dialog-tabs">
+                {(["up", "down", "up-down", "random", "chord"] as const).map((m) => (
+                  <button
+                    className={`ui-pill-btn${arpeggiatorSettings.mode === m ? " ui-pill-btn-active" : ""}`}
+                    key={m}
+                    onClick={() => setArpeggiatorSettings((s) => ({ ...s, mode: m }))}
+                    type="button"
+                  >
+                    {m === "up" ? "↑ Up" : m === "down" ? "↓ Down" : m === "up-down" ? "↕ Up-Down" : m === "random" ? "? Random" : "≡ Chord"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="perform-settings-dialog-section">
+              <span className="perform-instrument-dialog-title">ARP — Rate</span>
+              <div className="perform-instrument-dialog-tabs">
+                {(["1/4", "1/8", "1/16", "1/8T"] as const).map((r) => (
+                  <button
+                    className={`ui-pill-btn${arpeggiatorSettings.rate === r ? " ui-pill-btn-active" : ""}`}
+                    key={r}
+                    onClick={() => setArpeggiatorSettings((s) => ({ ...s, rate: r }))}
+                    type="button"
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="perform-settings-dialog-row">
+              <div className="perform-settings-dialog-section">
+                <span className="perform-instrument-dialog-title">ARP — Gate</span>
+                <div className="perform-settings-gate-row">
+                  <input
+                    className="perform-settings-gate-input"
+                    max={1}
+                    min={0.05}
+                    onChange={(e) =>
+                      setArpeggiatorSettings((s) => ({ ...s, gate: parseFloat(e.target.value) }))
+                    }
+                    step={0.05}
+                    type="range"
+                    value={arpeggiatorSettings.gate}
+                  />
+                  <span className="perform-settings-gate-value">
+                    {Math.round(arpeggiatorSettings.gate * 100)}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="perform-settings-dialog-section">
+                <span className="perform-instrument-dialog-title">ARP — Octavas</span>
+                <div className="perform-instrument-dialog-tabs">
+                  {([1, 2, 3] as const).map((oct) => (
+                    <button
+                      className={`ui-pill-btn${arpeggiatorSettings.octaveRange === oct ? " ui-pill-btn-active" : ""}`}
+                      key={oct}
+                      onClick={() => setArpeggiatorSettings((s) => ({ ...s, octaveRange: oct }))}
+                      type="button"
+                    >
+                      {oct}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <label className="perform-settings-latch-row">
+              <input
+                checked={arpeggiatorSettings.latch}
+                onChange={(e) =>
+                  setArpeggiatorSettings((s) => ({ ...s, latch: e.target.checked }))
+                }
+                type="checkbox"
+              />
+              <span className="perform-instrument-dialog-title" style={{ marginBottom: 0 }}>ARP Latch</span>
+            </label>
+          </div>
+        </AppDialog>
 
         <aside className="perform-workspace-secondary perform-workspace-secondary-hidden">
           <section className="perform-workspace-card">

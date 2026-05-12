@@ -41,7 +41,9 @@ export function AppDialog({
           {description ? <p>{description}</p> : null}
         </div>
 
-        {children}
+        {children ? (
+          <div className="app-dialog-body">{children}</div>
+        ) : null}
 
         {actions ? <div className="app-dialog-actions">{actions}</div> : null}
       </section>

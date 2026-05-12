@@ -3,6 +3,7 @@ import type {
   MathematicalInstrument,
   MathematicalInstrumentId,
 } from "../../../engine/audio/mathematicalInstruments"
+import type { PianoInteractionMode } from "../../piano/PianoPreview"
 import { PerformInstrumentDialog } from "./PerformInstrumentDialog"
 
 type PerformResponsiveToolbarProps = {
@@ -22,11 +23,13 @@ type PerformResponsiveToolbarProps = {
   onInstrumentSelect: (instrumentId: MathematicalInstrumentId) => void
   onOctaveDown: () => void
   onOctaveUp: () => void
+  onPianoModeChange: (mode: PianoInteractionMode) => void
   onPlayToggle: () => void
   onRecordToggle: () => void
   onSelectNextTrack: () => void
   onSelectPreviousTrack: () => void
   octave: number
+  pianoMode: PianoInteractionMode
   primaryTrackName: string
   removeTrackDisabled: boolean
   selectedInstrumentId: MathematicalInstrumentId
@@ -53,11 +56,13 @@ export function PerformResponsiveToolbar({
   onInstrumentSelect,
   onOctaveDown,
   onOctaveUp,
+  onPianoModeChange,
   onPlayToggle,
   onRecordToggle,
   onSelectNextTrack,
   onSelectPreviousTrack,
   octave,
+  pianoMode,
   primaryTrackName,
   removeTrackDisabled,
   selectedInstrumentId,
@@ -126,6 +131,25 @@ export function PerformResponsiveToolbar({
             />
             <span>ARP</span>
           </label>
+
+          <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+          <div className="edit-view-switch" role="group" aria-label="Modo del piano">
+            <button
+              aria-pressed={pianoMode === "note"}
+              onClick={() => onPianoModeChange("note")}
+              type="button"
+            >
+              NOTA
+            </button>
+            <button
+              aria-pressed={pianoMode === "chord"}
+              onClick={() => onPianoModeChange("chord")}
+              type="button"
+            >
+              ACO
+            </button>
+          </div>
         </div>
 
         <div className="perform-mode-track-strip perform-mode-track-strip-primary">

@@ -6,8 +6,10 @@ type SettingsScreenProps = {
   activeLanguage: AppLanguage
   copy: AppViewMessages
   darkMode: boolean
+  masterVolume: number
   onDarkModeChange: (v: boolean) => void
   onLanguageChange: (language: AppLanguage) => void
+  onMasterVolumeChange: (v: number) => void
   onOpenLab: () => void
   settingsOpen: boolean
   onSettingsClose: () => void
@@ -19,8 +21,10 @@ export function SettingsScreen({
   activeLanguage,
   copy,
   darkMode,
+  masterVolume,
   onDarkModeChange,
   onLanguageChange,
+  onMasterVolumeChange,
   onOpenLab,
   settingsOpen,
   onSettingsClose,
@@ -32,9 +36,17 @@ export function SettingsScreen({
     <>
     <section className="app-mock-screen" aria-label="Workspace Settings">
       <header className="app-mock-toolbar">
-        <div className="app-mock-toolbar-copy">
-          <strong>{copy.label}</strong>
-        </div>
+        <label className="app-settings-toolbar-dark-toggle" aria-label="Modo oscuro">
+          <span>Modo oscuro</span>
+          <button
+            aria-pressed={darkMode}
+            className={darkMode ? "app-settings-toggle app-settings-toggle-on" : "app-settings-toggle"}
+            onClick={() => onDarkModeChange(!darkMode)}
+            type="button"
+          >
+            <span />
+          </button>
+        </label>
       </header>
 
       <div className="app-settings-groups">
@@ -92,6 +104,23 @@ export function SettingsScreen({
 
         <section className="app-settings-group" aria-label="Audio">
           <span className="app-settings-group-title">AUDIO</span>
+          <label className="app-settings-row app-settings-row-volume" htmlFor="settings-master-volume">
+            <span className="app-settings-row-icon">V</span>
+            <span className="app-settings-row-label">Volumen maestro</span>
+            <span className="app-settings-row-value">{Math.round(masterVolume * 100)}%</span>
+          </label>
+          <div className="app-settings-volume-slider-row">
+            <input
+              className="app-settings-volume-slider"
+              id="settings-master-volume"
+              max={1}
+              min={0}
+              onChange={(e) => onMasterVolumeChange(parseFloat(e.target.value))}
+              step={0.01}
+              type="range"
+              value={masterVolume}
+            />
+          </div>
           <button className="app-settings-row" type="button">
             <span className="app-settings-row-icon">A</span>
             <span className="app-settings-row-label">Salida de Audio</span>

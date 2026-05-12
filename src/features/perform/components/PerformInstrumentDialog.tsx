@@ -6,10 +6,12 @@ import {
   type MathematicalInstrumentId,
 } from "../../../engine/audio/mathematicalInstruments"
 
+type InstrumentDialogItem = MathematicalInstrument & { sourceLabel: string }
+
 type PerformInstrumentDialogProps = {
   activeCategory: MathematicalInstrument["category"]
   instrumentCategories: MathematicalInstrument["category"][]
-  instruments: MathematicalInstrument[]
+  instruments: InstrumentDialogItem[]
   open: boolean
   selectedInstrumentId: MathematicalInstrumentId
   onCategoryChange: (category: MathematicalInstrument["category"]) => void
@@ -67,7 +69,8 @@ export function PerformInstrumentDialog({
                 }}
                 type="button"
               >
-                {instrument.name}
+                <span className="instrument-dialog-name">{instrument.name}</span>
+                <span className="instrument-dialog-source">{instrument.sourceLabel}</span>
               </button>
             ))}
           </div>

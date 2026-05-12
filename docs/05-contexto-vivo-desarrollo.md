@@ -5828,3 +5828,286 @@ eliminando el bloque oscuro que aparecia debajo del toolbar al seleccionar una n
 
 - `src/features/lab/LabApp.tsx`
 - `src/app/styles/appModeCatalog.css`
+
+---
+
+## Sesion 2026-05-10 — Restaurar laboratorio + editor inline solo en edit-only
+
+### Que se hizo
+
+Los cambios del editor inline de nota afectaron el laboratorio (`/lab`) porque `editWorkspace`
+se renderiza en el modo completo de LabApp (linea ~1883). Se corrigio haciendo el renderizado
+mode-aware: el laboratorio conserva su comportamiento original, solo la vista Edit recibe los
+controles inline.
+
+- Se restauro el import de `LabNoteEditor` y la variable `selectedNoteHistoryStatus`.
+- El track selector del toolbar ahora se oculta solo cuando `mode === "edit-only" && selectedRecordedNote`.
+- Los controles inline de nota (chip + inputs + Copy + RotateCcw) solo aparecen cuando `mode === "edit-only"`.
+- `LabNoteEditor` se renderiza debajo del toolbar solo cuando `mode !== "edit-only"`.
+- `onRemoveSelectedNote` en `TimelinePreview` se pasa solo cuando `mode !== "edit-only"`.
+
+**Regla establecida:** `editWorkspace` se comparte entre el lab y la vista Edit.
+Cualquier cambio que deba ser exclusivo de Edit debe condicionarse con `mode === "edit-only"`.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx`
+
+---
+
+## Pendientes proxima sesion (2026-05-11)
+
+### 1. Vista Perform — modo nota/acorde en toolbar
+
+Decidir si el toggle nota/acorde del piano va en la toolbar de Perform o en su modal de 3-puntos.
+De momento el modo se cambia internamente en LabApp pero no hay indicador visual claro en la vista.
+
+### 2. Menu de exportacion / proyecto
+
+Crear o conectar una seccion donde el usuario pueda:
+- Poner nombre al proyecto.
+- Guardar el proyecto (JSON).
+- Exportar a WAV.
+Esta funcionalidad ya existe en LabApp (`renameProject`, `exportProjectAudio`), falta exponerla
+en una vista accesible desde el modo app (posiblemente la vista Project que es placeholder).
+
+### 3. Vista SMC Pad — asignar track de grabacion
+
+Al grabar con el SMC Pad, decidir en que track se guardan los golpes o crear un track nuevo.
+De momento los golpes van al track activo sin que el usuario lo controle desde esa vista.
+
+### 4. Vista Plugins — hacer funcional el toggle de activar/desactivar
+
+El toggle de plugin en `PluginsWorkspace` es local y no afecta al proyecto real.
+Conectarlo al estado de `LabApp` via `updateProjectPluginEnabled`.
+Ademas: boton de importar plugin y menu de detalle por plugin.
+
+### 5. Vista Settings — conectar opciones reales
+
+Varias opciones de Settings no tienen efecto real todavia. Revisar cuales estan desconectadas
+y conectarlas (idioma, tema, etiquetas de piano ya funciona, resto pendiente).
+
+### 6. Vista Edit — icono del boton play en toolbar
+
+El boton play/stop del toolbar de Edit tiene un estilo incorrecto (icono o apariencia).
+Revisar clase `perform-mode-transport-button` y su estado activo en el contexto del editor.
+
+---
+
+## Sesion 2026-05-10 — Toggle NOTA/ACORDE en toolbar de Perform
+
+### Que se hizo
+
+Se añadio un segmented control NOTA / ACO al toolbar de Perform, junto al bloque ARP,
+separado por un divisor vertical. Permite cambiar el modo del piano entre nota individual
+y acorde sin necesidad de ir al laboratorio.
+
+- `PerformResponsiveToolbar.tsx`: nuevas props `pianoMode: PianoInteractionMode` y
+  `onPianoModeChange`. El control usa la clase `edit-view-switch` (los mismos pills del Edit toolbar).
+- `LabApp.tsx`: se pasan `pianoMode={pianoMode}` y `onPianoModeChange={setPianoMode}`.
+
+### Archivos modificados
+
+- `src/features/perform/components/PerformResponsiveToolbar.tsx`
+- `src/features/lab/LabApp.tsx`
+
+---
+
+## Sesion 2026-05-10 — Fix toolbar Edit: play, compactar inicio, limpieza
+
+### Que se hizo
+
+- **Boton play**: se cambio de clase `perform-mode-transport-button` (estilo circular de Perform)
+  a `ui-icon-btn`. Ahora es siempre visible en el toolbar de Edit independientemente de si
+  hay nota seleccionada o no.
+- **Compactar inicio**: se añadio al toolbar de Edit como boton icono `ChevronsLeft` (Lucide),
+  visible en modo NOTAS. Antes estaba solo en el modal de 3-puntos y no era facil de encontrar.
+- **Select de rango** (1 BAR / 2 BARS...): eliminado del toolbar (no tenia funcionalidad real).
+  El estado `timelineRange` tambien se elimino. Queda pendiente conectar el rango cuando
+  la timeline lo soporte.
+- **Nota seleccionada en NOTAS**: los controles inline (chip + inputs + Copy + RotateCcw)
+  ahora conviven con el boton play en lugar de reemplazarlo.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx`
+
+---
+
+## Sesion 2026-05-10 — Vista Exportar/Proyecto
+
+### Que se hizo
+
+Se añadio la vista "project" a la navegacion con icono `Download` (Lucide).
+El menu de exportar tiene 4 secciones:
+- **Proyecto**: input editable con el nombre del proyecto.
+- **Reproduccion**: boton Play/Stop que reproduce toda la linea de tiempo.
+- **Exportar**: boton "Exportar WAV" y "Guardar JSON".
+- **Importar**: boton "Importar JSON".
+
+El estado y las acciones vienen de `LabApp mode="project-only"`.
+`projectActionSection` (bloque anterior de botones sin estilo) fue eliminado.
+`ProjectWorkspace` simplificado a un wrapper directo de `<LabApp mode="project-only" />`.
+CSS nuevo: `.project-export-body`, `.project-export-section`, `.project-export-btn`,
+`.project-export-btn-primary`, `.project-export-name-input`.
+
+### Archivos modificados
+
+- `src/app/appNavigation.ts` (añadido "project" a definiciones)
+- `src/app/AppMode.tsx` (icono Download para project)
+- `src/features/lab/LabApp.tsx` (rediseno de projectWorkspace)
+- `src/features/project-view/ProjectWorkspace.tsx` (simplificado)
+- `src/app/styles/appModeCatalog.css` (CSS del export screen)
+
+---
+
+## Sesion 2026-05-10 — Renombrar pista en toolbar de TRACKS
+
+### Que se hizo
+
+En modo TRACKS del editor, se añadio un input de texto en el toolbar que muestra el nombre
+de la pista activa y permite editarlo. Solo hace commit al perder el foco o presionar Enter
+(un solo undo entry, no uno por tecla). Al cambiar de pista activa, el input se resetea
+al nombre correcto via `key={primaryTrack.id}`.
+
+Clases CSS: `.edit-track-name-input` extiende `.edit-note-input` con mayor ancho (7rem) y
+alineacion izquierda.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx`
+- `src/app/styles/appModeCatalog.css`
+
+---
+
+## Sesion 2026-05-10 — Plugins conectados al proyecto real
+
+### Que se hizo
+
+El toggle de plugins ahora afecta al proyecto real. Se añadio `"plugins-only"` a `LabAppMode`.
+El render de plugins-only usa `registeredPlugins` (computado de `project.pluginStates`) y
+llama a `updatePluginEnabled(id, enabled)` al cambiar el toggle. Se usa `ui-toggle` en lugar
+de `ui-checkbox` para el interruptor.
+
+`PluginsWorkspace` se simplificó a un wrapper de `<LabApp mode="plugins-only" />`,
+igual que `EditWorkspace` y `ProjectWorkspace`. El estado local de pluginStates que tenia
+`PluginsWorkspace` fue eliminado.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx`
+- `src/features/plugins-view/PluginsWorkspace.tsx`
+
+---
+
+## Sesion 2026-05-10 — Fuente del instrumento en dialogo de Perform
+
+### Que se hizo
+
+El dialogo de seleccion de instrumento ahora muestra debajo de cada nombre si el instrumento
+viene del "Core" o del nombre del plugin que lo aporta.
+
+- `LabApp.tsx`: `dialogVisibleInstruments` ahora incluye `sourceLabel` (nombre del plugin o "Core")
+  calculado con `findRegisteredPluginByInstrumentId`.
+- `PerformInstrumentDialog.tsx`: nuevo tipo `InstrumentDialogItem` que extiende `MathematicalInstrument`
+  con `sourceLabel: string`. Cada boton del listado muestra dos spans:
+  `.instrument-dialog-name` (negrita) y `.instrument-dialog-source` (texto muted pequeño).
+- `PerformWorkspace.css`: estilos para `.instrument-dialog-name` y `.instrument-dialog-source`.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx`
+- `src/features/perform/components/PerformInstrumentDialog.tsx`
+- `src/features/perform/PerformWorkspace.css`
+
+---
+
+## Sesion 2026-05-11 — Modal de opciones Piano en Perform
+
+### Que se hizo
+
+Se agrego contenido real al modal de 3 puntos del modo Perform (antes estaba vacio).
+El patron seguido es el mismo que en Edit: `settingsOpen`/`onSettingsClose` se pasan
+desde `PerformScreen` → `PerformWorkspace` → `LabApp mode="perform-only"`, y es LabApp
+quien renderiza el `AppDialog` internamente porque el estado vive alli.
+
+Controles agregados al modal:
+
+- **Tipo de acorde**: segmented pill Mayor / Menor / Power (liga a `selectedChordType`)
+- **ARP Modo**: pill Up / Down / Up-Down / Random / Chord (liga a `arpeggiatorSettings.mode`)
+- **ARP Rate**: pill 1/4 / 1/8 / 1/16 / 1/8T (liga a `arpeggiatorSettings.rate`)
+- **ARP Gate**: slider 5%–100% con valor en % (liga a `arpeggiatorSettings.gate`)
+- **ARP Octavas**: pill 1 / 2 / 3 (liga a `arpeggiatorSettings.octaveRange`)
+- **ARP Latch**: checkbox (liga a `arpeggiatorSettings.latch`)
+
+`PerformScreen` ya no necesita su propio `AppDialog` vacio; ahora es un wrapper limpio
+que solo renderiza `<PerformWorkspace>` con los props de settings.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx` — nuevo AppDialog en bloque `perform-only`
+- `src/features/perform/PerformScreen.tsx` — eliminado AppDialog propio, delegacion a PerformWorkspace
+- `src/features/perform/PerformWorkspace.tsx` — nuevos props `settingsOpen`/`onSettingsClose` → LabApp
+- `src/features/perform/PerformWorkspace.css` — estilos `.perform-settings-dialog-*`
+
+---
+
+## Sesion 2026-05-11 — Volumen maestro en Settings
+
+### Que se hizo
+
+Se agrego un slider de Volumen maestro en la seccion AUDIO de la vista Settings.
+
+Arquitectura: el estado `masterVolume` (default 0.8) vive en `AppMode` porque Settings
+es una pantalla hermana de las que renderizan LabApp — no comparten contexto React.
+`AppMode` importa `setMasterVolume` del audio engine y lo llama en `handleMasterVolumeChange`.
+El estado persiste mientras el usuario navega entre vistas porque vive en `AppMode`,
+que nunca se desmonta en una sesion.
+
+Nota: LabApp tiene su propio estado `volume` interno para el lab completo, pero NO llama
+`setMasterVolume` al montarse — por eso el valor de Settings se conserva al navegar a Perform.
+
+### Archivos modificados
+
+- `src/app/AppMode.tsx` — estado `masterVolume`, `handleMasterVolumeChange`, import `setMasterVolume`, nuevos params en `resolveScreen`
+- `src/features/settings-view/SettingsScreen.tsx` — props `masterVolume`/`onMasterVolumeChange`, slider bajo AUDIO
+- `src/app/styles/appModeCatalog.css` — `.app-settings-row-volume`, `.app-settings-volume-slider-row`, `.app-settings-volume-slider`
+
+---
+
+## Sesion 2026-05-11 — Controles de pista en modal Edit
+
+### Que se hizo
+
+Se agrego una seccion "Pista activa" al modal de 3 puntos de Edit (Opciones - Editor),
+sin eliminar el contenido existente (duracion, ajustar al contenido, compactar inicio).
+
+Controles agregados (todos conectados al estado real de la pista primaria):
+
+- **Volumen** — slider 0-100% → `updatePrimaryTrackVolume`
+- **Pan** — slider L100-C-R100 → `updatePrimaryTrackPan`
+- **Mute / Solo** — pills toggle → `togglePrimaryTrackMuted` / `togglePrimaryTrackSolo`
+- **ADSR** — Attack, Decay, Sustain, Release con sliders; Sustain en %, A/D/R en ms
+
+Los valores ADSR muestran fallback a los defaults del engine si `envelope` es undefined.
+La seccion esta separada visualmente del contenido de timeline con un borde superior.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx` — nueva seccion dentro del AppDialog de edit-only
+- `src/app/styles/appModeCatalog.css` — `.edit-settings-track-section/row/label/value/toggles`
+
+---
+
+## Sesion 2026-05-11 — Mute/Solo al toolbar de Edit
+
+### Que se hizo
+
+Se movieron los botones Mute y Solo del modal de opciones Edit al toolbar superior,
+solo en `mode === "edit-only"`. Se muestran como pills compactos "M" y "S" antes del
+grupo undo/redo. Se eliminaron del modal para no duplicarlos.
+
+### Archivos modificados
+
+- `src/features/lab/LabApp.tsx` — botones M/S en toolbar (edit-only), eliminados del modal
+- `src/app/styles/appModeCatalog.css` — `.edit-mute-solo-btn`

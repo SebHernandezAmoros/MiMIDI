@@ -44,6 +44,11 @@
   padding: 0.45rem 0.55rem;
 }
 
+.perform-mode-toolbar-bar {
+  padding: 0.45rem 0.55rem;
+  justify-content: flex-start;
+}
+
 .perform-mode-toolbar {
   display: grid;
   grid-template-columns: auto max-content max-content max-content;
@@ -161,7 +166,7 @@
   width: 2.15rem;
   height: 2.15rem;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 0.75rem;
   justify-self: center;
 }
 
@@ -229,7 +234,7 @@
   min-width: 2.25rem;
   min-height: 2.25rem;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 0.75rem;
   color: #595959;
 }
 
@@ -269,7 +274,7 @@
   width: 2.15rem;
   height: 2.15rem;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 0.75rem;
 }
 
 .perform-mode-octave-controls strong {
@@ -327,8 +332,72 @@
   font-size: 0.88rem;
 }
 
+.perform-instrument-dialog-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  text-align: left;
+}
+
+.instrument-dialog-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.instrument-dialog-source {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--app-color-text-muted);
+  letter-spacing: 0.02em;
+}
+
 .perform-workspace-web {
   display: grid;
+}
+
+.perform-settings-dialog-v {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.perform-settings-dialog-section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.perform-settings-dialog-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.perform-settings-gate-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.perform-settings-gate-input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--app-color-accent);
+}
+
+.perform-settings-gate-value {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--app-color-text-muted);
+  min-width: 2.4rem;
+  text-align: right;
+}
+
+.perform-settings-latch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
 }
 
 .perform-workspace .mode-switch,
@@ -504,6 +573,7 @@
   .perform-mode-track-strip-primary > button {
     width: 1.95rem;
     height: 1.95rem;
+    border-radius: 0.65rem;
   }
 
   .perform-mode-track-display-compact {
@@ -529,6 +599,7 @@
     width: 2rem;
     min-width: 2rem;
     min-height: 2rem;
+    border-radius: 0.65rem;
   }
 
   .perform-mode-octave-label {
@@ -542,6 +613,7 @@
   .perform-mode-octave-controls button {
     width: 1.95rem;
     height: 1.95rem;
+    border-radius: 0.65rem;
   }
 
   .perform-workspace .piano-preview {

@@ -92,6 +92,7 @@ export function SamplerScreen({ copy, settingsOpen, onSettingsClose }: SamplerSc
         <button
           aria-label="Volver"
           className="ui-icon-btn"
+          style={{ marginLeft: "auto" }}
           type="button"
         >
           <ArrowLeft size={18} />

@@ -17,6 +17,7 @@ import { SamplerScreen } from "../features/sampler/SamplerScreen"
 import { SettingsScreen } from "../features/settings-view/SettingsScreen"
 import {
   AudioWaveform,
+  Download,
   FileText,
   Grid2x2,
   Maximize2,
@@ -27,6 +28,7 @@ import {
   Settings,
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { setMasterVolume } from "../engine/audio/audioEngine"
 
 type AppModeProps = {
   activeLanguage: AppLanguage
@@ -46,6 +48,8 @@ function resolveScreen(
   viewSettings: ViewSettingsProps,
   showKeyLabels: boolean,
   onShowKeyLabelsChange: (v: boolean) => void,
+  masterVolume: number,
+  onMasterVolumeChange: (v: number) => void,
 ) {
   const messages = resolveAppMessages(activeLanguage)
   const viewCopy = messages.views[activeView]
@@ -63,8 +67,10 @@ function resolveScreen(
           activeLanguage={activeLanguage}
           copy={viewCopy}
           darkMode={darkMode}
+          masterVolume={masterVolume}
           onDarkModeChange={onDarkModeChange}
           onLanguageChange={(language) => navigateTo(`/?view=settings&lang=${language}`)}
+          onMasterVolumeChange={onMasterVolumeChange}
           onOpenLab={() => navigateTo(`/lab?lang=${activeLanguage}`)}
           onShowKeyLabelsChange={onShowKeyLabelsChange}
           showKeyLabels={showKeyLabels}
@@ -89,6 +95,8 @@ function AppViewIcon({ viewId }: { viewId: AppViewId }) {
       return <Plug size={18} />
     case "edit":
       return <AudioWaveform size={18} />
+    case "project":
+      return <Download size={18} />
     case "settings":
       return <Settings size={18} />
     default:
@@ -104,6 +112,12 @@ export function AppMode({
   const [darkMode, setDarkMode] = useState(false)
   const [isViewSettingsOpen, setIsViewSettingsOpen] = useState(false)
   const [showKeyLabels, setShowKeyLabels] = useState(true)
+  const [masterVolume, setMasterVolumeState] = useState(0.8)
+
+  function handleMasterVolumeChange(v: number) {
+    setMasterVolumeState(v)
+    setMasterVolume(v)
+  }
   const messages = resolveAppMessages(activeLanguage)
   const activeDefinition =
     appViewDefinitions.find((view) => view.id === activeView) ?? appViewDefinitions[0]
@@ -192,7 +206,7 @@ export function AppMode({
         </header>
 
         <div className="app-mode-window-content">
-          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, setDarkMode, viewSettings, showKeyLabels, setShowKeyLabels)}
+          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, setDarkMode, viewSettings, showKeyLabels, setShowKeyLabels, masterVolume, handleMasterVolumeChange)}
         </div>
       </section>
     </AppShell>
