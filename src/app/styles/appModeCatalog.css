@@ -247,6 +247,13 @@
 .app-mock-toolbar .ui-icon-btn {
   width: 2.15rem;
   height: 2.15rem;
+  padding: 0;
+  border-radius: 0.75rem;
+}
+
+.app-mock-toolbar .ui-icon-btn svg {
+  width: 1.45rem !important;
+  height: 1.45rem !important;
 }
 
 .app-mock-toolbar select {

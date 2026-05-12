@@ -111,6 +111,17 @@ const chordIntervals = {
 
 type ChordType = keyof typeof chordIntervals
 
+const samplerPads: Array<{ num: number; id: SmcPadSoundId | null; label: string; desc: string; btnClass: string }> = [
+  { num: 1, id: "kick",  label: "Kick",   desc: "Golpe grave",      btnClass: "ui-smc-btn-kick"  },
+  { num: 2, id: "snare", label: "Snare",  desc: "Crack medio",      btnClass: "ui-smc-btn-snare" },
+  { num: 3, id: "hat",   label: "Hihat",  desc: "Chispa brillante", btnClass: "ui-smc-btn-hat"   },
+  { num: 4, id: "clap",  label: "Clap",   desc: "Tres ráfagas",     btnClass: "ui-smc-btn-clap"  },
+  { num: 5, id: null,    label: "Perc 1", desc: "—",                btnClass: "ui-smc-btn-perc"  },
+  { num: 6, id: null,    label: "Perc 2", desc: "—",                btnClass: "ui-smc-btn-perc"  },
+  { num: 7, id: null,    label: "Perc 3", desc: "—",                btnClass: "ui-smc-btn-perc"  },
+  { num: 8, id: null,    label: "Perc 4", desc: "—",                btnClass: "ui-smc-btn-perc"  },
+]
+
 function getInitialProject() {
   return loadStoredProject() ?? createDefaultProject()
 }
@@ -142,7 +153,7 @@ function getPerformanceTimestamp() {
   return performance.now()
 }
 
-type LabAppMode = "full" | "edit-only" | "project-only" | "perform-only" | "plugins-only"
+type LabAppMode = "full" | "edit-only" | "project-only" | "perform-only" | "plugins-only" | "sampler-only"
 
 type LabAppProps = {
   mode?: LabAppMode
@@ -170,6 +181,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   )
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
   const [isExportingAudio, setIsExportingAudio] = useState(false)
+  const [activeSamplerPadId, setActiveSamplerPadId] = useState<SmcPadSoundId | null>(null)
   const [isTrackRemovalConfirmOpen, setIsTrackRemovalConfirmOpen] = useState(false)
   const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false)
   const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
@@ -1282,7 +1294,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             title={playbackTransport.isPlaying ? "Detener" : "Reproducir"}
             type="button"
           >
-            {playbackTransport.isPlaying ? <Square size={14} /> : <Play size={14} />}
+            {playbackTransport.isPlaying ? <Square size={18} /> : <Play size={18} />}
           </button>
           {mode === "edit-only" && timelineView === "notes" && (
             <button
@@ -1291,7 +1303,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               title="Compactar inicio"
               type="button"
             >
-              <ChevronsLeft size={15} />
+              <ChevronsLeft size={18} />
             </button>
           )}
 
@@ -1329,7 +1341,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 title="Mute"
                 type="button"
               >
-                <VolumeX size={14} />
+                <VolumeX size={18} />
               </button>
               <button
                 aria-label="Solo pista"
@@ -1350,7 +1362,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             title="Deshacer"
             type="button"
           >
-            <Undo2 size={15} />
+            <Undo2 size={18} />
           </button>
           <button
             aria-label="Rehacer"
@@ -1360,7 +1372,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             title="Rehacer"
             type="button"
           >
-            <Redo2 size={15} />
+            <Redo2 size={18} />
           </button>
           {timelineView === "notes" && (
             <button
@@ -1371,7 +1383,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               title="Eliminar nota"
               type="button"
             >
-              <Trash2 size={15} />
+              <Trash2 size={18} />
             </button>
           )}
         </div>
@@ -1678,6 +1690,101 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               </article>
             )
           })}
+        </div>
+      </section>
+    )
+  }
+
+  if (mode === "sampler-only") {
+    const handleSamplerPad = (id: SmcPadSoundId) => {
+      triggerSmcPad(id)
+      setActiveSamplerPadId(id)
+      window.setTimeout(() => setActiveSamplerPadId(null), 140)
+    }
+
+    return (
+      <section className="app-mock-screen" aria-label="Workspace SMC Pad">
+        <header className="app-mock-toolbar">
+          <div className="perform-mode-transport" aria-label="Controles de grabación">
+            <button
+              aria-label={recordingState === "recording" ? "Detener grabación" : "Iniciar grabación"}
+              className={`perform-mode-transport-button${recordingState === "recording" ? " perform-mode-transport-button-active" : ""}`}
+              onClick={recordingState === "recording" ? () => stopRecording() : startRecording}
+              type="button"
+            >
+              <span className="perform-mode-transport-icon">
+                <span className={`perform-mode-transport-glyph ${recordingState === "recording" ? "perform-mode-transport-glyph-stop" : "perform-mode-transport-glyph-record"}`}>
+                  {recordingState === "recording" ? "■" : "●"}
+                </span>
+              </span>
+            </button>
+            <button
+              aria-label={playbackTransport.isPlaying ? "Detener reproducción" : "Reproducir"}
+              className={`perform-mode-transport-button${playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
+              disabled={recordingState === "recording"}
+              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, tracks: [primaryTrack] })}
+              type="button"
+            >
+              <span className="perform-mode-transport-icon">
+                <span className={`perform-mode-transport-glyph ${playbackTransport.isPlaying ? "perform-mode-transport-glyph-stop" : "perform-mode-transport-glyph-play"}`}>
+                  {playbackTransport.isPlaying ? "■" : "▶"}
+                </span>
+              </span>
+            </button>
+          </div>
+
+          <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+          <div className="app-mock-toolbar-controls">
+            <select aria-label="Modo de pad" className="ui-select">
+              <option>STANDAR</option>
+              <option>LATIN</option>
+              <option>ELECTRONIC</option>
+            </select>
+            <select aria-label="Afinación" className="ui-select">
+              <option>TUNE</option>
+              <option>+1</option>
+              <option>-1</option>
+            </select>
+          </div>
+
+          <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+          <div className="app-mock-toolbar-controls">
+            <select
+              aria-label="Pista activa"
+              className="ui-select"
+              value={primaryTrack.id}
+              onChange={(e) => switchActiveTrack(e.target.value)}
+            >
+              {project.tracks.map((track) => (
+                <option key={track.id} value={track.id}>{track.name}</option>
+              ))}
+            </select>
+            <button className="ui-pill-btn" onClick={addTrack} type="button">
+              + Track
+            </button>
+          </div>
+        </header>
+        <div className="ui-smc-grid">
+          {samplerPads.map((pad) => (
+            <button
+              key={pad.num}
+              aria-label={pad.id ? `${pad.label} — pulsar pad` : `${pad.label} — próximamente`}
+              className={[
+                "ui-smc-btn",
+                pad.btnClass,
+                activeSamplerPadId === pad.id && pad.id !== null ? "ui-smc-btn-triggered" : "",
+              ].filter(Boolean).join(" ")}
+              disabled={pad.id === null}
+              onClick={() => { if (pad.id) handleSamplerPad(pad.id) }}
+              type="button"
+            >
+              <span className="ui-smc-btn-num">{pad.num}</span>
+              <span className="ui-smc-btn-label">{pad.label}</span>
+              <span className="ui-smc-btn-desc">{pad.desc}</span>
+            </button>
+          ))}
         </div>
       </section>
     )

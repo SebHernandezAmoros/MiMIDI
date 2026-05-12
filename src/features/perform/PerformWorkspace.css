@@ -245,6 +245,7 @@
 
 .app-theme-classic .perform-mode-remove-track {
   padding: 0;
+  border-radius: 0.75rem;
   color: #595959;
 }
 

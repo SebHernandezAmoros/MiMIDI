@@ -49,6 +49,56 @@ Los iconos activos se documentan en `/catalog` en la sección "Iconos — Lucide
 
 ---
 
+## Regla: Tamaño de iconos en `.app-mock-toolbar` — trampa de especificidad
+
+### El problema
+
+Los botones `ui-icon-btn` dentro de `.app-mock-toolbar` tienen los íconos visualmente pequeños aunque el SVG tenga un `size` correcto. La causa son **dos conflictos de especificidad en cascada**:
+
+**1. El padding comprime el área de contenido**
+
+`.app-theme-classic button { padding: 0.58rem 0.82rem }` tiene especificidad **(0,1,1)** y gana sobre `.ui-icon-btn { padding: 0 }` que tiene **(0,1,0)**. Con `box-sizing: border-box`, ese padding reduce el área disponible para el ícono dentro del botón de tamaño fijo.
+
+**2. El tamaño del SVG lo controla CSS, no el prop `size`**
+
+Lucide React graba `width="N"` como atributo SVG, pero CSS tiene prioridad sobre atributos de presentación SVG. La regla `.ui-icon-btn svg { width: 1.35rem }` de `ui-library.css` es la que realmente controla el tamaño visible, no el `size={18}` del JSX.
+
+### La solución
+
+En `appModeCatalog.css`, el selector `.app-mock-toolbar .ui-icon-btn` tiene especificidad **(0,2,0)** que sí gana sobre `.app-theme-classic button` **(0,1,1)**:
+
+```css
+/* appModeCatalog.css */
+.app-mock-toolbar .ui-icon-btn {
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;           /* ← crítico: neutraliza el padding del tema */
+  border-radius: 0.75rem;
+}
+
+.app-mock-toolbar .ui-icon-btn svg {
+  width: 1.45rem !important;   /* ← !important porque ui-library.css se carga después */
+  height: 1.45rem !important;
+}
+```
+
+Y el tamaño base global del SVG se controla en `ui-library.css`:
+
+```css
+.ui-icon-btn svg {
+  width: 1.35rem;   /* ← cambiar aquí para ajustar tamaño global de ui-icon-btn */
+  height: 1.35rem;
+}
+```
+
+### Para cambiar el tamaño de los iconos en la toolbar
+
+- **Solo toolbar**: cambiar `width`/`height` en `.app-mock-toolbar .ui-icon-btn svg` en `appModeCatalog.css`
+- **Todos los `ui-icon-btn`**: cambiar en `.ui-icon-btn svg` en `ui-library.css`
+- El `size={N}` en JSX de Lucide **no tiene efecto real** mientras exista la regla CSS — se puede ignorar o mantener como referencia visual
+
+---
+
 ## Regla: Toggle global visual — data-attribute en raíz
 
 Para toggles visuales globales (ej. mostrar/ocultar etiquetas del piano) usar `data-*` en el elemento raíz de `AppMode` + selector CSS. **No** propagar la prop por el árbol de componentes.
