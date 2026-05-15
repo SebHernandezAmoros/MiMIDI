@@ -1,17 +1,19 @@
 export type AppViewId =
-  | "perform"
+  | "piano"
+  | "pad"
+  | "sampler"
   | "edit"
   | "project"
   | "plugins"
   | "settings"
-  | "sampler"
 
 export type AppViewDefinition = {
   id: AppViewId
 }
 
 export const appViewDefinitions: AppViewDefinition[] = [
-  { id: "perform" },
+  { id: "piano" },
+  { id: "pad" },
   { id: "sampler" },
   { id: "edit" },
   { id: "project" },
@@ -19,4 +21,4 @@ export const appViewDefinitions: AppViewDefinition[] = [
   { id: "settings" },
 ]
 
-export const defaultAppView: AppViewId = "perform"
+export const defaultAppView: AppViewId = "piano"

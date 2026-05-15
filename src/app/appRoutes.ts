@@ -20,15 +20,16 @@ export function getAppViewFromSearch(search: string): AppViewId {
   const requestedView = searchParams.get("view")
 
   if (
-    requestedView === "perform" ||
+    requestedView === "piano" ||
+    requestedView === "pad" ||
+    requestedView === "sampler" ||
     requestedView === "edit" ||
     requestedView === "project" ||
     requestedView === "plugins" ||
-    requestedView === "settings" ||
-    requestedView === "sampler"
+    requestedView === "settings"
   ) {
     return requestedView
   }
 
-  return "perform"
+  return "piano"
 }

@@ -31,30 +31,31 @@ export function SettingsScreen({
   showKeyLabels,
   onShowKeyLabelsChange,
 }: SettingsScreenProps) {
+  void copy
 
   return (
     <>
     <section className="app-mock-screen" aria-label="Workspace Settings">
       <header className="app-mock-toolbar">
-        <label className="app-settings-toolbar-dark-toggle" aria-label="Modo oscuro">
+        <label className="app-settings-toolbar-dark-toggle">
           <span>Modo oscuro</span>
-          <button
-            aria-pressed={darkMode}
-            className={darkMode ? "app-settings-toggle app-settings-toggle-on" : "app-settings-toggle"}
-            onClick={() => onDarkModeChange(!darkMode)}
-            type="button"
-          >
+          <label className="ui-toggle" aria-label="Modo oscuro">
+            <input
+              checked={darkMode}
+              onChange={() => onDarkModeChange(!darkMode)}
+              type="checkbox"
+            />
             <span />
-          </button>
+          </label>
         </label>
       </header>
 
       <div className="app-settings-groups">
-        <section className="app-settings-group" aria-label="Idioma">
-          <span className="app-settings-group-title">IDIOMA</span>
-          <label className="app-settings-row app-settings-row-select" htmlFor="settings-language">
-            <span className="app-settings-row-icon">L</span>
-            <span className="app-settings-row-label">Language</span>
+        <section className="ui-list-section" aria-label="Idioma">
+          <span className="ui-list-section-title">IDIOMA</span>
+          <label className="ui-list-row" style={{ cursor: "default" }} htmlFor="settings-language">
+            <span className="ui-list-icon">L</span>
+            <span className="ui-list-label">Language</span>
             <select
               id="settings-language"
               value={activeLanguage}
@@ -66,48 +67,44 @@ export function SettingsScreen({
           </label>
         </section>
 
-        <section className="app-settings-group" aria-label="Tema">
-          <span className="app-settings-group-title">TEMA</span>
-          <div className="app-settings-row app-settings-row-static">
-            <span className="app-settings-row-icon">S</span>
-            <span className="app-settings-row-label">Modo Oscuro</span>
-            <button
-              aria-label="Modo Oscuro"
-              className={
-                darkMode
-                  ? "app-settings-toggle app-settings-toggle-on"
-                  : "app-settings-toggle"
-              }
-              onClick={() => onDarkModeChange(!darkMode)}
-              type="button"
-            >
+        <section className="ui-list-section" aria-label="Tema">
+          <span className="ui-list-section-title">TEMA</span>
+          <div className="ui-list-row ui-list-row-static">
+            <span className="ui-list-icon">S</span>
+            <span className="ui-list-label">Modo Oscuro</span>
+            <label className="ui-toggle" aria-label="Modo Oscuro">
+              <input
+                checked={darkMode}
+                onChange={() => onDarkModeChange(!darkMode)}
+                type="checkbox"
+              />
               <span />
-            </button>
+            </label>
           </div>
         </section>
 
-        <section className="app-settings-group" aria-label="Piano">
-          <span className="app-settings-group-title">PIANO</span>
-          <div className="app-settings-row app-settings-row-static">
-            <span className="app-settings-row-icon">K</span>
-            <span className="app-settings-row-label">Mostrar etiquetas de teclas</span>
-            <button
-              aria-label="Mostrar etiquetas de teclas"
-              className={showKeyLabels ? "app-settings-toggle app-settings-toggle-on" : "app-settings-toggle"}
-              onClick={() => onShowKeyLabelsChange(!showKeyLabels)}
-              type="button"
-            >
+        <section className="ui-list-section" aria-label="Piano">
+          <span className="ui-list-section-title">PIANO</span>
+          <div className="ui-list-row ui-list-row-static">
+            <span className="ui-list-icon">K</span>
+            <span className="ui-list-label">Mostrar etiquetas de teclas</span>
+            <label className="ui-toggle" aria-label="Mostrar etiquetas de teclas">
+              <input
+                checked={showKeyLabels}
+                onChange={() => onShowKeyLabelsChange(!showKeyLabels)}
+                type="checkbox"
+              />
               <span />
-            </button>
+            </label>
           </div>
         </section>
 
-        <section className="app-settings-group" aria-label="Audio">
-          <span className="app-settings-group-title">AUDIO</span>
-          <label className="app-settings-row app-settings-row-volume" htmlFor="settings-master-volume">
-            <span className="app-settings-row-icon">V</span>
-            <span className="app-settings-row-label">Volumen maestro</span>
-            <span className="app-settings-row-value">{Math.round(masterVolume * 100)}%</span>
+        <section className="ui-list-section" aria-label="Audio">
+          <span className="ui-list-section-title">AUDIO</span>
+          <label className="ui-list-row" style={{ cursor: "default" }} htmlFor="settings-master-volume">
+            <span className="ui-list-icon">V</span>
+            <span className="ui-list-label">Volumen maestro</span>
+            <span className="ui-list-value">{Math.round(masterVolume * 100)}%</span>
           </label>
           <div className="app-settings-volume-slider-row">
             <input
@@ -121,36 +118,30 @@ export function SettingsScreen({
               value={masterVolume}
             />
           </div>
-          <button className="app-settings-row" type="button">
-            <span className="app-settings-row-icon">A</span>
-            <span className="app-settings-row-label">Salida de Audio</span>
-            <span className="app-settings-row-value">Dispositivo</span>
-            <span className="app-settings-row-arrow" aria-hidden="true">
-              {">"}
-            </span>
+          <button className="ui-list-row" type="button">
+            <span className="ui-list-icon">A</span>
+            <span className="ui-list-label">Salida de Audio</span>
+            <span className="ui-list-value">Dispositivo</span>
+            <span className="ui-list-arrow" aria-hidden="true">›</span>
           </button>
         </section>
 
-        <section className="app-settings-group" aria-label="MIDI">
-          <span className="app-settings-group-title">MIDI</span>
-          <button className="app-settings-row" type="button">
-            <span className="app-settings-row-icon">M</span>
-            <span className="app-settings-row-label">MIDI Dispositivo</span>
-            <span className="app-settings-row-value">No conectado</span>
-            <span className="app-settings-row-arrow" aria-hidden="true">
-              {">"}
-            </span>
+        <section className="ui-list-section" aria-label="MIDI">
+          <span className="ui-list-section-title">MIDI</span>
+          <button className="ui-list-row" type="button">
+            <span className="ui-list-icon">M</span>
+            <span className="ui-list-label">MIDI Dispositivo</span>
+            <span className="ui-list-value">No conectado</span>
+            <span className="ui-list-arrow" aria-hidden="true">›</span>
           </button>
         </section>
 
-        <section className="app-settings-group" aria-label="Laboratorio">
-          <span className="app-settings-group-title">LAB</span>
-          <button className="app-settings-row" onClick={onOpenLab} type="button">
-            <span className="app-settings-row-icon">L</span>
-            <span className="app-settings-row-label">Ir al laboratorio</span>
-            <span className="app-settings-row-arrow" aria-hidden="true">
-              {">"}
-            </span>
+        <section className="ui-list-section" aria-label="Laboratorio">
+          <span className="ui-list-section-title">LAB</span>
+          <button className="ui-list-row" onClick={onOpenLab} type="button">
+            <span className="ui-list-icon">L</span>
+            <span className="ui-list-label">Ir al laboratorio</span>
+            <span className="ui-list-arrow" aria-hidden="true">›</span>
           </button>
         </section>
       </div>

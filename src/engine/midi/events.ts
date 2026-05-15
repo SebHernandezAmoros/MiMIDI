@@ -20,7 +20,7 @@ export type MidiRecordedNote = {
   velocity: number
   instrumentId: MathematicalInstrumentId
   playbackSource?: "note" | "smc-pad"
-  smcPadSoundId?: "kick" | "snare" | "hat" | "clap"
+  smcPadSoundId?: "kick" | "snare" | "hat" | "clap" | "tom" | "cowbell" | "rimshot" | "shaker"
   playbackEnvelope?: Partial<ADSREnvelope>
   playbackPan?: number
   playbackTrackId?: string

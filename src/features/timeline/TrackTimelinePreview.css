@@ -135,6 +135,16 @@
   background: linear-gradient(180deg, #7fd0ff, #4da4ff);
 }
 
+.timeline-playhead {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  z-index: 2;
+}
+
 @media (max-width: 720px) {
   .track-timeline-lane {
     grid-template-columns: minmax(0, 1fr);

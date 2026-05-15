@@ -9,12 +9,12 @@ export const esMessages = {
     navigationAriaLabel: "Navegacion principal del modo app",
   },
   views: {
-    perform: {
-      label: "Perform",
+    piano: {
+      label: "Piano",
       description: "Interpretacion, piano, arpegiador, SMC Pad y grabacion.",
       intro:
         "Vista pensada para interpretar, probar timbres y grabar tomas sin la densidad de la pantalla de edicion.",
-      workspaceTitle: "Perform workspace",
+      workspaceTitle: "Piano workspace",
       workspaceBody:
         "Aqui iran piano, arpegiador, toma de grabacion, control rapido de instrumento y la futura vista dedicada de SMC Pad.",
     },
@@ -56,12 +56,21 @@ export const esMessages = {
     },
     sampler: {
       label: "Sampler",
-      description: "Modulo separado para sampleo y gestion de audio grabado.",
+      description: "Grabación de audio, recorte y disparo de samples.",
       intro:
-        "Vista separada del core matematico para captura, gestion y disparo de samples cuando el modulo se retome.",
+        "Vista dedicada a capturar audio en vivo, importar samples, recortarlos y asignarlos a slots disparables.",
       workspaceTitle: "Sampler workspace",
       workspaceBody:
-        "Queda nacido como contenedor propio para no mezclar su desarrollo con el flujo del laboratorio matematico.",
+        "Aqui iran la grabacion de audio en vivo, el visor de forma de onda, los slots de samples y las herramientas de recorte.",
+    },
+    pad: {
+      label: "Pad",
+      description: "SMC Pad — golpes de percusion y grabacion de ritmos.",
+      intro:
+        "Vista dedicada al SMC Pad para disparar golpes, grabar ritmos y gestionar patrones de percusion.",
+      workspaceTitle: "Pad workspace",
+      workspaceBody:
+        "Aqui vive el SMC Pad con sus 8 pads de percusion, selector de pista y controles de grabacion.",
     },
   },
 } as const

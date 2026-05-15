@@ -14,6 +14,7 @@ type TimelinePreviewProps = {
     patch: Partial<Pick<MidiRecordedNote, "startTime" | "duration">>,
     historyMode?: "transient" | "commit",
   ) => void
+  playheadTime?: number | null
   selectedNoteId?: string | null
   timelineLength?: number
 }
@@ -49,6 +50,7 @@ export function TimelinePreview({
   onRemoveSelectedNote,
   onDragStateChange,
   onUpdateNote,
+  playheadTime,
   selectedNoteId,
   timelineLength: providedTimelineLength,
 }: TimelinePreviewProps) {
@@ -157,6 +159,13 @@ export function TimelinePreview({
             <div className="timeline-lane" key={lane.note}>
               <span className="timeline-note-label">{lane.note}</span>
               <div className="timeline-track">
+                {playheadTime != null && (
+                  <div
+                    aria-hidden="true"
+                    className="timeline-playhead"
+                    style={{ left: `${Math.min(Math.max(playheadTime / timelineLength, 0), 1) * 100}%` }}
+                  />
+                )}
                 {lane.recordedNotes.map((note) => (
                   <div
                     className={[

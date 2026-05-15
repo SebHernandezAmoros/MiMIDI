@@ -130,28 +130,38 @@ Sistema musical modular basado en síntesis matemática
 
 ---
 
-## Estado Consolidado (Abril 2026)
+## Estado Consolidado (Mayo 2026)
 
 Avance confirmado:
 
-- FASE 1: completada
+- FASE 1: completada (incluye efectos de audio: sweep, filtros, distorsion)
 - FASE 2: completada
 - FASE 3: completada
 - FASE 4: completada
-- FASE 5: implementada como timeline editable
-- FASE 8: en desarrollo activo (estado avanzado)
+- FASE 5: implementada como timeline editable con playhead animado
+- FASE 7: parcialmente completada (LFO, filtros biquad, WaveShaper en SMC Pad)
+- FASE 8: completada (proyecto guardado con padSynthSettings incluido)
 
 Capacidades ya activas:
 
 - grabacion por pistas
 - instrumentos matematicos por pista
 - exportar/importar JSON
-- persistencia local
+- persistencia local (incluyendo settings de sintesis del SMC Pad)
 - timeline editable (mover/redimensionar)
 - snap opcional
 - duplicar y revertir nota
 - historial con undo/redo y limite acotado
 - atajos de teclado de historial
+- SMC Pad con 8 sonidos sinteticos (kick, snare, hat, clap, tom, cowbell, rimshot, shaker)
+- parametros de sintesis editables: decayScale, distortion, hatLength, kickTune, hatFlicker
+- velocity por posicion Y del puntero al tocar el pad
+- playhead animado en timeline de notas y timeline de pistas
+- botones +/- de duracion en toolbar Edit (sin teclado virtual)
+- eliminacion de pista desde toolbar en vista de pistas
+- separacion de pistas por tipo: melodic (piano) y percussion (pad)
+- proyecto inicia con Track 1 (melodic) + Pad 1 (percussion) predefinidos
+- cada vista filtra y graba solo en pistas de su tipo correspondiente
 
 Estado de atajos:
 

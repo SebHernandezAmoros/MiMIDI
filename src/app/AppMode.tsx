@@ -14,6 +14,7 @@ import { PerformScreen } from "../features/perform/PerformScreen"
 import { PluginsScreen } from "../features/plugins-view/PluginsScreen"
 import { ProjectScreen } from "../features/project-view/ProjectScreen"
 import { SamplerScreen } from "../features/sampler/SamplerScreen"
+import { AudioSamplerScreen } from "../features/audio-sampler/AudioSamplerScreen"
 import { SettingsScreen } from "../features/settings-view/SettingsScreen"
 import {
   AudioWaveform,
@@ -21,6 +22,7 @@ import {
   FileText,
   Grid2x2,
   Maximize2,
+  Mic,
   Minimize2,
   MoreVertical,
   Piano,
@@ -55,7 +57,7 @@ function resolveScreen(
   const viewCopy = messages.views[activeView]
 
   switch (activeView) {
-    case "perform":
+    case "piano":
       return <PerformScreen copy={viewCopy} {...viewSettings} />
     case "project":
       return <ProjectScreen copy={viewCopy} />
@@ -77,8 +79,10 @@ function resolveScreen(
           {...viewSettings}
         />
       )
-    case "sampler":
+    case "pad":
       return <SamplerScreen copy={viewCopy} {...viewSettings} />
+    case "sampler":
+      return <AudioSamplerScreen copy={viewCopy} {...viewSettings} />
     case "edit":
     default:
       return <EditScreen copy={viewCopy} {...viewSettings} />
@@ -87,10 +91,12 @@ function resolveScreen(
 
 function AppViewIcon({ viewId }: { viewId: AppViewId }) {
   switch (viewId) {
-    case "perform":
+    case "piano":
       return <Piano size={18} />
-    case "sampler":
+    case "pad":
       return <Grid2x2 size={18} />
+    case "sampler":
+      return <Mic size={18} />
     case "plugins":
       return <Plug size={18} />
     case "edit":

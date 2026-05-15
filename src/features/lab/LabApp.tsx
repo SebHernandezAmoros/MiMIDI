@@ -40,7 +40,9 @@ import {
 } from "../../engine/midi/notes"
 import {
   appendNoteToTrack,
+  appendPadTrack,
   appendTrack,
+  updatePadSynthSettings as applyPadSynthPatch,
   clearAllTrackNotes,
   compactTrackNotesStart,
   createDefaultProject,
@@ -53,6 +55,7 @@ import {
   isTrackAudible,
   parseImportedProject,
   type MusicalProject,
+  type ProjectTrackType,
   removeTrack,
   removeNoteFromTrack,
   resetProject,
@@ -72,7 +75,7 @@ import {
   updateTrackVolume,
   type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
-import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX } from "lucide-react"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX, Minus, Plus } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import {
   findRegisteredPluginByInstrumentId,
@@ -112,14 +115,14 @@ const chordIntervals = {
 type ChordType = keyof typeof chordIntervals
 
 const samplerPads: Array<{ num: number; id: SmcPadSoundId | null; label: string; desc: string; btnClass: string }> = [
-  { num: 1, id: "kick",  label: "Kick",   desc: "Golpe grave",      btnClass: "ui-smc-btn-kick"  },
-  { num: 2, id: "snare", label: "Snare",  desc: "Crack medio",      btnClass: "ui-smc-btn-snare" },
-  { num: 3, id: "hat",   label: "Hihat",  desc: "Chispa brillante", btnClass: "ui-smc-btn-hat"   },
-  { num: 4, id: "clap",  label: "Clap",   desc: "Tres ráfagas",     btnClass: "ui-smc-btn-clap"  },
-  { num: 5, id: null,    label: "Perc 1", desc: "—",                btnClass: "ui-smc-btn-perc"  },
-  { num: 6, id: null,    label: "Perc 2", desc: "—",                btnClass: "ui-smc-btn-perc"  },
-  { num: 7, id: null,    label: "Perc 3", desc: "—",                btnClass: "ui-smc-btn-perc"  },
-  { num: 8, id: null,    label: "Perc 4", desc: "—",                btnClass: "ui-smc-btn-perc"  },
+  { num: 1, id: "kick",     label: "Kick",     desc: "Golpe grave",        btnClass: "ui-smc-btn-kick"    },
+  { num: 2, id: "snare",    label: "Snare",    desc: "Crack medio",        btnClass: "ui-smc-btn-snare"   },
+  { num: 3, id: "hat",      label: "Hihat",    desc: "Chispa brillante",   btnClass: "ui-smc-btn-hat"     },
+  { num: 4, id: "clap",     label: "Clap",     desc: "Tres ráfagas",       btnClass: "ui-smc-btn-clap"    },
+  { num: 5, id: "tom",      label: "Tom",      desc: "Golpe tonal medio",  btnClass: "ui-smc-btn-perc"    },
+  { num: 6, id: "cowbell",  label: "Cencerro", desc: "Metal resonante",    btnClass: "ui-smc-btn-perc"    },
+  { num: 7, id: "rimshot",  label: "Rim",      desc: "Click seco",         btnClass: "ui-smc-btn-perc"    },
+  { num: 8, id: "shaker",   label: "Shaker",   desc: "Sacudida granular",  btnClass: "ui-smc-btn-perc"    },
 ]
 
 function getInitialProject() {
@@ -138,8 +141,12 @@ function getInitialProjectMessage() {
     : ""
 }
 
-function getInitialActiveTrackId() {
-  return getInitialProject().tracks[0]?.id ?? "track-1"
+function getInitialActiveTrackId(mode: LabAppMode) {
+  const project = getInitialProject()
+  const targetType: ProjectTrackType = mode === "sampler-only" ? "percussion" : "melodic"
+  return project.tracks.find((t) => t.trackType === targetType)?.id
+    ?? project.tracks[0]?.id
+    ?? "track-1"
 }
 
 function areProjectsEquivalent(
@@ -174,7 +181,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
   const [isTimelineDragging, setIsTimelineDragging] = useState(false)
-  const [activeTrackId, setActiveTrackId] = useState(getInitialActiveTrackId)
+  const [activeTrackId, setActiveTrackId] = useState(() => getInitialActiveTrackId(mode))
   const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
   const [selectedRecordedNoteId, setSelectedRecordedNoteId] = useState<string | null>(
     null,
@@ -210,9 +217,38 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const activeArpeggiatorHandleRef = useRef<ArpeggiatorHandle | null>(null)
   const activeArpeggiatorTriggerKeyRef = useRef<string | null>(null)
   const playbackTransport = usePlaybackTransport()
+  const [absolutePlayheadTime, setAbsolutePlayheadTime] = useState<number | null>(null)
 
-  const primaryTrack =
-    project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0]
+  useEffect(() => {
+    if (!playbackTransport.isPlaying || !playbackTransport.playbackInfo) {
+      setAbsolutePlayheadTime(null)
+      return
+    }
+
+    const { startedAt, contentStart } = playbackTransport.playbackInfo
+    let rafId: number
+
+    function tick() {
+      setAbsolutePlayheadTime(contentStart + (performance.now() - startedAt) / 1000)
+      rafId = requestAnimationFrame(tick)
+    }
+
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [playbackTransport.isPlaying, playbackTransport.playbackInfo])
+
+  const melodicTracks = project.tracks.filter((t) => t.trackType === "melodic")
+  const percussionTracks = project.tracks.filter((t) => t.trackType === "percussion")
+  const primaryTrack = (() => {
+    if (mode === "sampler-only") {
+      return percussionTracks.find((t) => t.id === activeTrackId)
+        ?? percussionTracks[0]
+        ?? project.tracks[0]
+    }
+    return melodicTracks.find((t) => t.id === activeTrackId)
+      ?? melodicTracks[0]
+      ?? project.tracks[0]
+  })()
   const {
     activeInstrumentCategory,
     availableInstruments,
@@ -286,6 +322,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   useEffect(() => {
     saveProject(project)
   }, [project])
+
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -521,7 +558,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     playbackTransport.play(project)
   }
 
-  function triggerSmcPad(soundId: SmcPadSoundId) {
+  function triggerSmcPad(soundId: SmcPadSoundId, velocity = 1) {
     const sound = getSmcPadSoundDescriptor(soundId)
     const startTime = getCurrentRecordTime()
     const livePlaybackState = getTrackLivePlaybackState(startTime)
@@ -530,6 +567,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       soundId,
       isPrimaryTrackAudible ? livePlaybackState.volume : 0,
       livePlaybackState.pan,
+      { ...project.padSynthSettings, velocity },
     )
 
     if (recordingState === "recording") {
@@ -559,6 +597,20 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   function addTrack() {
     applyUpdate((currentProject) => {
       const nextProject = appendTrack(currentProject)
+      const nextTrack = nextProject.tracks.at(-1)
+
+      if (nextTrack) {
+        setActiveTrackId(nextTrack.id)
+        setProjectMessage(`Pista agregada: ${nextTrack.name}.`)
+      }
+
+      return nextProject
+    })
+  }
+
+  function addPadTrack() {
+    applyUpdate((currentProject) => {
+      const nextProject = appendPadTrack(currentProject)
       const nextTrack = nextProject.tracks.at(-1)
 
       if (nextTrack) {
@@ -1230,7 +1282,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               value={primaryTrack.id}
               onChange={(e) => switchActiveTrack(e.target.value)}
             >
-              {project.tracks.map((track) => (
+              {melodicTracks.map((track) => (
                 <option key={track.id} value={track.id}>{track.name}</option>
               ))}
             </select>
@@ -1352,6 +1404,34 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               >
                 Solo
               </button>
+              <span aria-hidden="true" className="perform-mode-transport-divider" />
+              <button
+                aria-label="Reducir duración"
+                className="ui-icon-btn"
+                onClick={() => {
+                  const next = Math.max(1, Number((editSettingsDuration - 0.1).toFixed(2)))
+                  if (timelineView === "notes") updatePrimaryTrackNoteTimelineDurationValue(next)
+                  else updateProjectTrackTimelineDurationValue(next)
+                }}
+                title="Reducir duración −0.1s"
+                type="button"
+              >
+                <Minus size={18} />
+              </button>
+              <span className="edit-duration-label">{editSettingsDuration.toFixed(1)}s</span>
+              <button
+                aria-label="Aumentar duración"
+                className="ui-icon-btn"
+                onClick={() => {
+                  const next = Number((editSettingsDuration + 0.1).toFixed(2))
+                  if (timelineView === "notes") updatePrimaryTrackNoteTimelineDurationValue(next)
+                  else updateProjectTrackTimelineDurationValue(next)
+                }}
+                title="Aumentar duración +0.1s"
+                type="button"
+              >
+                <Plus size={18} />
+              </button>
             </>
           )}
           <button
@@ -1386,6 +1466,17 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <Trash2 size={18} />
             </button>
           )}
+          {mode === "edit-only" && timelineView === "tracks" && (
+            <button
+              aria-label={`Eliminar ${primaryTrack.name}`}
+              className="ui-icon-btn"
+              onClick={confirmRemoveActiveTrack}
+              title={`Eliminar ${primaryTrack.name}`}
+              type="button"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -1395,6 +1486,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           onSelectTrack={switchActiveTrack}
           onDragStateChange={setIsTimelineDragging}
           onUpdateTrackStartTime={updateTrackStartTime}
+          playheadTime={absolutePlayheadTime}
           timelineLength={projectTrackTimelineLength}
           tracks={project.tracks}
         />
@@ -1416,6 +1508,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             onRemoveSelectedNote={mode !== "edit-only" ? removeRecordedNote : undefined}
             onSelectNote={selectRecordedNote}
             onUpdateNote={updateRecordedNote}
+            playheadTime={absolutePlayheadTime !== null ? absolutePlayheadTime - primaryTrack.timelineClip.startTime : null}
             selectedNoteId={selectedRecordedNoteId}
             timelineLength={primaryTrackNoteTimelineLength}
           />
@@ -1440,7 +1533,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             </label>
             <input
               min="1"
-              step="0.5"
+              step="0.1"
               type="number"
               value={editSettingsDuration.toFixed(1)}
               onChange={(e) => {
@@ -1532,6 +1625,51 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             ))}
           </div>
         </AppDialog>
+
+        <AppDialog
+          actions={
+            <>
+              <button onClick={cancelRemoveActiveTrack} type="button">
+                Cancelar
+              </button>
+              <button
+                className="app-dialog-confirm"
+                onClick={acceptRemoveActiveTrack}
+                type="button"
+              >
+                Eliminar
+              </button>
+            </>
+          }
+          description="La pista activa y sus notas se eliminaran de esta toma."
+          onClose={cancelRemoveActiveTrack}
+          open={isTrackRemovalConfirmOpen}
+          title={`Eliminar ${primaryTrack.name}?`}
+        />
+
+        <AppDialog
+          actions={
+            <>
+              <button onClick={() => setIsRestartConfirmOpen(false)} type="button">
+                Cancelar
+              </button>
+              <button
+                className="ui-btn-danger"
+                onClick={() => {
+                  setIsRestartConfirmOpen(false)
+                  restartProject()
+                }}
+                type="button"
+              >
+                Reiniciar
+              </button>
+            </>
+          }
+          description="Al eliminar esta pista solo quedara una. El proyecto se reiniciara y se perderan todas las notas grabadas."
+          onClose={() => setIsRestartConfirmOpen(false)}
+          open={isRestartConfirmOpen}
+          title="Reiniciar proyecto?"
+        />
       </>
     )
   }
@@ -1669,7 +1807,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               ? plugin.name.slice(0, 2).toUpperCase()
               : words.slice(0, 2).map((w) => w[0]).join("").toUpperCase()
             return (
-              <article className="app-plugin-row" key={plugin.id}>
+              <article className="ui-list-row" key={plugin.id}>
                 <span className="ui-badge" aria-hidden="true">{shortLabel}</span>
                 <div className="ui-plugin-copy">
                   <strong>{plugin.name}</strong>
@@ -1696,13 +1834,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   }
 
   if (mode === "sampler-only") {
-    const handleSamplerPad = (id: SmcPadSoundId) => {
-      triggerSmcPad(id)
+    const handleSamplerPad = (id: SmcPadSoundId, velocity = 1) => {
+      triggerSmcPad(id, velocity)
       setActiveSamplerPadId(id)
       window.setTimeout(() => setActiveSamplerPadId(null), 140)
     }
 
     return (
+      <>
       <section className="app-mock-screen" aria-label="Workspace SMC Pad">
         <header className="app-mock-toolbar">
           <div className="perform-mode-transport" aria-label="Controles de grabación">
@@ -1722,7 +1861,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               aria-label={playbackTransport.isPlaying ? "Detener reproducción" : "Reproducir"}
               className={`perform-mode-transport-button${playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
               disabled={recordingState === "recording"}
-              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, tracks: [primaryTrack] })}
+              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, tracks: [primaryTrack] }, { smcPadSettings: project.padSynthSettings })}
               type="button"
             >
               <span className="perform-mode-transport-icon">
@@ -1757,12 +1896,21 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               value={primaryTrack.id}
               onChange={(e) => switchActiveTrack(e.target.value)}
             >
-              {project.tracks.map((track) => (
+              {percussionTracks.map((track) => (
                 <option key={track.id} value={track.id}>{track.name}</option>
               ))}
             </select>
-            <button className="ui-pill-btn" onClick={addTrack} type="button">
+            <button className="ui-pill-btn" onClick={addPadTrack} type="button">
               + Track
+            </button>
+            <button
+              aria-label={`Eliminar ${primaryTrack.name}`}
+              className="ui-icon-btn"
+              onClick={confirmRemoveActiveTrack}
+              title={`Eliminar ${primaryTrack.name}`}
+              type="button"
+            >
+              <Trash2 size={18} />
             </button>
           </div>
         </header>
@@ -1777,7 +1925,12 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 activeSamplerPadId === pad.id && pad.id !== null ? "ui-smc-btn-triggered" : "",
               ].filter(Boolean).join(" ")}
               disabled={pad.id === null}
-              onClick={() => { if (pad.id) handleSamplerPad(pad.id) }}
+              onPointerDown={(e) => {
+                if (!pad.id) return
+                const rect = e.currentTarget.getBoundingClientRect()
+                const velocity = Math.max(0.35, 1 - (e.clientY - rect.top) / rect.height * 0.65)
+                handleSamplerPad(pad.id, velocity)
+              }}
               type="button"
             >
               <span className="ui-smc-btn-num">{pad.num}</span>
@@ -1787,6 +1940,134 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           ))}
         </div>
       </section>
+
+      <AppDialog
+        actions={
+          <>
+            <button onClick={cancelRemoveActiveTrack} type="button">
+              Cancelar
+            </button>
+            <button
+              className="app-dialog-confirm"
+              onClick={acceptRemoveActiveTrack}
+              type="button"
+            >
+              Eliminar
+            </button>
+          </>
+        }
+        description="La pista activa y sus notas se eliminaran de esta toma."
+        onClose={cancelRemoveActiveTrack}
+        open={isTrackRemovalConfirmOpen}
+        title={`Eliminar ${primaryTrack.name}?`}
+      />
+
+      <AppDialog
+        actions={
+          <>
+            <button onClick={() => setIsRestartConfirmOpen(false)} type="button">
+              Cancelar
+            </button>
+            <button
+              className="ui-btn-danger"
+              onClick={() => {
+                setIsRestartConfirmOpen(false)
+                restartProject()
+              }}
+              type="button"
+            >
+              Reiniciar
+            </button>
+          </>
+        }
+        description="Al eliminar esta pista solo quedara una. El proyecto se reiniciara y se perderan todas las notas grabadas."
+        onClose={() => setIsRestartConfirmOpen(false)}
+        open={isRestartConfirmOpen}
+        title="Reiniciar proyecto?"
+      />
+
+      <AppDialog
+        description="Ajusta la sintesis y el comportamiento de los pads."
+        onClose={onSettingsClose ?? (() => {})}
+        open={settingsOpen}
+        title="Opciones — Pad"
+      >
+        <div className="audio-sampler-settings">
+          <section className="ui-list-section">
+            <span className="ui-list-section-title">GLOBAL</span>
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="pad-decay">Decay</label>
+              <input
+                id="pad-decay"
+                max={2}
+                min={0.5}
+                step={0.05}
+                type="range"
+                value={project.padSynthSettings.decayScale}
+                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { decayScale: Number(e.target.value) }))}
+              />
+              <span className="edit-settings-track-value">{project.padSynthSettings.decayScale.toFixed(2)}x</span>
+            </div>
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="pad-dist">Distorsión</label>
+              <input
+                id="pad-dist"
+                max={1}
+                min={0}
+                step={0.01}
+                type="range"
+                value={project.padSynthSettings.distortion}
+                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { distortion: Number(e.target.value) }))}
+              />
+              <span className="edit-settings-track-value">{Math.round(project.padSynthSettings.distortion * 100)}%</span>
+            </div>
+          </section>
+          <section className="ui-list-section">
+            <span className="ui-list-section-title">KICK</span>
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="pad-kick">Tono final</label>
+              <input
+                id="pad-kick"
+                max={80}
+                min={30}
+                step={1}
+                type="range"
+                value={project.padSynthSettings.kickTune}
+                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { kickTune: Number(e.target.value) }))}
+              />
+              <span className="edit-settings-track-value">{project.padSynthSettings.kickTune} Hz</span>
+            </div>
+          </section>
+          <section className="ui-list-section">
+            <span className="ui-list-section-title">HAT</span>
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="pad-hat">Longitud</label>
+              <input
+                id="pad-hat"
+                max={0.2}
+                min={0.02}
+                step={0.005}
+                type="range"
+                value={project.padSynthSettings.hatLength}
+                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { hatLength: Number(e.target.value) }))}
+              />
+              <span className="edit-settings-track-value">{Math.round(project.padSynthSettings.hatLength * 1000)} ms</span>
+            </div>
+            <div className="ui-list-row ui-list-row-static">
+              <span className="ui-list-label">Flicker (LFO)</span>
+              <label className="ui-toggle" aria-label="Hat flicker">
+                <input
+                  checked={project.padSynthSettings.hatFlicker}
+                  type="checkbox"
+                  onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { hatFlicker: e.target.checked }))}
+                />
+                <span />
+              </label>
+            </div>
+          </section>
+        </div>
+      </AppDialog>
+    </>
     )
   }
 

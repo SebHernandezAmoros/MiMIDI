@@ -14,6 +14,18 @@ export type AudioLfo = {
   waveform?: OscillatorType
 }
 
+export type FrequencySweep = {
+  from: number
+  to: number
+  duration: number
+}
+
+export type AudioFilter = {
+  type: BiquadFilterType
+  frequency: number
+  Q?: number
+}
+
 export type PlayFrequencyOptions = {
   duration?: number
   pan?: number
@@ -21,6 +33,9 @@ export type PlayFrequencyOptions = {
   waveform?: AudioWaveform
   envelope?: Partial<ADSREnvelope>
   lfo?: AudioLfo
+  sweep?: FrequencySweep
+  filter?: AudioFilter
+  distortion?: number
 }
 
 export type PlayNoiseOptions = Omit<PlayFrequencyOptions, "waveform">
@@ -53,6 +68,17 @@ const activeVoices = new Map<VoiceId, ActiveVoice>()
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
+}
+
+function makeDistortionCurve(amount: number): Float32Array {
+  const samples = 256
+  const curve = new Float32Array(samples)
+  const k = clamp(amount, 0, 1) * 120
+  for (let i = 0; i < samples; i++) {
+    const x = (i * 2) / samples - 1
+    curve[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x))
+  }
+  return curve
 }
 
 function getAudioContext() {
@@ -215,7 +241,7 @@ function createGainLfo(
 
 function startSourceVoice(
   source: OscillatorNode | AudioBufferSourceNode,
-  options: Pick<PlayFrequencyOptions, "volume" | "envelope" | "lfo" | "pan"> = {},
+  options: Pick<PlayFrequencyOptions, "volume" | "envelope" | "lfo" | "pan" | "filter" | "distortion"> = {},
 ) {
   const ctx = getAudioContext()
   const gainNode = ctx.createGain()
@@ -234,9 +260,31 @@ function startSourceVoice(
           ? createFrequencyLfo(ctx, source, options.lfo)
           : undefined
 
+  // Signal chain: gain → [distortion] → [filter] → pan → master
+  let chainTail: AudioNode = gainNode
+
+  if (options.distortion && options.distortion > 0) {
+    const shaper = ctx.createWaveShaper()
+    shaper.curve = makeDistortionCurve(options.distortion)
+    shaper.oversample = "2x"
+    chainTail.connect(shaper)
+    chainTail = shaper
+  }
+
+  if (options.filter) {
+    const biquad = ctx.createBiquadFilter()
+    biquad.type = options.filter.type
+    biquad.frequency.setValueAtTime(options.filter.frequency, ctx.currentTime)
+    if (options.filter.Q !== undefined) {
+      biquad.Q.setValueAtTime(options.filter.Q, ctx.currentTime)
+    }
+    chainTail.connect(biquad)
+    chainTail = biquad
+  }
+
   panNode.pan.setValueAtTime(pan, ctx.currentTime)
   source.connect(gainNode)
-  gainNode.connect(panNode)
+  chainTail.connect(panNode)
   panNode.connect(getMasterGainNode(ctx))
 
   registerActiveVoice(
@@ -269,7 +317,16 @@ export function startFrequency(
   const oscillator = ctx.createOscillator()
 
   oscillator.type = options.waveform ?? "sine"
-  oscillator.frequency.setValueAtTime(frequency, ctx.currentTime)
+
+  if (options.sweep) {
+    oscillator.frequency.setValueAtTime(options.sweep.from, ctx.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(
+      Math.max(options.sweep.to, 1),
+      ctx.currentTime + options.sweep.duration,
+    )
+  } else {
+    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime)
+  }
 
   return startSourceVoice(oscillator, options)
 }

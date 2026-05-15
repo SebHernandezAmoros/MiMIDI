@@ -367,12 +367,12 @@ describe("App integration: timeline history", () => {
     expect(screen.getByRole("button", { name: "Exportar JSON" })).toBeTruthy()
   })
 
-  it("shows the replicated perform view on the root route", () => {
-    window.history.pushState({}, "", "/?view=perform")
+  it("shows the replicated piano view on the root route", () => {
+    window.history.pushState({}, "", "/?view=piano")
 
     render(<App />)
 
-    expect(screen.getByRole("button", { name: "Perform" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Piano" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Perform")).toBeTruthy()
     expect(screen.getByLabelText("Modo del piano")).toBeTruthy()
     expect(screen.getByLabelText("Controles de grabacion")).toBeTruthy()

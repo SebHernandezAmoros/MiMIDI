@@ -9,14 +9,14 @@ export const enMessages = {
     navigationAriaLabel: "Main app mode navigation",
   },
   views: {
-    perform: {
-      label: "Perform",
-      description: "Performance, piano, arpeggiator, SMC Pad and recording.",
+    piano: {
+      label: "Piano",
+      description: "Piano, arpeggiator, instrument selection and recording.",
       intro:
         "Screen intended for performance, sound exploration and take recording without the density of the editing screen.",
-      workspaceTitle: "Perform workspace",
+      workspaceTitle: "Piano workspace",
       workspaceBody:
-        "This area will host piano, arpeggiator, recording takes, quick instrument control and the future dedicated SMC Pad view.",
+        "This area will host piano, arpeggiator, recording takes and quick instrument control.",
     },
     edit: {
       label: "Edit",
@@ -56,12 +56,21 @@ export const enMessages = {
     },
     sampler: {
       label: "Sampler",
-      description: "Separate module for sampling and recorded-audio management.",
+      description: "Audio recording, trimming and sample playback.",
       intro:
-        "Screen separated from the mathematical core for capture, management and playback of samples when the module returns.",
+        "Dedicated view for capturing live audio, importing samples, trimming them and assigning them to triggerable slots.",
       workspaceTitle: "Sampler workspace",
       workspaceBody:
-        "It is already born as its own container so its development does not mix with the mathematical lab flow.",
+        "This area will host live audio recording, waveform viewer, sample slots and trimming tools.",
+    },
+    pad: {
+      label: "Pad",
+      description: "SMC Pad — percussion hits and rhythm recording.",
+      intro:
+        "Dedicated view for the SMC Pad: trigger hits, record rhythms and manage percussion patterns.",
+      workspaceTitle: "Pad workspace",
+      workspaceBody:
+        "This area hosts the SMC Pad with its 8 percussion pads, track selector and recording controls.",
     },
   },
 } as const

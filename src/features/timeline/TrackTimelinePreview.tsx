@@ -15,6 +15,7 @@ type TrackTimelinePreviewProps = {
     startTime: number,
     historyMode?: "transient" | "commit",
   ) => void
+  playheadTime?: number | null
   timelineLength: number
   tracks: ProjectTrack[]
 }
@@ -31,6 +32,7 @@ export function TrackTimelinePreview({
   onDragStateChange,
   onSelectTrack,
   onUpdateTrackStartTime,
+  playheadTime,
   timelineLength,
   tracks,
 }: TrackTimelinePreviewProps) {
@@ -142,6 +144,13 @@ export function TrackTimelinePreview({
                   </div>
                 </div>
                 <div className="track-timeline-track">
+                  {playheadTime != null && (
+                    <div
+                      aria-hidden="true"
+                      className="timeline-playhead"
+                      style={{ left: `${Math.min(Math.max(playheadTime / timelineLength, 0), 1) * 100}%` }}
+                    />
+                  )}
                   <div
                     className="track-timeline-clip"
                     onPointerDown={(event) => startTrackClipDrag(event, track)}

@@ -167,6 +167,17 @@ Ejemplos de entidades:
 
 Esta capa debe ser lo más independiente posible de React.
 
+### 4.3.1 Tipos de pista (ProjectTrackType)
+
+Las pistas del proyecto tienen un tipo que determina qué vista las graba y muestra:
+
+- `"melodic"` — pistas para instrumentos melódicos. Se graban desde el piano/teclado. Se crean con `appendTrack`. Nombradas `Track N`.
+- `"percussion"` — pistas para el SMC Pad. Se graban desde la vista de pad. Se crean con `appendPadTrack`. Nombradas `Pad N`.
+
+Cada vista filtra los tracks según su tipo para evitar que piano y pad sobreescriban el mismo track. La vista de edición (timeline de tracks) muestra todos los tipos juntos para la mezcla final.
+
+Regla de extensión: un plugin puede introducir su propio tipo de pista (ej. `"sample"`, `"midi-external"`) siguiendo el mismo patrón, sin necesidad de modificar el core.
+
 ## 4.4 Capa de motor MIDI
 
 Responsable de:
@@ -189,9 +200,32 @@ Responsable de:
 - control de volumen,
 - generación de tono,
 - scheduling de reproducción,
-- y, más adelante, efectos básicos.
+- efectos de señal: filtros, distorsión, sweep de pitch.
 
-En la etapa inicial la implementación puede estar apoyada en **Web Audio API**.
+La implementación usa **Web Audio API**. La cadena de señal actual para cada voz es:
+
+```
+source (OscillatorNode | AudioBufferSourceNode)
+  → gain (ADSR via GainNode)
+  → [WaveShaperNode]  ← distorsión opcional, curva arctangent
+  → [BiquadFilterNode] ← filtro opcional (highpass, bandpass, etc.)
+  → StereoPannerNode
+  → masterGainNode
+  → AudioContext.destination
+```
+
+Los nodos opcionales solo se crean si se piden. Si no hay distorsión ni filtro,
+la voz va directamente de gain a pan, igual que antes.
+
+Capacidades actuales del motor (`audioEngine.ts`):
+
+- `startFrequency(freq, options)` / `playFrequency(freq, duration, options)` — oscilador con ADSR, sweep, LFO, filtro, distorsión, pan
+- `startNoise(options)` / `playNoise(duration, options)` — ruido blanco en bucle con las mismas opciones
+- `stopVoice(voiceId)` / `stopAllVoices()` — release ADSR y limpieza de nodos
+- `setMasterVolume(volume)` — ganancia maestra con transición suave
+
+Tipos exportados: `ADSREnvelope`, `AudioLfo`, `FrequencySweep`, `AudioFilter`,
+`PlayFrequencyOptions`, `PlayNoiseOptions`, `VoiceId`.
 
 ## 4.6 Capa de infraestructura
 

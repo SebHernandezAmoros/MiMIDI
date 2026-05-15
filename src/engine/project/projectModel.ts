@@ -25,6 +25,8 @@ export type TrackTimelineClip = {
   startTime: number
 }
 
+export type ProjectTrackType = "melodic" | "percussion"
+
 export type ProjectTrack = {
   envelope: ADSREnvelope
   id: string
@@ -36,13 +38,31 @@ export type ProjectTrack = {
   pan: number
   solo: boolean
   timelineClip: TrackTimelineClip
+  trackType: ProjectTrackType
   volumeAutomation: TrackVolumeAutomation
   volume: number
+}
+
+export type PadSynthSettings = {
+  decayScale: number
+  distortion: number
+  hatLength: number
+  kickTune: number
+  hatFlicker: boolean
+}
+
+const DEFAULT_PAD_SYNTH_SETTINGS: PadSynthSettings = {
+  decayScale: 1,
+  distortion: 0,
+  hatLength: 0.045,
+  kickTune: 42,
+  hatFlicker: false,
 }
 
 export type MusicalProject = {
   id: string
   name: string
+  padSynthSettings: PadSynthSettings
   pluginStates: MiMIDIPluginStateMap
   trackTimelineDuration: number
   tracks: ProjectTrack[]
@@ -63,13 +83,33 @@ export function createDefaultProject(): MusicalProject {
   return {
     id: "project-1",
     name: "MiMIDI Project",
+    padSynthSettings: { ...DEFAULT_PAD_SYNTH_SETTINGS },
     pluginStates: createDefaultPluginStates(),
     trackTimelineDuration: 8,
-    tracks: [createProjectTrack(1)],
+    tracks: [
+      createProjectTrack(1, "melodic"),
+      { ...createProjectTrack(2, "percussion"), name: "Pad 1" },
+    ],
   }
 }
 
-export function createProjectTrack(index: number): ProjectTrack {
+export function appendPadTrack(project: MusicalProject): MusicalProject {
+  const padCount = project.tracks.filter((t) => t.trackType === "percussion").length
+  const track = createProjectTrack(project.tracks.length + 1, "percussion")
+  return {
+    ...project,
+    tracks: [...project.tracks, { ...track, name: `Pad ${padCount + 1}` }],
+  }
+}
+
+export function updatePadSynthSettings(
+  project: MusicalProject,
+  patch: Partial<PadSynthSettings>,
+): MusicalProject {
+  return { ...project, padSynthSettings: { ...project.padSynthSettings, ...patch } }
+}
+
+export function createProjectTrack(index: number, trackType: ProjectTrackType = "melodic"): ProjectTrack {
   return {
     envelope: {
       attack: 0.02,
@@ -89,6 +129,7 @@ export function createProjectTrack(index: number): ProjectTrack {
       id: `track-${index}-clip-1`,
       startTime: 0,
     },
+    trackType,
     volumeAutomation: {
       enabled: false,
       points: [
@@ -520,9 +561,11 @@ export function updateProjectPluginEnabled(
 }
 
 export function appendTrack(project: MusicalProject): MusicalProject {
+  const melodicCount = project.tracks.filter((t) => t.trackType === "melodic").length
+  const track = createProjectTrack(project.tracks.length + 1, "melodic")
   return {
     ...project,
-    tracks: [...project.tracks, createProjectTrack(project.tracks.length + 1)],
+    tracks: [...project.tracks, { ...track, name: `Track ${melodicCount + 1}` }],
   }
 }
 
@@ -709,7 +752,11 @@ function isRecordedNote(value: unknown): value is MidiRecordedNote {
       note.smcPadSoundId === "kick" ||
       note.smcPadSoundId === "snare" ||
       note.smcPadSoundId === "hat" ||
-      note.smcPadSoundId === "clap")
+      note.smcPadSoundId === "clap" ||
+      note.smcPadSoundId === "tom" ||
+      note.smcPadSoundId === "cowbell" ||
+      note.smcPadSoundId === "rimshot" ||
+      note.smcPadSoundId === "shaker")
   )
 }
 
@@ -746,6 +793,9 @@ function isProjectTrack(value: unknown): value is ProjectTrack {
         typeof (track.volumeAutomation as Record<string, unknown>).enabled === "boolean" &&
         Array.isArray((track.volumeAutomation as Record<string, unknown>).points))) &&
     typeof track.name === "string" &&
+    (track.trackType === undefined ||
+      track.trackType === "melodic" ||
+      track.trackType === "percussion") &&
     Array.isArray(track.notes) &&
     track.notes.every(isRecordedNote)
   )
@@ -801,6 +851,7 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
       ? Math.min(Math.max(track.pan, -1), 1)
       : 0,
     solo: typeof (track as Record<string, unknown>).solo === "boolean" ? track.solo : false,
+    trackType: (track as Record<string, unknown>).trackType === "percussion" ? "percussion" : "melodic",
     timelineClip: {
       id:
         typeof rawTimelineClip?.id === "string"
@@ -858,7 +909,11 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
         note.smcPadSoundId === "kick" ||
         note.smcPadSoundId === "snare" ||
         note.smcPadSoundId === "hat" ||
-        note.smcPadSoundId === "clap"
+        note.smcPadSoundId === "clap" ||
+        note.smcPadSoundId === "tom" ||
+        note.smcPadSoundId === "cowbell" ||
+        note.smcPadSoundId === "rimshot" ||
+        note.smcPadSoundId === "shaker"
           ? note.smcPadSoundId
           : undefined,
     })),
@@ -901,10 +956,20 @@ export function parseImportedProject(projectJson: string): MusicalProject {
     throw new Error("Project JSON does not match MiMIDI format")
   }
 
+  const rawPad = project.padSynthSettings as Record<string, unknown> | undefined
+  const padSynthSettings: PadSynthSettings = {
+    decayScale: typeof rawPad?.decayScale === "number" ? rawPad.decayScale : DEFAULT_PAD_SYNTH_SETTINGS.decayScale,
+    distortion: typeof rawPad?.distortion === "number" ? rawPad.distortion : DEFAULT_PAD_SYNTH_SETTINGS.distortion,
+    hatLength: typeof rawPad?.hatLength === "number" ? rawPad.hatLength : DEFAULT_PAD_SYNTH_SETTINGS.hatLength,
+    kickTune: typeof rawPad?.kickTune === "number" ? rawPad.kickTune : DEFAULT_PAD_SYNTH_SETTINGS.kickTune,
+    hatFlicker: typeof rawPad?.hatFlicker === "boolean" ? rawPad.hatFlicker : DEFAULT_PAD_SYNTH_SETTINGS.hatFlicker,
+  }
+
   return {
     ...syncProjectTrackInstrumentsWithPluginCatalog({
       id: project.id,
       name: project.name,
+      padSynthSettings,
       pluginStates: normalizePluginStates(project.pluginStates),
       trackTimelineDuration:
         typeof project.trackTimelineDuration === "number"

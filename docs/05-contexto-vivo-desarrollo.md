@@ -6111,3 +6111,264 @@ grupo undo/redo. Se eliminaron del modal para no duplicarlos.
 
 - `src/features/lab/LabApp.tsx` — botones M/S en toolbar (edit-only), eliminados del modal
 - `src/app/styles/appModeCatalog.css` — `.edit-mute-solo-btn`
+
+
+---
+
+## Sesion 2026-05-14 - Motor de audio extendido: sweep, filtros y distorsion
+
+### Que se hizo
+
+Se extendio audioEngine.ts con tres capacidades nuevas que permiten sintetizar
+percusion retro convincente usando solo el motor matematico:
+
+FrequencySweep: barre la frecuencia de un oscilador con exponentialRampToValueAtTime
+de Web Audio API. El pitch cae de from a to Hz en duration segundos. Esto da el golpe
+caracteristico del kick y el tom.
+
+AudioFilter: envuelve BiquadFilterNode de Web Audio. Acepta type, frequency y Q
+opcionales. Se usa para dar caracter espectral a ruido blanco (highpass para hat,
+bandpass para snare y shaker).
+
+Distortion: WaveShaperNode con curva arctangent escalada por k = amount * 120.
+oversample 2x para suavizar aliasing.
+
+La cadena de senal nueva es:
+
+  source -> gain (ADSR) -> [WaveShaper] -> [BiquadFilter] -> pan -> master
+
+Antes era gain -> pan -> master sin nodos opcionales.
+
+### Razon de la decision
+
+El motor de audio del core estaba limitado a osciladores puros y ruido sin forma.
+Para sintetizar percusion realista sin samples se necesitan sweep de pitch (kick retro),
+filtros para dar color al ruido (snare, hat) y distorsion leve para agregar armonicos.
+Todo sigue siendo 100% sintetico. No hay samples.
+
+### Archivos modificados
+
+- src/engine/audio/audioEngine.ts - nuevos tipos FrequencySweep, AudioFilter;
+  distortion opcional en PlayFrequencyOptions; makeDistortionCurve();
+  cadena de senal extendida en startSourceVoice; sweep en startFrequency
+
+---
+
+## Sesion 2026-05-14 - SMC Pad: sintesis avanzada con 8 sonidos y parametros editables
+
+### Que se hizo
+
+playSmcPadHit.ts fue reescrito completamente. El modulo ahora tiene:
+
+SmcPadSynthSettings con 6 parametros editables por el usuario:
+- decayScale: escala global del tiempo de decay (0.5-2x)
+- distortion: cantidad de distorsion (0-1)
+- hatLength: duracion del hihat (0.02-0.2s)
+- kickTune: frecuencia final del kick (30-80 Hz)
+- hatFlicker: LFO de frecuencia para el hat (on/off)
+- velocity: ganancia por posicion Y del puntero al tocar el pad (0.35-1)
+
+8 sonidos en lugar de 4. Los 4 nuevos usan el mismo motor sintetico:
+- Tom: sine sweep grave + triangle de ataque + noise bandpass
+- Cowbell: dos square (562 Hz + 845 Hz) que baten entre si + noise de golpe
+- Rimshot: triangle sweep agudo (2200 a 1400 Hz) + noise highpass + sine sub
+- Shaker: dos rafagas de noise bandpass (5500 Hz) separadas 55ms + capa highpass
+
+Velocity por posicion Y: al presionar un pad, la posicion vertical del puntero
+determina la velocidad. Golpe arriba = velocity 1.0, golpe abajo = velocity 0.35.
+Formula: max(0.35, 1 - (y/height) * 0.65)
+
+### Razon de la decision
+
+Los 4 sonidos originales eran demasiado planos para componer ritmos variados.
+El motor de ruido matematico admite todos estos sonidos sin samples.
+Los slots PERC 1-4 estaban vacios; ahora tienen percusion util.
+La velocity por posicion Y agrega expresividad dinamica sin hardware MIDI externo.
+
+### Archivos modificados
+
+- src/application/use-cases/playSmcPadHit.ts - reescritura completa con tipos, 8 sonidos, settings
+- src/engine/midi/events.ts - smcPadSoundId ampliado con los 4 nuevos ids
+- src/features/lab/LabApp.tsx - samplerPads actualizado con los 4 nuevos slots
+
+---
+
+## Sesion 2026-05-14 - Playback: playhead animado y settings consistentes
+
+### Que se hizo
+
+Playhead animado en timeline:
+
+usePlaybackTransport ahora expone playbackInfo (PlaybackInfo o null):
+  { startedAt: number, contentStart: number, contentEnd: number }
+
+startedAt se captura con performance.now() al iniciar reproduccion.
+
+PlaybackHandle en playRecordedNotes extiende con contentStartTime y contentEndTime
+para conocer el rango real del contenido reproducido.
+
+En LabApp un useEffect con requestAnimationFrame calcula:
+  absolutePlayheadTime = contentStart + (performance.now() - startedAt) / 1000
+
+y lo pasa como playheadTime a TimelinePreview y TrackTimelinePreview.
+
+Ambos componentes renderizan un div.timeline-playhead (2px, blanco semitransparente)
+con left calculado como porcentaje del timelineLength.
+CSS: position absolute; inset-block 0; transform translateX(-50%).
+
+Settings de sintesis consistentes en el proyecto:
+
+playRecordedNotes recibe smcPadSettings opcional y lo pasa a cada playSmcPadHit
+durante la reproduccion. Antes usaba settings default ignorando los ajustes del usuario.
+Ahora playback y grabacion usan los mismos parametros de sintesis.
+
+### Archivos modificados
+
+- src/features/transport/usePlaybackTransport.ts - tipo PlaybackInfo, estado, timestamps
+- src/application/use-cases/playRecordedNotes.ts - contentStartTime/contentEndTime, smcPadSettings
+- src/features/timeline/TimelinePreview.tsx - prop playheadTime, div timeline-playhead
+- src/features/timeline/TrackTimelinePreview.tsx - idem
+- src/features/timeline/TimelinePreview.css - clase .timeline-playhead
+- src/features/timeline/TrackTimelinePreview.css - idem
+
+---
+
+## Sesion 2026-05-14 - Modelo de proyecto: PadSynthSettings y naming Pad N
+
+### Que se hizo
+
+PadSynthSettings en MusicalProject:
+
+Se agrego padSynthSettings: PadSynthSettings al tipo MusicalProject. Antes los
+parametros de sintesis del SMC Pad vivian en useState local de LabApp, lo que
+causaba que al recargar el proyecto se perdieran los ajustes.
+
+Ahora cada cambio en el modal del Pad va por applyUpdate con applyPadSynthPatch
+y se persiste en localStorage junto con el proyecto.
+
+parseImportedProject parsea padSynthSettings campo por campo con fallback a
+DEFAULT_PAD_SYNTH_SETTINGS, garantizando compatibilidad con proyectos viejos.
+
+Naming Pad N:
+
+createDefaultProject ahora crea el primer track con nombre Pad 1.
+Se agrego appendPadTrack que cuenta los tracks con nombre Pad* y genera Pad N.
+
+parseImportedProject tiene migracion automatica: si un track tiene nombre que coincide
+con /^Track d+$/ (patron legacy) lo renombra a Pad N segun su indice, para que
+proyectos guardados antes de este cambio se vean correctamente.
+
+El boton + Track del toolbar de sampler-only ahora llama addPadTrack.
+
+### Archivos modificados
+
+- src/engine/project/projectModel.ts - tipo PadSynthSettings, campo en MusicalProject,
+  DEFAULT_PAD_SYNTH_SETTINGS, appendPadTrack, updatePadSynthSettings,
+  migracion en parseImportedProject, nombre Pad 1 en createDefaultProject
+- src/features/lab/LabApp.tsx - modal usa project.padSynthSettings + applyPadSynthPatch,
+  triggerSmcPad usa project.padSynthSettings, boton usa addPadTrack
+
+---
+
+## Sesion 2026-05-14 - UI Edit: botones duracion y eliminacion de pista en toolbar
+
+### Que se hizo
+
+Botones +/- de duracion en toolbar de Edit:
+
+Se agregaron dos botones con iconos Minus y Plus de Lucide al toolbar de edit-only
+que ajustan noteTimelineDuration en pasos de +/- 0.1s. El valor actual se muestra en
+una etiqueta compacta entre los dos botones (clase .edit-duration-label). El modal sigue
+teniendo el input numerico para precision exacta.
+
+Objetivo: evitar que el usuario abra el teclado virtual en movil para ajustar la duracion.
+
+Eliminacion de pista en toolbar (vista Tracks):
+
+El boton Trash2 solo es visible en edit-only cuando timelineView es tracks.
+Abre el mismo dialogo de confirmacion existente. Esto cierra el flujo de eliminar
+pistas sin ir al modal.
+
+### Archivos modificados
+
+- src/features/lab/LabApp.tsx - botones Minus/Plus en toolbar edit-only, Trash2 condicional
+- src/app/styles/appModeCatalog.css - clase .edit-duration-label
+
+
+---
+
+## Sesion 2026-05-14 - Correccion critica: isRecordedNote no aceptaba los 4 sonidos nuevos
+
+### Que se hizo
+
+Se corrigio un bug de perdida de datos silenciosa. isRecordedNote en projectModel.ts
+solo validaba smcPadSoundId para los 4 sonidos originales (kick, snare, hat, clap).
+Cuando el usuario grababa un Tom, Cowbell, Rimshot o Shaker, la nota se escribia al
+localStorage con smcPadSoundId 'tom' (por ejemplo). Al recargar, isRecordedNote
+retornaba false para esa nota, la validacion del track fallaba, parseImportedProject
+lanzaba una excepcion, y loadStoredProject retornaba null. El proyecto entero se
+reseteaba a createDefaultProject y se perdia todo lo grabado.
+
+El mismo problema existia en normalizeTrackNotes, que solo normalizaba los 4 originales
+y descartaba los nuevos IDs.
+
+### Archivos modificados
+
+- src/engine/project/projectModel.ts - isRecordedNote y normalizeTrackNotes ampliados
+  con los 8 IDs: kick, snare, hat, clap, tom, cowbell, rimshot, shaker
+
+---
+
+## Sesion 2026-05-14 - Separacion de pistas por tipo: melodic y percussion
+
+### Que se hizo
+
+Se introdujo el concepto de tipo de pista para que el piano y el pad no graben
+al mismo track y no superpongan audio sin intencion.
+
+Nuevo tipo ProjectTrackType = 'melodic' | 'percussion' en ProjectTrack.
+
+createDefaultProject crea dos pistas desde el inicio:
+- Track 1: trackType melodic (para grabacion desde el piano)
+- Pad 1: trackType percussion (para grabacion desde el SMC Pad)
+
+createProjectTrack acepta trackType como segundo parametro (default melodic).
+
+appendTrack: crea pistas melodic, nombradas Track N contando solo las melodicas.
+appendPadTrack: crea pistas percussion, nombradas Pad N contando solo las de percusion.
+
+En LabApp:
+- getInitialActiveTrackId es ahora mode-aware: en sampler-only busca la primera
+  pista percussion, en cualquier otro modo busca la primera melodic.
+- primaryTrack se resuelve por tipo segun el modo: piano/edit usa melodicTracks,
+  pad usa percussionTracks, con fallback a project.tracks[0].
+- El selector de pistas en edit/piano solo muestra pistas melodic.
+- El selector de pistas en sampler-only solo muestra pistas percussion.
+- Los botones + Track en cada vista agregan el tipo correcto.
+
+Compatibilidad retroactiva: normalizeTrackNotes asigna 'melodic' como fallback
+a cualquier pista cargada sin campo trackType. Proyectos viejos cargan correctamente
+con todas sus pistas clasificadas como melodic.
+
+isProjectTrack acepta trackType como campo opcional para no romper la validacion
+de proyectos guardados antes de este cambio.
+
+### Razon de la decision
+
+Piano y pad compartian el mismo primaryTrack. Grabar un kick en el pad y luego
+grabar una melodia en el piano superponia ambas en el mismo track. Con la separacion
+por tipo, cada vista graba en su propia capa de pistas y la mezcla final ocurre
+solo en el playback de la vista de edicion, que muestra todos los tracks juntos.
+
+La arquitectura queda abierta para que plugins registren su propio trackType
+(ej. 'sample', 'midi-external') sin afectar el core.
+
+### Archivos modificados
+
+- src/engine/project/projectModel.ts - ProjectTrackType, trackType en ProjectTrack,
+  createProjectTrack con parametro trackType, createDefaultProject con 2 pistas,
+  appendTrack melodic, appendPadTrack percussion, isProjectTrack y normalizeTrackNotes
+  actualizados
+- src/features/lab/LabApp.tsx - getInitialActiveTrackId mode-aware, melodicTracks y
+  percussionTracks como derived values, primaryTrack resuelto por tipo, selectores
+  de pista filtrados por vista, import de ProjectTrackType

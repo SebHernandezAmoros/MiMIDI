@@ -1,0 +1,105 @@
+.audio-sampler-btn-recording {
+  color: #c82828;
+  animation: audio-sampler-pulse 1s ease-in-out infinite;
+}
+
+@keyframes audio-sampler-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Waveform placeholder */
+.audio-sampler-waveform-area {
+  display: grid;
+  place-items: center;
+  min-height: 7rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-surface-inset);
+}
+
+.audio-sampler-waveform-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ui-color-text-muted);
+}
+
+.audio-sampler-waveform-empty svg {
+  opacity: 0.35;
+}
+
+.audio-sampler-waveform-empty span {
+  font-size: 0.88rem;
+}
+
+.audio-sampler-waveform-hint {
+  font-size: 0.75rem !important;
+  opacity: 0.7;
+}
+
+/* Grid de slots */
+.audio-sampler-slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.audio-sampler-slot {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.audio-sampler-slot:active {
+  background: var(--ui-color-surface-inset);
+}
+
+.audio-sampler-slot-active {
+  border-color: var(--ui-color-accent);
+  box-shadow: 0 0 0 1px var(--ui-color-accent);
+}
+
+.audio-sampler-slot-num {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ui-color-text-muted);
+}
+
+.audio-sampler-slot-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+
+.audio-sampler-slot-duration {
+  font-size: 0.72rem;
+  color: var(--ui-color-accent);
+}
+
+.audio-sampler-slot-empty {
+  font-size: 0.72rem;
+  color: var(--ui-color-text-muted);
+  opacity: 0.5;
+}
+
+.audio-sampler-slot-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ui-color-text-muted);
+  white-space: nowrap;
+}
+
+/* Settings dialog */
+.audio-sampler-settings {
+  display: grid;
+  gap: 0.85rem;
+}

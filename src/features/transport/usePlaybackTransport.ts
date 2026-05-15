@@ -9,14 +9,22 @@ import type { MusicalProject } from "../../engine/project/projectModel"
 
 export type TransportState = "idle" | "playing"
 
+export type PlaybackInfo = {
+  startedAt: number
+  contentStart: number
+  contentEnd: number
+}
+
 export function usePlaybackTransport() {
   const [transportState, setTransportState] = useState<TransportState>("idle")
+  const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null)
   const playbackHandleRef = useRef<PlaybackHandle | null>(null)
 
   function stop() {
     playbackHandleRef.current?.cancel()
     playbackHandleRef.current = null
     setTransportState("idle")
+    setPlaybackInfo(null)
     stopAllVoices()
   }
 
@@ -30,19 +38,28 @@ export function usePlaybackTransport() {
 
     stop()
     setTransportState("playing")
-    playbackHandleRef.current = playRecordedNotes(project, {
+    const startedAt = performance.now()
+    const handle = playRecordedNotes(project, {
       ...options,
       onComplete: () => {
         playbackHandleRef.current = null
         setTransportState("idle")
+        setPlaybackInfo(null)
         options.onComplete?.()
       },
+    })
+    playbackHandleRef.current = handle
+    setPlaybackInfo({
+      startedAt,
+      contentStart: handle.contentStartTime,
+      contentEnd: handle.contentEndTime,
     })
   }
 
   return {
     isPlaying: transportState === "playing",
     play,
+    playbackInfo,
     state: transportState,
     stop,
   }

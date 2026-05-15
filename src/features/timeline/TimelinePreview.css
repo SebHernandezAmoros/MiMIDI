@@ -95,3 +95,13 @@
   background: #ff5f79;
   box-shadow: 0 0 0 1px #ffe1e7 inset;
 }
+
+.timeline-playhead {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  z-index: 2;
+}

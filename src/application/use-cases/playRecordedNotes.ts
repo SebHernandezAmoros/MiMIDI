@@ -1,6 +1,6 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
-import { playSmcPadHit } from "./playSmcPadHit"
+import { playSmcPadHit, type SmcPadSynthSettings } from "./playSmcPadHit"
 import { findAvailableMathematicalInstrument } from "../../engine/audio/instrumentCatalog"
 import {
   createPlayOptions,
@@ -14,10 +14,13 @@ import {
 
 export type PlaybackHandle = {
   cancel: () => void
+  contentStartTime: number
+  contentEndTime: number
 }
 
 export type PlayRecordedNotesOptions = PlayNoteOptions & {
   onComplete?: () => void
+  smcPadSettings?: Partial<SmcPadSynthSettings>
 }
 
 export function playRecordedNotes(
@@ -32,6 +35,8 @@ export function playRecordedNotes(
 
     return {
       cancel: () => {},
+      contentStartTime: 0,
+      contentEndTime: 0,
     }
   }
 
@@ -65,7 +70,7 @@ export function playRecordedNotes(
       const playbackVolume = (recordedNote.playbackVolume ?? 1) * automationVolume
 
       if (recordedNote.playbackSource === "smc-pad" && recordedNote.smcPadSoundId) {
-        playSmcPadHit(recordedNote.smcPadSoundId, playbackVolume, playbackPan)
+        playSmcPadHit(recordedNote.smcPadSoundId, playbackVolume, playbackPan, options.smcPadSettings)
         return
       }
 
@@ -104,5 +109,7 @@ export function playRecordedNotes(
 
       window.clearTimeout(completeTimerId)
     },
+    contentStartTime: firstStartTime,
+    contentEndTime: lastEndTime,
   }
 }
