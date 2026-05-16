@@ -42,7 +42,7 @@ import {
   appendNoteToTrack,
   appendPadTrack,
   appendTrack,
-  updatePadSynthSettings as applyPadSynthPatch,
+  updatePadSoundSetting,
   clearAllTrackNotes,
   compactTrackNotesStart,
   createDefaultProject,
@@ -75,7 +75,7 @@ import {
   updateTrackVolume,
   type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
-import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX, Minus, Plus } from "lucide-react"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import {
   findRegisteredPluginByInstrumentId,
@@ -89,7 +89,10 @@ import { useLabRecordingSession } from "./useLabRecordingSession"
 import {
   getSmcPadSoundDescriptor,
   playSmcPadHit,
+  PAD_SOUND_DEFAULTS,
+  smcPadSounds,
   type SmcPadSoundId,
+  type PadSoundParams,
 } from "../../application/use-cases/playSmcPadHit"
 import { MidiEventLog } from "../midi-events/MidiEventLog"
 import {
@@ -114,16 +117,18 @@ const chordIntervals = {
 
 type ChordType = keyof typeof chordIntervals
 
-const samplerPads: Array<{ num: number; id: SmcPadSoundId | null; label: string; desc: string; btnClass: string }> = [
-  { num: 1, id: "kick",     label: "Kick",     desc: "Golpe grave",        btnClass: "ui-smc-btn-kick"    },
-  { num: 2, id: "snare",    label: "Snare",    desc: "Crack medio",        btnClass: "ui-smc-btn-snare"   },
-  { num: 3, id: "hat",      label: "Hihat",    desc: "Chispa brillante",   btnClass: "ui-smc-btn-hat"     },
-  { num: 4, id: "clap",     label: "Clap",     desc: "Tres ráfagas",       btnClass: "ui-smc-btn-clap"    },
-  { num: 5, id: "tom",      label: "Tom",      desc: "Golpe tonal medio",  btnClass: "ui-smc-btn-perc"    },
-  { num: 6, id: "cowbell",  label: "Cencerro", desc: "Metal resonante",    btnClass: "ui-smc-btn-perc"    },
-  { num: 7, id: "rimshot",  label: "Rim",      desc: "Click seco",         btnClass: "ui-smc-btn-perc"    },
-  { num: 8, id: "shaker",   label: "Shaker",   desc: "Sacudida granular",  btnClass: "ui-smc-btn-perc"    },
-]
+const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
+  kick: "ui-smc-btn-kick",
+  snare: "ui-smc-btn-snare",
+  hat: "ui-smc-btn-hat",
+  "open-hat": "ui-smc-btn-hat",
+  clap: "ui-smc-btn-clap",
+  sub: "ui-smc-btn-kick",
+}
+
+function getPadBtnClass(id: SmcPadSoundId): string {
+  return PAD_ACCENT_MAP[id] ?? "ui-smc-btn-perc"
+}
 
 function getInitialProject() {
   return loadStoredProject() ?? createDefaultProject()
@@ -189,6 +194,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const [midiEvents, setMidiEvents] = useState<MidiNoteEvent[]>([])
   const [isExportingAudio, setIsExportingAudio] = useState(false)
   const [activeSamplerPadId, setActiveSamplerPadId] = useState<SmcPadSoundId | null>(null)
+  const [padPage, setPadPage] = useState(0)
+  const [configSoundId, setConfigSoundId] = useState<SmcPadSoundId | null>(null)
   const [isTrackRemovalConfirmOpen, setIsTrackRemovalConfirmOpen] = useState(false)
   const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false)
   const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
@@ -245,7 +252,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         ?? percussionTracks[0]
         ?? project.tracks[0]
     }
-    return melodicTracks.find((t) => t.id === activeTrackId)
+    return project.tracks.find((t) => t.id === activeTrackId)
       ?? melodicTracks[0]
       ?? project.tracks[0]
   })()
@@ -567,7 +574,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       soundId,
       isPrimaryTrackAudible ? livePlaybackState.volume : 0,
       livePlaybackState.pan,
-      { ...project.padSynthSettings, velocity },
+      { ...PAD_SOUND_DEFAULTS[soundId], ...project.padSoundSettings[soundId], volume: velocity },
     )
 
     if (recordingState === "recording") {
@@ -1282,7 +1289,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               value={primaryTrack.id}
               onChange={(e) => switchActiveTrack(e.target.value)}
             >
-              {melodicTracks.map((track) => (
+              {project.tracks.map((track) => (
                 <option key={track.id} value={track.id}>{track.name}</option>
               ))}
             </select>
@@ -1861,7 +1868,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               aria-label={playbackTransport.isPlaying ? "Detener reproducción" : "Reproducir"}
               className={`perform-mode-transport-button${playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
               disabled={recordingState === "recording"}
-              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, tracks: [primaryTrack] }, { smcPadSettings: project.padSynthSettings })}
+              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, tracks: [primaryTrack] }, { padSoundSettings: project.padSoundSettings })}
               type="button"
             >
               <span className="perform-mode-transport-icon">
@@ -1874,17 +1881,26 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
           <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-          <div className="app-mock-toolbar-controls">
-            <select aria-label="Modo de pad" className="ui-select">
-              <option>STANDAR</option>
-              <option>LATIN</option>
-              <option>ELECTRONIC</option>
-            </select>
-            <select aria-label="Afinación" className="ui-select">
-              <option>TUNE</option>
-              <option>+1</option>
-              <option>-1</option>
-            </select>
+          <div className="ui-pad-pager">
+            <button
+              aria-label="Página anterior"
+              className="ui-icon-btn"
+              disabled={padPage === 0}
+              onClick={() => setPadPage((p) => Math.max(0, p - 1))}
+              type="button"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="ui-pad-pager-label">{padPage + 1} / {Math.ceil(smcPadSounds.length / 8)}</span>
+            <button
+              aria-label="Página siguiente"
+              className="ui-icon-btn"
+              disabled={padPage >= Math.ceil(smcPadSounds.length / 8) - 1}
+              onClick={() => setPadPage((p) => Math.min(Math.ceil(smcPadSounds.length / 8) - 1, p + 1))}
+              type="button"
+            >
+              <ChevronRight size={15} />
+            </button>
           </div>
 
           <span aria-hidden="true" className="perform-mode-transport-divider" />
@@ -1904,6 +1920,15 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               + Track
             </button>
             <button
+              aria-label={project.padSettingsLocked ? "Desbloquear configuración" : "Bloquear configuración"}
+              className="ui-icon-btn"
+              onClick={() => applyUpdate((p) => ({ ...p, padSettingsLocked: !p.padSettingsLocked }))}
+              title={project.padSettingsLocked ? "Desbloquear configuración" : "Bloquear configuración"}
+              type="button"
+            >
+              {project.padSettingsLocked ? <Lock size={16} /> : <Unlock size={16} />}
+            </button>
+            <button
               aria-label={`Eliminar ${primaryTrack.name}`}
               className="ui-icon-btn"
               onClick={confirmRemoveActiveTrack}
@@ -1915,28 +1940,38 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           </div>
         </header>
         <div className="ui-smc-grid">
-          {samplerPads.map((pad) => (
-            <button
-              key={pad.num}
-              aria-label={pad.id ? `${pad.label} — pulsar pad` : `${pad.label} — próximamente`}
-              className={[
-                "ui-smc-btn",
-                pad.btnClass,
-                activeSamplerPadId === pad.id && pad.id !== null ? "ui-smc-btn-triggered" : "",
-              ].filter(Boolean).join(" ")}
-              disabled={pad.id === null}
-              onPointerDown={(e) => {
-                if (!pad.id) return
-                const rect = e.currentTarget.getBoundingClientRect()
-                const velocity = Math.max(0.35, 1 - (e.clientY - rect.top) / rect.height * 0.65)
-                handleSamplerPad(pad.id, velocity)
-              }}
-              type="button"
-            >
-              <span className="ui-smc-btn-num">{pad.num}</span>
-              <span className="ui-smc-btn-label">{pad.label}</span>
-              <span className="ui-smc-btn-desc">{pad.desc}</span>
-            </button>
+          {smcPadSounds.slice(padPage * 8, padPage * 8 + 8).map((pad, i) => (
+            <div key={pad.id} className="ui-smc-cell">
+              <button
+                aria-label={`${pad.label} — pulsar pad`}
+                className={[
+                  "ui-smc-btn",
+                  getPadBtnClass(pad.id),
+                  activeSamplerPadId === pad.id ? "ui-smc-btn-triggered" : "",
+                ].filter(Boolean).join(" ")}
+                onPointerDown={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const velocity = Math.max(0.35, 1 - (e.clientY - rect.top) / rect.height * 0.65)
+                  handleSamplerPad(pad.id, velocity)
+                }}
+                type="button"
+              >
+                <span className="ui-smc-btn-num">{padPage * 8 + i + 1}</span>
+                <span className="ui-smc-btn-label">{pad.label}</span>
+                <span className="ui-smc-btn-desc">{pad.description}</span>
+              </button>
+              {!project.padSettingsLocked && (
+                <button
+                  aria-label={`Configurar ${pad.label}`}
+                  className="ui-smc-config-btn"
+                  onClick={() => setConfigSoundId(pad.id)}
+                  title={`Configurar ${pad.label}`}
+                  type="button"
+                >
+                  ⚙
+                </button>
+              )}
+            </div>
           ))}
         </div>
       </section>
@@ -1986,87 +2021,76 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         title="Reiniciar proyecto?"
       />
 
-      <AppDialog
-        description="Ajusta la sintesis y el comportamiento de los pads."
-        onClose={onSettingsClose ?? (() => {})}
-        open={settingsOpen}
-        title="Opciones — Pad"
-      >
-        <div className="audio-sampler-settings">
-          <section className="ui-list-section">
-            <span className="ui-list-section-title">GLOBAL</span>
-            <div className="edit-settings-track-row">
-              <label className="edit-settings-track-label" htmlFor="pad-decay">Decay</label>
-              <input
-                id="pad-decay"
-                max={2}
-                min={0.5}
-                step={0.05}
-                type="range"
-                value={project.padSynthSettings.decayScale}
-                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { decayScale: Number(e.target.value) }))}
-              />
-              <span className="edit-settings-track-value">{project.padSynthSettings.decayScale.toFixed(2)}x</span>
+      {configSoundId && (() => {
+        const snd = getSmcPadSoundDescriptor(configSoundId)
+        const resolved: PadSoundParams = { ...PAD_SOUND_DEFAULTS[configSoundId], ...project.padSoundSettings[configSoundId] }
+        const hasTune = resolved.tune !== undefined
+        const hasLength = resolved.length !== undefined
+        const hasFlicker = resolved.flicker !== undefined
+        const patch = (p: Partial<PadSoundParams>) => applyUpdate((proj) => updatePadSoundSetting(proj, configSoundId, p))
+        return (
+          <AppDialog
+            description={`Síntesis y comportamiento de ${snd.label}.`}
+            onClose={() => setConfigSoundId(null)}
+            open
+            title={`Config — ${snd.label}`}
+          >
+            <div className="audio-sampler-settings">
+              <section className="ui-list-section">
+                <div className="edit-settings-track-row">
+                  <label className="edit-settings-track-label" htmlFor="ps-volume">Volumen</label>
+                  <input id="ps-volume" type="range" min={0} max={1} step={0.01}
+                    value={resolved.volume}
+                    onChange={(e) => patch({ volume: Number(e.target.value) })} />
+                  <span className="edit-settings-track-value">{Math.round(resolved.volume * 100)}%</span>
+                </div>
+                <div className="edit-settings-track-row">
+                  <label className="edit-settings-track-label" htmlFor="ps-decay">Decay</label>
+                  <input id="ps-decay" type="range" min={0.3} max={2} step={0.05}
+                    value={resolved.decay}
+                    onChange={(e) => patch({ decay: Number(e.target.value) })} />
+                  <span className="edit-settings-track-value">{resolved.decay.toFixed(2)}x</span>
+                </div>
+                <div className="edit-settings-track-row">
+                  <label className="edit-settings-track-label" htmlFor="ps-dist">Distorsión</label>
+                  <input id="ps-dist" type="range" min={0} max={1} step={0.01}
+                    value={resolved.distortion}
+                    onChange={(e) => patch({ distortion: Number(e.target.value) })} />
+                  <span className="edit-settings-track-value">{Math.round(resolved.distortion * 100)}%</span>
+                </div>
+                {hasTune && (
+                  <div className="edit-settings-track-row">
+                    <label className="edit-settings-track-label" htmlFor="ps-tune">Tono</label>
+                    <input id="ps-tune" type="range" min={20} max={400} step={1}
+                      value={resolved.tune}
+                      onChange={(e) => patch({ tune: Number(e.target.value) })} />
+                    <span className="edit-settings-track-value">{resolved.tune} Hz</span>
+                  </div>
+                )}
+                {hasLength && (
+                  <div className="edit-settings-track-row">
+                    <label className="edit-settings-track-label" htmlFor="ps-len">Longitud</label>
+                    <input id="ps-len" type="range" min={0.02} max={0.6} step={0.005}
+                      value={resolved.length}
+                      onChange={(e) => patch({ length: Number(e.target.value) })} />
+                    <span className="edit-settings-track-value">{Math.round((resolved.length ?? 0) * 1000)} ms</span>
+                  </div>
+                )}
+                {hasFlicker && (
+                  <div className="ui-list-row ui-list-row-static">
+                    <span className="ui-list-label">Flicker (LFO)</span>
+                    <label className="ui-toggle" aria-label="Flicker LFO">
+                      <input type="checkbox" checked={resolved.flicker ?? false}
+                        onChange={(e) => patch({ flicker: e.target.checked })} />
+                      <span />
+                    </label>
+                  </div>
+                )}
+              </section>
             </div>
-            <div className="edit-settings-track-row">
-              <label className="edit-settings-track-label" htmlFor="pad-dist">Distorsión</label>
-              <input
-                id="pad-dist"
-                max={1}
-                min={0}
-                step={0.01}
-                type="range"
-                value={project.padSynthSettings.distortion}
-                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { distortion: Number(e.target.value) }))}
-              />
-              <span className="edit-settings-track-value">{Math.round(project.padSynthSettings.distortion * 100)}%</span>
-            </div>
-          </section>
-          <section className="ui-list-section">
-            <span className="ui-list-section-title">KICK</span>
-            <div className="edit-settings-track-row">
-              <label className="edit-settings-track-label" htmlFor="pad-kick">Tono final</label>
-              <input
-                id="pad-kick"
-                max={80}
-                min={30}
-                step={1}
-                type="range"
-                value={project.padSynthSettings.kickTune}
-                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { kickTune: Number(e.target.value) }))}
-              />
-              <span className="edit-settings-track-value">{project.padSynthSettings.kickTune} Hz</span>
-            </div>
-          </section>
-          <section className="ui-list-section">
-            <span className="ui-list-section-title">HAT</span>
-            <div className="edit-settings-track-row">
-              <label className="edit-settings-track-label" htmlFor="pad-hat">Longitud</label>
-              <input
-                id="pad-hat"
-                max={0.2}
-                min={0.02}
-                step={0.005}
-                type="range"
-                value={project.padSynthSettings.hatLength}
-                onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { hatLength: Number(e.target.value) }))}
-              />
-              <span className="edit-settings-track-value">{Math.round(project.padSynthSettings.hatLength * 1000)} ms</span>
-            </div>
-            <div className="ui-list-row ui-list-row-static">
-              <span className="ui-list-label">Flicker (LFO)</span>
-              <label className="ui-toggle" aria-label="Hat flicker">
-                <input
-                  checked={project.padSynthSettings.hatFlicker}
-                  type="checkbox"
-                  onChange={(e) => applyUpdate((p) => applyPadSynthPatch(p, { hatFlicker: e.target.checked }))}
-                />
-                <span />
-              </label>
-            </div>
-          </section>
-        </div>
-      </AppDialog>
+          </AppDialog>
+        )
+      })()}
     </>
     )
   }

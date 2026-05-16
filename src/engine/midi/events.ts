@@ -4,6 +4,19 @@ import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
 
 export type MidiNoteEventType = "note-on" | "note-off"
 
+export type SmcPadSoundId =
+  | "kick" | "snare" | "hat" | "clap" | "tom" | "cowbell" | "rimshot" | "shaker"
+  | "open-hat" | "crash" | "ride" | "floor-tom" | "hi-tom" | "conga" | "woodblock" | "sub"
+
+export type PadSoundParams = {
+  volume: number
+  decay: number
+  distortion: number
+  tune?: number
+  length?: number
+  flicker?: boolean
+}
+
 export type MidiNoteEvent = {
   id: string
   type: MidiNoteEventType
@@ -20,7 +33,7 @@ export type MidiRecordedNote = {
   velocity: number
   instrumentId: MathematicalInstrumentId
   playbackSource?: "note" | "smc-pad"
-  smcPadSoundId?: "kick" | "snare" | "hat" | "clap" | "tom" | "cowbell" | "rimshot" | "shaker"
+  smcPadSoundId?: SmcPadSoundId
   playbackEnvelope?: Partial<ADSREnvelope>
   playbackPan?: number
   playbackTrackId?: string

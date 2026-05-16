@@ -1,6 +1,6 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
-import { playSmcPadHit, type SmcPadSynthSettings } from "./playSmcPadHit"
+import { playSmcPadHit, PAD_SOUND_DEFAULTS, type PadSoundParams, type SmcPadSoundId } from "./playSmcPadHit"
 import { findAvailableMathematicalInstrument } from "../../engine/audio/instrumentCatalog"
 import {
   createPlayOptions,
@@ -20,7 +20,7 @@ export type PlaybackHandle = {
 
 export type PlayRecordedNotesOptions = PlayNoteOptions & {
   onComplete?: () => void
-  smcPadSettings?: Partial<SmcPadSynthSettings>
+  padSoundSettings?: Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>>
 }
 
 export function playRecordedNotes(
@@ -70,7 +70,9 @@ export function playRecordedNotes(
       const playbackVolume = (recordedNote.playbackVolume ?? 1) * automationVolume
 
       if (recordedNote.playbackSource === "smc-pad" && recordedNote.smcPadSoundId) {
-        playSmcPadHit(recordedNote.smcPadSoundId, playbackVolume, playbackPan, options.smcPadSettings)
+        const soundId = recordedNote.smcPadSoundId
+        const soundParams = { ...PAD_SOUND_DEFAULTS[soundId], ...options.padSoundSettings?.[soundId] }
+        playSmcPadHit(soundId, playbackVolume, playbackPan, soundParams)
         return
       }
 

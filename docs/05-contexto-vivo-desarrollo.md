@@ -6372,3 +6372,312 @@ La arquitectura queda abierta para que plugins registren su propio trackType
 - src/features/lab/LabApp.tsx - getInitialActiveTrackId mode-aware, melodicTracks y
   percussionTracks como derived values, primaryTrack resuelto por tipo, selectores
   de pista filtrados por vista, import de ProjectTrackType
+
+---
+
+## Sesion 2026-05-16 - Corrección: pistas percussion no aparecían en la vista de edición
+
+### Que se hizo
+
+Se corrigió un bug introducido durante la separación de pistas por tipo. En la vista
+de edición (modo edit-only), el selector de pistas en el timeline de notas mostraba
+únicamente las pistas melodic (Track 1, Track 2), ocultando las pistas percussion
+(Pad 1, Pad 2). El usuario tampoco podía seleccionar un pad track como pista activa
+en esa vista.
+
+Dos cambios en src/features/lab/LabApp.tsx:
+
+1. primaryTrack en modo no-sampler ahora busca en project.tracks (todos los tipos)
+   en vez de melodicTracks. Si el usuario selecciona Pad 1 en el selector, esa pista
+   se convierte correctamente en primaryTrack.
+
+2. El selector de pistas del timeline de notas en edit-only pasó de melodicTracks.map
+   a project.tracks.map, mostrando todas las pistas del proyecto sin importar su tipo.
+
+El selector del sampler-only no se modificó: sigue mostrando solo percussionTracks.
+
+### Razon de la decision
+
+La vista de edición es la vista de mezcla final. Debe permitir ver y editar notas de
+cualquier tipo de pista (melodic, percussion, o plugins futuros). La restricción por
+tipo sólo tiene sentido en las vistas de captura (piano graba melodic, pad graba
+percussion). En la vista de edición, el filtrado debe ser abierto.
+
+### Archivos modificados
+
+- src/features/lab/LabApp.tsx - primaryTrack busca en project.tracks en edit-only;
+  selector de notas usa project.tracks.map en vez de melodicTracks.map
+
+---
+
+## Sesion 2026-05-16 - Mejora de síntesis percusiva: transients, snap y separación de frecuencias
+
+### Que se hizo
+
+Se reescribió la síntesis de los 8 sonidos del SMC Pad para corregir tres problemas
+que hacían que la batería sonara plana comparada con un teclado de juguete.
+
+**Problema 1 — Transients faltantes**: Los primeros 2–8ms de un golpe percusivo real
+son un burst de ruido corto y brillante que da el "punch" inicial. Sin eso todo suena
+redondeado y blando. Se agregó una capa de transient (noise bandpass muy corto) al
+kick, tom, cowbell y rimshot.
+
+**Problema 2 — Snare sin snap**: El snare tenía solo cuerpo grave (bandpass 320Hz) +
+un triangle débil. El "crack" del snare real viene de ruido highpass 4000Hz+. Se
+agregó esa capa como primera voz y se rebalancearon los volúmenes.
+
+**Problema 3 — Tom en la misma frecuencia que el kick**: Con kickTune=42, el tom
+sweepaba de 134Hz a 59Hz — casi idéntico al kick. Se cambiaron a frecuencias fijas
+(sweep 360→100Hz) completamente independientes de kickTune.
+
+**Problema 4 — Hat sin shimmer metálico**: El oscilador square del hat tenía volumen
+0.018 (casi inaudible). Se aumentó a 0.075 y se agregó un segundo square a 10800Hz
+para crear el batido (beating) metálico característico.
+
+**Cambios por sonido**:
+- Kick: transient noise bandpass 1400Hz (7ms), body más fuerte (0.88v), sub triangle
+- Snare: capa snap highpass 4200Hz (primera), body bandpass 260Hz, triangle tonal
+- Hat: dos oscilladores square (8400Hz + 10800Hz) con volúmenes útiles
+- Clap: snap layer en cada ráfaga + ráfagas en 0/16/34ms (más apretadas)
+- Tom: frecuencias fijas 360→100Hz, transient noise 900Hz
+- Cowbell: transient noise 800Hz agregado, volúmenes rebalanceados
+- Rimshot: capa de noise highpass 4500Hz muy corta y fuerte como golpe principal
+- Shaker: volúmenes generales aumentados
+
+### Razon de la decision
+
+El usuario notó que un teclado de juguete con batería sonaba más convincente. La
+diferencia fundamental es la presencia de transients de ataque y la separación
+espectral clara entre sonidos. La síntesis matemática puede lograrlo sin samples.
+
+### Archivos modificados
+
+- src/application/use-cases/playSmcPadHit.ts - síntesis reescrita para los 8 sonidos
+
+---
+
+## Sesion 2026-05-16 - Config por sonido, candado y paginación de 16 pads
+
+### Que se hizo
+
+**Config por sonido**: cada pad tiene ahora sus propios parámetros independientes
+en vez de un objeto global. El proyecto guarda `padSoundSettings` como un registro
+disperso `Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>>`. Solo se persiste
+lo que difiere de los defaults, que viven en `PAD_SOUND_DEFAULTS` en `playSmcPadHit.ts`.
+
+Campos por sonido: `volume`, `decay`, `distortion`. Además `tune` (frecuencia Hz)
+para kick, floor-tom, hi-tom, conga, sub; `length` (duración en segundos) para hat
+y open-hat; `flicker` (LFO) para hat y open-hat.
+
+**Botón de config**: cada pad card muestra un botón ⚙ en la esquina superior derecha
+al hacer hover. Abre un modal con los parámetros relevantes para ese sonido específico.
+Visible solo cuando la configuración NO está bloqueada.
+
+**Candado**: botón 🔒/🔓 en la barra superior del sampler. Al bloquear, los botones
+⚙ desaparecen y no se puede abrir la configuración por accidente durante una sesión
+de grabación.
+
+**Paginación**: el grid de 8 pads pasa a 16 sonidos organizados en dos páginas de 8.
+Botones P1/P2 en la barra superior cambian la página activa. La página 1 mantiene
+los 8 sonidos originales; la página 2 agrega: Open Hat, Crash, Ride, Floor Tom,
+Hi Tom, Conga, Woodblock, Sub 808.
+
+**8 nuevos sonidos (página 2)**:
+- Open Hat: igual que hat cerrado pero con length default 0.3s y decay más largo
+- Crash: impacto inicial + ruido highpass largo (1.4s) + 4 square waves de 6-15kHz
+- Ride: campana de platillo (sine 2500Hz) + plato (noise highpass 7.5kHz)
+- Floor Tom: sweep 65*4.5Hz → 65Hz, más grave que el tom normal
+- Hi Tom: sweep 180*3.2Hz → 180Hz, más agudo que el tom normal
+- Conga: sine sweep 320*1.8 → 320*0.85Hz + armónico secundario
+- Woodblock: dos triángulos (800Hz + 1180Hz) + transient noise
+- Sub 808: sine sweep tune*3 → tune (default 35Hz), cola larga (0.3+0.4*decay)
+
+### Razon de la decision
+
+Config global no tiene sentido cuando kick y hat tienen parámetros completamente
+distintos. La arquitectura por-sonido permite afinar cada instrumento sin afectar
+a los otros, es más cercana a cómo funcionan los drum machines reales (MPC, TR-808),
+y es más escalable para plugins que registren sonidos propios.
+
+### Archivos modificados
+
+- src/engine/midi/events.ts - SmcPadSoundId y PadSoundParams como tipos exportados
+- src/engine/project/projectModel.ts - padSoundSettings y padSettingsLocked en
+  MusicalProject; updatePadSoundSetting reemplaza updatePadSynthSettings;
+  parseImportedProject actualizado; isRecordedNote y normalizeTrackNotes con 16 IDs
+- src/application/use-cases/playSmcPadHit.ts - PadSoundParams, PAD_SOUND_DEFAULTS,
+  smcPadSounds con 16 entradas, 8 nuevas síntesis, función usa params por sonido
+- src/application/use-cases/playRecordedNotes.ts - padSoundSettings reemplaza
+  smcPadSettings en opciones; merge con PAD_SOUND_DEFAULTS por sonido en playback
+- src/features/lab/LabApp.tsx - padPage y configSoundId states; grid usa smcPadSounds
+  paginado; botones P1/P2 y candado en toolbar; botón ⚙ por pad; modal per-sonido
+- src/app/styles/ui-library.css - .ui-smc-cell, .ui-smc-config-btn,
+  .ui-pill-btn-active añadidos
+
+---
+
+## Movimiento — Reorden de instrumentos SMC Pad por UX (2026-05-16)
+
+### Intencion
+
+Cada página del pad grid debe poder tocarse como un kit completo sin necesidad
+de cambiar de página. El orden anterior tenía Floor Tom en P1 y Crash en P2,
+lo que rompía la experiencia: un beat básico necesita el crash pero estaba
+escondido en la página de extensiones.
+
+### Cambio aplicado
+
+Archivo: `src/application/use-cases/playSmcPadHit.ts` — array `smcPadSounds`
+
+**Página 1 — Kit estándar completo (tocable solo)**:
+
+| Posición | Instrumento |
+|----------|-------------|
+| 1 | Kick |
+| 2 | Snare |
+| 3 | Hihat |
+| 4 | Open Hat |
+| 5 | Clap |
+| 6 | Rimshot |
+| 7 | Tom |
+| 8 | Crash ← movido desde P2 |
+
+**Página 2 — Kit extendido (también coherente solo)**:
+
+| Posición | Instrumento |
+|----------|-------------|
+| 1 | Floor Tom ← movido desde P1 |
+| 2 | Hi Tom |
+| 3 | Ride |
+| 4 | Sub 808 |
+| 5 | Conga |
+| 6 | Cencerro |
+| 7 | Shaker |
+| 8 | Woodblock |
+
+### Decision tecnica
+
+El swap es mínimo: solo 3 entradas reordenadas (floor-tom, hi-tom, crash).
+No cambia ninguna síntesis ni ningún ID — los proyectos guardados no se ven
+afectados porque los IDs de sonido permanecen iguales.
+
+### Razon UX
+
+Un usuario que no sabe que existe la página 2 puede tocar rock, pop y electrónica
+básica con solo la P1. La P2 queda como kit extendido coherente: toms graves,
+platillo alternativo, percusión latina y sonidos experimentales.
+
+---
+
+## Sesion 2026-05-16 - Segunda reescritura de síntesis: psicoacústica y TR-808
+
+### Que se hizo
+
+Tras la primera mejora de síntesis (transients y snap), se detectó que sonidos
+cortos como hat, clap y shaker seguían sonando débiles. La causa es psicoacústica:
+**los sonidos de duración muy corta necesitan un pico de amplitud mayor para
+percibirse al mismo volumen que los sonidos largos** (integración temporal del oído).
+
+Se aplicó una segunda reescritura enfocada en cuatro instrumentos problemáticos:
+
+**Hat cerrado y Open Hat — frecuencias inarmónicas TR-808**:
+Los hats reales del TR-808 usan 6 osciladores square a frecuencias no enteras entre
+sí (razones no racionales crean el shimmer metálico). Se reemplazaron las frecuencias
+genéricas por las 3 frecuencias principales del TR-808 original: **8372, 10548, 12544 Hz**.
+El ruido base subió de 0.18v a 0.52v (volumen corregido por duración corta).
+El Open Hat replica las mismas frecuencias con duraciones proporcionalmente más largas.
+
+**Clap — patrón 4-burst estilo TR-808**:
+El TR-808 genera el "crack" del clap con 4 pulsos de ruido a 0, 8, 22 y 44ms
+(gaps progresivos que imitan los dedos cerrándose). Se reemplazaron los 3 bursts
+anteriores por este patrón exacto. El filtro principal subió de 1500Hz a 1800Hz
+(espectro real del clap). Se agregó una cola de reverb natural (bandpass 2400Hz,
+200ms) para darle cuerpo sin reverb artificial.
+
+**Rimshot — separación espectral correcta**:
+El "crack" del rimshot vive en 2200Hz (aro de tambor real), no en frecuencias
+genéricas. Se reescribió con: ruido bandpass 2200Hz a 0.82v como capa principal;
+tonal 920Hz (sweep 1200→750Hz) para el cuerpo del aro; sub 240Hz muy breve para
+la presencia del parche. El tono cambió de 1700Hz a 920Hz para sonar más natural.
+
+**Shaker — corrección psicoacústica de volumen**:
+El shaker sonaba casi inaudible por tener dos capas a volúmenes bajos (0.38v/0.22v)
+y ataque demasiado suave. Se corrigió: ataque 0.0005s (casi instantáneo), volúmenes
+0.55v/0.35v en el primer burst y 0.42v/0.25v en el segundo. Q del filtro bandpass
+subió de 0.6 a 0.8 para dar más presencia sin añadir frecuencias indeseadas.
+
+### Razon de la decision
+
+El usuario comparó con un teclado de juguete que sonaba más convincente. La
+diferencia real no era calidad de samples sino separación espectral y corrección
+de volumen por duración. Las frecuencias del TR-808 son conocidas y documentadas;
+usar los valores exactos elimina las aproximaciones genéricas que producen ese
+sonido "blando" y sintético.
+
+### Archivos modificados
+
+- src/application/use-cases/playSmcPadHit.ts - síntesis reescrita para hat, open-hat,
+  clap (4-burst + cola), rimshot (bandpass 2200Hz), shaker (volúmenes y ataque)
+
+---
+
+## Sesion 2026-05-16 - Rediseño de paginación y corrección del ícono de candado
+
+### Que se hizo
+
+**Paginación escalable**: los botones P1 / P2 en la toolbar se reemplazaron por un
+control `◄ [n / total] ►` usando los íconos `ChevronLeft` y `ChevronRight` de Lucide
+React. El número de páginas se calcula dinámicamente a partir de `smcPadSounds.length`.
+Así, agregar más sonidos en el futuro solo requiere añadirlos al array — el paginador
+se adapta solo sin tocar la UI.
+
+El estado `padPage` pasó de tipo `0 | 1` a `number` para soportar cualquier número
+de páginas.
+
+**Candado Lucide**: el botón de bloqueo usaba emojis 🔒/🔓. Se reemplazó por los
+íconos `Lock` / `Unlock` de Lucide React (mismo sistema que el resto del proyecto)
+para mantener consistencia visual con los otros íconos de la toolbar.
+
+### Razon de la decision
+
+El diseño P1/P2 acopla la UI a exactamente 2 páginas. Cualquier instrumento nuevo
+obligaría a crear P3, P4, etc. El control `◄ n/total ►` es el patrón estándar de
+paginación en drum machines y samplers (MPC, Ableton), y es natural para el usuario
+sin necesitar etiquetas explicativas. El emoji del candado rompía la coherencia visual
+de la toolbar donde todos los íconos son del mismo sistema (Lucide).
+
+### Archivos modificados
+
+- src/features/lab/LabApp.tsx - estado padPage como number; toolbar con ChevronLeft /
+  ChevronRight / Lock / Unlock de Lucide; cálculo dinámico de totalPages
+- src/app/styles/ui-library.css - .ui-pad-pager y .ui-pad-pager-label añadidos
+
+---
+
+## Ajuste UI 2026-05-16 - Tamaño del botón de config y altura de pads
+
+### Que se hizo
+
+Dos correcciones visuales detectadas al comparar la vista Pad con la vista Piano:
+
+**Botón de configuración más grande**: el botón ⚙ de cada pad tenía `1.4rem × 1.4rem`
+con `font-size: 0.7rem`, resultando en un ícono apenas visible. Se aumentó a
+`1.9rem × 1.9rem` con `font-size: 1rem` — suficiente para ser clicable cómodamente
+sin invadir el espacio del pad.
+
+**Altura de pads reducida**: los botones del pad tenían `min-height: 6.5rem` con
+`padding: 0.8rem`. En comparación con las teclas del piano, los pads se veían
+excesivamente altos y desproporcionados. Se redujo a `min-height: 4.8rem` con
+`padding: 0.55rem` — más compactos y proporcionados al resto de la UI.
+
+### Razon de la decision
+
+Coherencia visual entre vistas: la app tiene una sola barra de herramientas y las
+vistas deben sentirse como parte del mismo producto. Bloques de altura muy diferente
+entre Piano y Pad rompen esa coherencia. El botón de config pequeño era difícil de
+clicar en móvil y poco visible en desktop.
+
+### Archivos modificados
+
+- src/app/styles/ui-library.css - .ui-smc-config-btn: width/height 1.4→1.9rem,
+  font-size 0.7→1rem; .ui-smc-btn: min-height 6.5→4.8rem, padding 0.8→0.55rem

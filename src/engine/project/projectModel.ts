@@ -1,7 +1,7 @@
 import type { ADSREnvelope } from "../audio/audioEngine"
 import { getAvailableMathematicalInstruments } from "../audio/instrumentCatalog"
 import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
-import type { MidiRecordedNote } from "../midi/events"
+import type { MidiRecordedNote, PadSoundParams, SmcPadSoundId } from "../midi/events"
 import type { MusicalNote } from "../midi/notes"
 import type { MiMIDIPluginId, MiMIDIPluginStateMap } from "../plugins/pluginModel"
 import {
@@ -43,26 +43,13 @@ export type ProjectTrack = {
   volume: number
 }
 
-export type PadSynthSettings = {
-  decayScale: number
-  distortion: number
-  hatLength: number
-  kickTune: number
-  hatFlicker: boolean
-}
-
-const DEFAULT_PAD_SYNTH_SETTINGS: PadSynthSettings = {
-  decayScale: 1,
-  distortion: 0,
-  hatLength: 0.045,
-  kickTune: 42,
-  hatFlicker: false,
-}
+export type { PadSoundParams, SmcPadSoundId }
 
 export type MusicalProject = {
   id: string
   name: string
-  padSynthSettings: PadSynthSettings
+  padSoundSettings: Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>>
+  padSettingsLocked: boolean
   pluginStates: MiMIDIPluginStateMap
   trackTimelineDuration: number
   tracks: ProjectTrack[]
@@ -83,7 +70,8 @@ export function createDefaultProject(): MusicalProject {
   return {
     id: "project-1",
     name: "MiMIDI Project",
-    padSynthSettings: { ...DEFAULT_PAD_SYNTH_SETTINGS },
+    padSoundSettings: {},
+    padSettingsLocked: false,
     pluginStates: createDefaultPluginStates(),
     trackTimelineDuration: 8,
     tracks: [
@@ -102,11 +90,18 @@ export function appendPadTrack(project: MusicalProject): MusicalProject {
   }
 }
 
-export function updatePadSynthSettings(
+export function updatePadSoundSetting(
   project: MusicalProject,
-  patch: Partial<PadSynthSettings>,
+  soundId: SmcPadSoundId,
+  patch: Partial<PadSoundParams>,
 ): MusicalProject {
-  return { ...project, padSynthSettings: { ...project.padSynthSettings, ...patch } }
+  return {
+    ...project,
+    padSoundSettings: {
+      ...project.padSoundSettings,
+      [soundId]: { ...project.padSoundSettings[soundId], ...patch },
+    },
+  }
 }
 
 export function createProjectTrack(index: number, trackType: ProjectTrackType = "melodic"): ProjectTrack {
@@ -756,7 +751,15 @@ function isRecordedNote(value: unknown): value is MidiRecordedNote {
       note.smcPadSoundId === "tom" ||
       note.smcPadSoundId === "cowbell" ||
       note.smcPadSoundId === "rimshot" ||
-      note.smcPadSoundId === "shaker")
+      note.smcPadSoundId === "shaker" ||
+      note.smcPadSoundId === "open-hat" ||
+      note.smcPadSoundId === "crash" ||
+      note.smcPadSoundId === "ride" ||
+      note.smcPadSoundId === "floor-tom" ||
+      note.smcPadSoundId === "hi-tom" ||
+      note.smcPadSoundId === "conga" ||
+      note.smcPadSoundId === "woodblock" ||
+      note.smcPadSoundId === "sub")
   )
 }
 
@@ -913,7 +916,15 @@ function normalizeTrackNotes(track: ProjectTrack): ProjectTrack {
         note.smcPadSoundId === "tom" ||
         note.smcPadSoundId === "cowbell" ||
         note.smcPadSoundId === "rimshot" ||
-        note.smcPadSoundId === "shaker"
+        note.smcPadSoundId === "shaker" ||
+        note.smcPadSoundId === "open-hat" ||
+        note.smcPadSoundId === "crash" ||
+        note.smcPadSoundId === "ride" ||
+        note.smcPadSoundId === "floor-tom" ||
+        note.smcPadSoundId === "hi-tom" ||
+        note.smcPadSoundId === "conga" ||
+        note.smcPadSoundId === "woodblock" ||
+        note.smcPadSoundId === "sub"
           ? note.smcPadSoundId
           : undefined,
     })),
@@ -956,20 +967,34 @@ export function parseImportedProject(projectJson: string): MusicalProject {
     throw new Error("Project JSON does not match MiMIDI format")
   }
 
-  const rawPad = project.padSynthSettings as Record<string, unknown> | undefined
-  const padSynthSettings: PadSynthSettings = {
-    decayScale: typeof rawPad?.decayScale === "number" ? rawPad.decayScale : DEFAULT_PAD_SYNTH_SETTINGS.decayScale,
-    distortion: typeof rawPad?.distortion === "number" ? rawPad.distortion : DEFAULT_PAD_SYNTH_SETTINGS.distortion,
-    hatLength: typeof rawPad?.hatLength === "number" ? rawPad.hatLength : DEFAULT_PAD_SYNTH_SETTINGS.hatLength,
-    kickTune: typeof rawPad?.kickTune === "number" ? rawPad.kickTune : DEFAULT_PAD_SYNTH_SETTINGS.kickTune,
-    hatFlicker: typeof rawPad?.hatFlicker === "boolean" ? rawPad.hatFlicker : DEFAULT_PAD_SYNTH_SETTINGS.hatFlicker,
+  const ALL_SOUND_IDS: SmcPadSoundId[] = [
+    "kick", "snare", "hat", "clap", "tom", "cowbell", "rimshot", "shaker",
+    "open-hat", "crash", "ride", "floor-tom", "hi-tom", "conga", "woodblock", "sub",
+  ]
+  const rawSoundSettings = project.padSoundSettings as Record<string, unknown> | undefined
+  const padSoundSettings: Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>> = {}
+  if (rawSoundSettings && typeof rawSoundSettings === "object") {
+    for (const soundId of ALL_SOUND_IDS) {
+      const raw = rawSoundSettings[soundId] as Record<string, unknown> | undefined
+      if (raw && typeof raw === "object") {
+        const entry: Partial<PadSoundParams> = {}
+        if (typeof raw.volume === "number") entry.volume = raw.volume
+        if (typeof raw.decay === "number") entry.decay = raw.decay
+        if (typeof raw.distortion === "number") entry.distortion = raw.distortion
+        if (typeof raw.tune === "number") entry.tune = raw.tune
+        if (typeof raw.length === "number") entry.length = raw.length
+        if (typeof raw.flicker === "boolean") entry.flicker = raw.flicker
+        if (Object.keys(entry).length > 0) padSoundSettings[soundId] = entry
+      }
+    }
   }
 
   return {
     ...syncProjectTrackInstrumentsWithPluginCatalog({
       id: project.id,
       name: project.name,
-      padSynthSettings,
+      padSoundSettings,
+      padSettingsLocked: typeof project.padSettingsLocked === "boolean" ? project.padSettingsLocked : false,
       pluginStates: normalizePluginStates(project.pluginStates),
       trackTimelineDuration:
         typeof project.trackTimelineDuration === "number"
