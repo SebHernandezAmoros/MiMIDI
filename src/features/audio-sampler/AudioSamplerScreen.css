@@ -1,105 +1,523 @@
-.audio-sampler-btn-recording {
-  color: #c82828;
-  animation: audio-sampler-pulse 1s ease-in-out infinite;
+/* ── Layout raíz ─────────────────────────────────────────────────── */
+
+.audio-sampler-screen {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0 !important;
 }
 
-@keyframes audio-sampler-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+/* Contenedor de los 3 paneles — rellena el espacio disponible */
+.audio-sampler-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.1rem 0.85rem 0.85rem;
+  overflow: hidden;
 }
 
-/* Waveform placeholder */
-.audio-sampler-waveform-area {
-  display: grid;
-  place-items: center;
-  min-height: 7rem;
+/* ── Panel base — card con borde propio ──────────────────────────── */
+
+.audio-sampler-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-surface);
+  overflow: hidden;
+}
+
+.audio-sampler-panel-label {
+  flex: 0 0 auto;
+  padding: 0.38rem 0.8rem;
+  border-bottom: 1px solid var(--ui-color-border);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ui-color-text-muted);
+  text-transform: uppercase;
+  opacity: 0.7;
+  line-height: 1;
+  background: var(--ui-color-surface-raised);
+}
+
+.audio-sampler-panel-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  opacity: 1;
+}
+
+.audio-sampler-panel-label-trim {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: var(--ui-color-text-muted);
+  opacity: 0.8;
+}
+
+.audio-sampler-panel-label-trim-val {
+  color: var(--ui-color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Panel 1: Editor ─────────────────────────────────────────────── */
+
+.audio-sampler-panel-editor {
+  flex: 1 1 0;
+  min-height: 4.5rem;
+}
+
+/* Fila principal: waveform (2/3) + panel lateral (1/3) */
+.audio-sampler-editor-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.audio-sampler-waveform-area {
+  flex: 2 1 0;
+  min-width: 0;
+  min-height: 0;
   background: var(--ui-color-surface-inset);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.audio-sampler-waveform-loading {
+  opacity: 0.5;
+}
+
+.audio-sampler-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.audio-sampler-playhead {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  transform: translateX(-50%);
+  will-change: left;
 }
 
 .audio-sampler-waveform-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   color: var(--ui-color-text-muted);
 }
 
 .audio-sampler-waveform-empty svg {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .audio-sampler-waveform-empty span {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
 
 .audio-sampler-waveform-hint {
-  font-size: 0.75rem !important;
-  opacity: 0.7;
+  font-size: 0.72rem !important;
+  opacity: 0.65;
+  text-align: center;
 }
 
-/* Grid de slots */
+/* ── Panel 2: Muestras (slots) ───────────────────────────────────── */
+
+.audio-sampler-panel-slots {
+  flex: 0 0 auto;
+}
+
 .audio-sampler-slots {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.5rem;
+  padding: 0.65rem;
 }
 
 .audio-sampler-slot {
   display: grid;
-  gap: 0.15rem;
-  padding: 0.6rem 0.75rem;
+  gap: 0.12rem;
+  padding: 0.5rem 0.65rem;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-md);
   background: var(--ui-color-surface);
+  box-shadow: var(--ui-btn-shadow);
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition:
+    background 100ms ease,
+    box-shadow 90ms ease,
+    transform 90ms ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .audio-sampler-slot:active {
-  background: var(--ui-color-surface-inset);
+  transform: translateY(0.06rem);
+  box-shadow: var(--ui-btn-active-shadow);
 }
 
 .audio-sampler-slot-active {
   border-color: var(--ui-color-accent);
-  box-shadow: 0 0 0 1px var(--ui-color-accent);
+  box-shadow: 0 0 0 1.5px var(--ui-color-accent), var(--ui-btn-shadow);
 }
 
 .audio-sampler-slot-num {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--ui-color-text-muted);
+  line-height: 1;
 }
 
 .audio-sampler-slot-name {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  color: var(--ui-color-text-muted);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-sampler-slot-filled .audio-sampler-slot-name {
   color: var(--ui-color-text);
 }
 
 .audio-sampler-slot-duration {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--ui-color-accent);
+  line-height: 1;
 }
 
 .audio-sampler-slot-empty {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
+  color: var(--ui-color-text-muted);
+  opacity: 0.45;
+  line-height: 1;
+}
+
+/* ── Panel 3: Secuenciador ───────────────────────────────────────── */
+
+.audio-sampler-panel-sequencer {
+  flex: 0 0 auto;
+}
+
+.audio-sampler-sequencer {
+  background: var(--ui-color-surface-inset);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 4.5rem;
+  flex: 1;
+}
+
+/* Regla de tiempo */
+.audio-sampler-seq-ruler {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.22rem 0.6rem 0.18rem;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+}
+
+.audio-sampler-seq-ruler-mark {
+  font-size: 0.6rem;
+  color: var(--ui-color-text-muted);
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lanes */
+.audio-sampler-seq-lane {
+  display: flex;
+  align-items: center;
+  height: 1.75rem;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.audio-sampler-seq-lane:last-child {
+  border-bottom: none;
+}
+
+.audio-sampler-seq-lane-label {
+  flex: 0 0 5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ui-color-text-muted);
+  padding: 0 0.55rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--ui-color-border);
+}
+
+.audio-sampler-seq-lane-track {
+  flex: 1;
+  height: 100%;
+}
+
+/* Estado vacío del secuenciador */
+.audio-sampler-seq-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  color: var(--ui-color-text-muted);
+  font-size: 0.78rem;
+}
+
+/* ── Canvas con cursor de trim ───────────────────────────────────── */
+
+.audio-sampler-canvas-trim {
+  cursor: ew-resize;
+}
+
+/* ── Panel lateral de calibración (1/3 derecho) ──────────────────── */
+
+.audio-sampler-cal-panel {
+  flex: 1 0 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-left: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+  overflow-y: auto;
+  padding: 0.6rem 0.8rem;
+  gap: 0.5rem;
+}
+
+.audio-sampler-cal-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
   color: var(--ui-color-text-muted);
   opacity: 0.5;
 }
 
-.audio-sampler-slot-label {
-  font-size: 0.8rem;
-  font-weight: 600;
+.audio-sampler-cal-divider {
+  height: 1px;
+  background: var(--ui-color-border);
+  margin: 0.1rem 0;
+}
+
+.audio-sampler-cal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.audio-sampler-cal-row-slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.audio-sampler-cal-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.audio-sampler-cal-row-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audio-sampler-cal-row-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   color: var(--ui-color-text-muted);
+  text-transform: uppercase;
+}
+
+.audio-sampler-cal-row-value {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ui-color-accent);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-/* Settings dialog */
+.audio-sampler-cal-slider-full {
+  width: 100%;
+  height: 0.22rem;
+  accent-color: var(--ui-color-accent);
+}
+
+.audio-sampler-cal-gain-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audio-sampler-cal-slider-gain {
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+}
+
+.audio-sampler-cal-btn-norm {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.35rem;
+}
+
+.audio-sampler-cal-btn {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-inset);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  padding: 0.22rem 0.6rem;
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+}
+
+.audio-sampler-cal-btn-full {
+  width: 100%;
+}
+
+.audio-sampler-cal-btn:hover {
+  background: var(--ui-color-accent);
+  color: #fff;
+  border-color: var(--ui-color-accent);
+}
+
+.audio-sampler-cal-tune-hints {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.52rem;
+  color: var(--ui-color-text-muted);
+  opacity: 0.5;
+  margin-top: -0.1rem;
+}
+
+/* ── Toolbar: file input, TRIM, selector de slot ─────────────────── */
+
+.audio-sampler-file-input {
+  display: none;
+}
+
+/* TRIM en toolbar */
+.audio-sampler-toolbar-trim {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--ui-color-text-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.audio-sampler-toolbar-trim-val {
+  font-size: 0.68rem;
+  color: var(--ui-color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selector de slot en toolbar */
+.audio-sampler-slot-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--ui-color-surface-inset);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  padding: 0.15rem 0.3rem;
+}
+
+.audio-sampler-slot-nav-btn {
+  font-size: 0.6rem;
+  color: var(--ui-color-text-muted);
+  background: none;
+  border: none;
+  padding: 0.1rem 0.25rem;
+  cursor: pointer;
+  border-radius: var(--ui-radius-sm);
+  line-height: 1;
+  transition: background 80ms ease;
+}
+
+.audio-sampler-slot-nav-btn:hover {
+  background: var(--ui-color-surface-raised);
+  color: var(--ui-color-text);
+}
+
+.audio-sampler-slot-nav-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 5rem;
+  justify-content: center;
+}
+
+.audio-sampler-slot-nav-num {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--ui-color-text-muted);
+}
+
+.audio-sampler-slot-nav-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 8rem;
+}
+
+/* Input de renombrar dentro del slot card */
+.audio-sampler-slot-rename-input {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-inset);
+  border: 1px solid var(--ui-color-accent);
+  border-radius: var(--ui-radius-sm);
+  padding: 0.05rem 0.3rem;
+  outline: none;
+  width: 100%;
+  line-height: 1.1;
+}
+
+/* ── Settings dialog ─────────────────────────────────────────────── */
+
 .audio-sampler-settings {
   display: grid;
   gap: 0.85rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .audio-sampler-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

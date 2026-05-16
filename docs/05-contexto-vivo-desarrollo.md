@@ -6681,3 +6681,163 @@ clicar en móvil y poco visible en desktop.
 
 - src/app/styles/ui-library.css - .ui-smc-config-btn: width/height 1.4→1.9rem,
   font-size 0.7→1rem; .ui-smc-btn: min-height 6.5→4.8rem, padding 0.8→0.55rem
+
+---
+
+## Sesion 2026-05-16 - Sampler de audio funcional: importación, waveform e IndexedDB
+
+### Que se hizo
+
+Se implementó la funcionalidad real del Sampler de audio (vista con ícono de
+micrófono), que antes era una maqueta vacía sin ninguna lógica.
+
+**Persistencia de samples**: los archivos de audio no se pueden guardar en
+localStorage como JSON porque son datos binarios (ArrayBuffer). Se usó **IndexedDB**
+como almacén de binarios. Los metadatos del slot (nombre, duración, sample rate,
+canales) se guardan en localStorage bajo la clave `mimidi-audio-slots` como JSON.
+Los buffers de audio se almacenan en IndexedDB `mimidi-samples`, keyed por un ID
+único generado al importar.
+
+**Importación de archivos**: el botón ⬆ activa un `<input type="file" accept="audio/*">`
+oculto. El archivo se lee como ArrayBuffer, se decodifica con Web Audio API para
+obtener los metadatos, y el buffer original se guarda en IndexedDB.
+
+**Forma de onda**: al seleccionar un slot ocupado, se carga el buffer de IndexedDB,
+se decodifica y se dibuja en un `<canvas>` usando `devicePixelRatio` para pantallas
+retina. El algoritmo calcula min/max por bucket de muestras para cada píxel
+horizontal y dibuja líneas verticales. Se redibuaja si el canvas cambia de tamaño
+(ResizeObserver).
+
+**Reproducción**: botón ▶/■ reproduce el buffer decodificado vía `playAudioBuffer`
+que conecta al master gain del audioEngine compartido. Se auto-detiene al terminar.
+
+**Nombre editable**: la toolbar muestra el nombre del slot seleccionado. Clic en el
+nombre activa un input inline. Enter o blur confirma; Escape cancela.
+
+**Eliminación**: botón 🗑 elimina el buffer de IndexedDB y limpia el slot en
+localStorage.
+
+### Arquitectura de persistencia
+
+```
+Metadatos (JSON) → localStorage["mimidi-audio-slots"]
+Buffers (ArrayBuffer) → IndexedDB["mimidi-samples"]["buffers"]
+```
+
+La clave de IndexedDB es un ID único generado al importar (`sample-{timestamp}-{random}`).
+Los metadatos en localStorage guardan ese ID para hacer el lookup. Si el IndexedDB
+se limpia manualmente, los metadatos queden huérfanos (el slot aparece como vacío
+en la siguiente carga).
+
+### Limitaciones actuales
+
+- Grabación desde micrófono no implementada (requiere getUserMedia + permisos)
+- Los samples NO están integrados con el modelo de proyecto (`MusicalProject`) —
+  viven en su propio localStorage key, independientes del proyecto activo
+
+### Archivos creados/modificados
+
+- src/engine/audio/sampleStorage.ts (nuevo) — IndexedDB wrapper: saveSampleBuffer,
+  loadSampleBuffer, deleteSampleBuffer
+- src/engine/audio/audioEngine.ts — funciones exportadas añadidas: decodeAudioData,
+  playAudioBuffer
+- src/features/audio-sampler/AudioSamplerScreen.tsx — reescritura completa con
+  estado real, importación, waveform canvas, play/stop, nombre editable, eliminación
+- src/features/audio-sampler/AudioSamplerScreen.css — añadidos: canvas, file input
+  oculto, nombre editable en toolbar, estado filled del slot
+
+---
+
+## Sampler — Herramientas de calibración de audio (2026-05-16)
+
+### Intención
+
+Implementar los 5 controles esenciales para calibrar samples en el panel EDITOR
+del sampler: Trim, Normalize, Gain, Fade In/Out y Tune.
+
+### Decisión técnica
+
+**SampleCalibration** — nuevo tipo `AudioCalibration` (exportado desde audioEngine.ts)
+con campos: trimStart, trimEnd (fracciones 0–1), gain (0–2), fadeIn, fadeOut (segundos),
+tune (semitones –24..+24). Se guarda en cada `SampleSlotMeta.calibration` en localStorage.
+Al cargar slots existentes (sin campo calibration) se aplica `DEFAULT_CALIBRATION` como
+fallback para retrocompatibilidad.
+
+**Trim visual** — el canvas acepta `onMouseDown/Move/Up/Leave`. El handle más cercano al
+cursor (start o end) se asigna en `mouseDown`. Al mover se recalcula la fracción y se llama
+a `updateCalibration` en cada frame, lo que redibuja el waveform con la nueva región oscurecida
+y las líneas de handle en acento. Se usa `dragTrimRef` (ref, no estado) para no causar
+re-renders durante el drag.
+
+**drawWaveformWithTrim** — reemplaza `drawWaveform`. Dibuja barras con opacidad alta
+dentro del trim y baja fuera. Superpone overlay oscuro fuera de la región trim. Dibuja
+líneas verticales y triángulos de dirección en los handles.
+
+**playAudioBufferCalibrated** — nueva función en audioEngine.ts. Usa `source.start(when, offset,
+duration)` para el trim, `playbackRate = 2^(tune/12)` para el tune, y una envolvente ADSR
+simplificada (setValueAtTime + linearRampToValueAtTime) para fade in/out.
+
+**Barra de calibración** — panel `.audio-sampler-cal-bar` debajo del waveform (solo visible
+cuando hay audio). Contiene: info del trim (timestamps), botón NORM, slider GAIN (0–200%),
+sliders FADE IN / FADE OUT (0–2s, máx 50% de duración), botones ± TUNE con valor en semitones.
+
+### Archivos modificados
+
+- src/engine/audio/audioEngine.ts — export `AudioCalibration`, `playAudioBufferCalibrated`
+- src/features/audio-sampler/AudioSamplerScreen.tsx — `SampleCalibration` en `SampleSlotMeta`,
+  `DEFAULT_CALIBRATION`, `updateCalibration()`, `handleNormalize()`, handlers canvas drag,
+  `drawWaveformWithTrim`, panel editor con barra de calibración completa
+- src/features/audio-sampler/AudioSamplerScreen.css — `.audio-sampler-cal-bar`, grupos,
+  sliders, botones NORM y step, separadores, cursor ew-resize en canvas
+
+### Validación
+
+TypeScript compila sin errores (`tsc --noEmit`). Flujo: importar audio → waveform visible →
+arrastrar handles de trim → sliders ajustan gain/fades → botones ± cambian afinación →
+Play usa todos los parámetros vía `playAudioBufferCalibrated`.
+
+---
+
+## Sampler — Refactor de arquitectura (2026-05-16)
+
+### Intención
+
+El `AudioSamplerScreen.tsx` original mezclaba tipos de dominio, lógica de persistencia
+y orquestación de audio en el mismo componente React, violando la Screaming Architecture
+del proyecto. Se refactorizó para alinear el sampler con el mismo patrón que piano/pad.
+
+### Decisión técnica
+
+**`engine/audio/sampleModel.ts`** (nuevo) — capa engine:
+- `SampleSlotMeta` (tipo del dominio de audio)
+- `DEFAULT_CALIBRATION` (constante de dominio)
+- `NUM_SLOTS` (constante de configuración)
+- `loadSlotMetas()` / `saveSlotMetas()` — persistencia en localStorage
+
+**`application/use-cases/playSampleBuffer.ts`** (nuevo) — capa use-case:
+- `playSampleBuffer(buffer, calibration)` — envuelve `playAudioBufferCalibrated` del engine
+- Sigue el mismo patrón que `playNote.ts` y `playSmcPadHit.ts`
+
+**`AudioSamplerScreen.tsx`** — queda solo con:
+- Estado React puro (UI): selectedIndex, isPlaying, isLoading, samplerView, isEditingName
+- Canvas drawing (render de UI): `drawWaveformWithTrim`
+- Event handlers que delegan a use-cases o engine
+- JSX
+
+### Flujo resultante
+
+```
+AudioSamplerScreen (UI)
+  → playSampleBuffer.ts (use-case)
+    → playAudioBufferCalibrated (engine/audio/audioEngine.ts)
+
+AudioSamplerScreen (UI)
+  → loadSlotMetas / saveSlotMetas (engine/audio/sampleModel.ts)
+    → localStorage
+```
+
+### Archivos creados/modificados
+
+- src/engine/audio/sampleModel.ts (nuevo)
+- src/application/use-cases/playSampleBuffer.ts (nuevo)
+- src/features/audio-sampler/AudioSamplerScreen.tsx — imports actualizados, código de dominio eliminado

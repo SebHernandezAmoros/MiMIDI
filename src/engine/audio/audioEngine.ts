@@ -309,6 +309,118 @@ export function setMasterVolume(volume: number) {
   masterGain.gain.setTargetAtTime(nextVolume, ctx.currentTime, 0.01)
 }
 
+export async function decodeAudioData(arrayBuffer: ArrayBuffer): Promise<AudioBuffer> {
+  const ctx = getAudioContext()
+  return ctx.decodeAudioData(arrayBuffer.slice(0))
+}
+
+export function playAudioBuffer(
+  audioBuffer: AudioBuffer,
+  volume = 1,
+  pan = 0,
+): () => void {
+  const ctx = getAudioContext()
+
+  const panNode = ctx.createStereoPanner()
+  panNode.pan.value = clamp(pan, -1, 1)
+  panNode.connect(getMasterGainNode(ctx))
+
+  const gainNode = ctx.createGain()
+  gainNode.gain.value = clamp(volume, 0, 2)
+  gainNode.connect(panNode)
+
+  const source = ctx.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(gainNode)
+  source.start()
+
+  return () => {
+    try { source.stop() } catch { /* already stopped */ }
+  }
+}
+
+export type AudioCalibration = {
+  trimStart: number  // 0-1 fraction of buffer length
+  trimEnd: number    // 0-1 fraction of buffer length
+  gain: number       // 0-2 linear
+  fadeIn: number     // seconds
+  fadeOut: number    // seconds
+  tune: number       // semitones, -24..+24
+}
+
+export type SamplePlayback = {
+  stop: () => void
+  setGain: (linearGain: number) => void
+  setTune: (semitones: number) => void
+  realDurationMs: number
+}
+
+export function playAudioBufferCalibrated(
+  audioBuffer: AudioBuffer,
+  cal: AudioCalibration,
+  volume = 1,
+  pan = 0,
+): SamplePlayback {
+  const ctx = getAudioContext()
+  const now = ctx.currentTime
+
+  const totalDur = audioBuffer.duration
+  const offset = clamp(cal.trimStart, 0, 1) * totalDur
+  const bufferDuration = Math.max(0.001, clamp(cal.trimEnd, 0, 1) * totalDur - offset)
+
+  // Tiempo real ajustado por playback rate (tune)
+  const playbackRate = Math.pow(2, cal.tune / 12)
+  const realDuration = bufferDuration / playbackRate
+  const endTime = now + realDuration
+
+  const panNode = ctx.createStereoPanner()
+  panNode.pan.value = clamp(pan, -1, 1)
+  panNode.connect(getMasterGainNode(ctx))
+
+  const gainNode = ctx.createGain()
+  const baseGain = clamp(volume * cal.gain, 0, 4)
+
+  // Fades calculados en tiempo real (segundos de salida)
+  const fadeIn = clamp(cal.fadeIn, 0, realDuration * 0.9)
+  const fadeOut = clamp(cal.fadeOut, 0, realDuration * 0.9 - fadeIn)
+
+  if (fadeIn > 0) {
+    gainNode.gain.setValueAtTime(0.0001, now)
+    gainNode.gain.linearRampToValueAtTime(baseGain, now + fadeIn)
+  } else {
+    gainNode.gain.setValueAtTime(baseGain, now)
+  }
+
+  if (fadeOut > 0) {
+    gainNode.gain.setValueAtTime(baseGain, endTime - fadeOut)
+    gainNode.gain.linearRampToValueAtTime(0.0001, endTime)
+  }
+
+  gainNode.connect(panNode)
+
+  const source = ctx.createBufferSource()
+  source.buffer = audioBuffer
+  source.playbackRate.value = playbackRate
+  source.connect(gainNode)
+
+  // start(when, offset) sin duration — stop explícito en tiempo real
+  source.start(now, offset)
+  source.stop(endTime)
+
+  return {
+    realDurationMs: realDuration * 1000,
+    stop: () => {
+      try { source.stop() } catch { /* already stopped */ }
+    },
+    setGain: (linearGain: number) => {
+      gainNode.gain.setTargetAtTime(clamp(volume * linearGain, 0, 4), ctx.currentTime, 0.015)
+    },
+    setTune: (semitones: number) => {
+      source.playbackRate.setTargetAtTime(Math.pow(2, semitones / 12), ctx.currentTime, 0.015)
+    },
+  }
+}
+
 export function startFrequency(
   frequency: number,
   options: PlayFrequencyOptions = {},
