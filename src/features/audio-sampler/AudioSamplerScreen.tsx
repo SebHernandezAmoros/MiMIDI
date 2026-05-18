@@ -5,7 +5,7 @@ import { AppDialog } from "../../app/components/AppDialog"
 import type { AppViewMessages } from "../../app/appI18n"
 import { type AudioCalibration, getAudioCurrentTime } from "../../engine/audio/audioEngine"
 import { NUM_SLOTS, DEFAULT_CALIBRATION, type SampleSlotMeta, loadSlotMetas, saveSlotMetas } from "../../engine/audio/sampleModel"
-import { SEQ_DEFAULT_BPM, type SequencerPattern, createDefaultPattern, syncPatternLanes, resizePatternSteps, saveSeqPattern, loadSeqPattern } from "../../engine/audio/sequencerModel"
+import { SEQ_DEFAULT_BPM, type SequencerPattern, syncPatternLanes, resizePatternSteps, saveSeqPattern, loadSeqPattern } from "../../engine/audio/sequencerModel"
 import { addSamplerMix, getSamplerTracks } from "../../engine/project/projectModel"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSampleBuffer, type SamplePlayback } from "../../application/use-cases/playSampleBuffer"
@@ -15,8 +15,6 @@ import { deleteSampleSlot } from "../../application/use-cases/deleteSampleSlot"
 import { exportSampleSlot } from "../../application/use-cases/exportSampleSlot"
 import { exportSeqMix } from "../../application/use-cases/exportSeqMix"
 import { playSequencerStep } from "../../application/use-cases/playSequencerStep"
-
-const SEQ_SECONDS = 8
 
 function formatDuration(seconds: number): string {
   return seconds < 10 ? `${seconds.toFixed(2)}s` : `${seconds.toFixed(1)}s`
@@ -116,7 +114,6 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   const [decodedBuffer, setDecodedBuffer] = useState<AudioBuffer | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [renamingSlotIndex, setRenamingSlotIndex] = useState<number | null>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [seqExportOpen, setSeqExportOpen] = useState(false)
   const [seqExportName, setSeqExportName] = useState("")
@@ -171,6 +168,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   // Cargar y decodificar buffer al cambiar slot seleccionado
   useEffect(() => {
     if (!selectedSlot) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDecodedBuffer(null)
       return
     }
@@ -191,6 +189,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
       .finally(() => { if (!cancelled) setIsLoading(false) })
 
     return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSlot?.dbId])
 
   // Dibujar waveform al cambiar buffer, trim, o al volver al tab Editor
@@ -340,7 +339,6 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   }
 
   function handleSlotClick(index: number) {
-    setRenamingSlotIndex(null)
     setSelectedIndex(index)
     const slot = slots[index - 1]
     if (!slot) return
@@ -380,7 +378,6 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
   function handleRename(index: number, name: string) {
     const trimmed = name.trim()
-    setRenamingSlotIndex(null)
     if (!trimmed) return
     const slot = slots[index - 1]
     if (!slot) return
@@ -423,7 +420,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   const filledCount = slots.filter(Boolean).length
 
   // ── Sequencer: sync refs ────────────────────────────────────────────
-  slotsRef.current = slots
+  useEffect(() => { slotsRef.current = slots }, [slots])
 
   // Sync pattern lanes when slots are added/removed
   const slotIds = slots.map(s => s?.dbId ?? "").join(",")
@@ -443,35 +440,38 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   }, [])
 
   // ── Sequencer: tick (always latest via ref) ─────────────────────────
-  seqTickRef.current = () => {
-    const now = getAudioCurrentTime()
-    const pattern = seqPatternRef.current
-    const secondsPerStep = 60 / pattern.bpm / 4
+  // useEffect sin deps = se ejecuta después de cada render, manteniendo el closure siempre actualizado
+  useEffect(() => {
+    seqTickRef.current = () => {
+      const now = getAudioCurrentTime()
+      const pattern = seqPatternRef.current
+      const secondsPerStep = 60 / pattern.bpm / 4
 
-    while (seqNextStepTimeRef.current < now + 0.1) {
-      const step = seqCurrentStepRef.current
-      pattern.lanes.forEach(lane => {
-        if (!lane.steps[step]?.active) return
-        const slot = slotsRef.current.find(s => s?.dbId === lane.slotDbId)
-        if (!slot) return
-        const buf = bufferCacheRef.current.get(lane.slotDbId)
-        if (!buf) return
-        playSequencerStep(buf, slot.calibration, seqNextStepTimeRef.current)
-      })
+      while (seqNextStepTimeRef.current < now + 0.1) {
+        const step = seqCurrentStepRef.current
+        pattern.lanes.forEach(lane => {
+          if (!lane.steps[step]?.active) return
+          const slot = slotsRef.current.find(s => s?.dbId === lane.slotDbId)
+          if (!slot) return
+          const buf = bufferCacheRef.current.get(lane.slotDbId)
+          if (!buf) return
+          playSequencerStep(buf, slot.calibration, seqNextStepTimeRef.current)
+        })
 
-      const fireTime = seqNextStepTimeRef.current
-      const delay = Math.max(0, (fireTime - now) * 1000)
-      const capturedStep = step
-      setTimeout(() => {
-        if (seqIsPlayingRef.current) setSeqCurrentStep(capturedStep)
-      }, delay)
+        const fireTime = seqNextStepTimeRef.current
+        const delay = Math.max(0, (fireTime - now) * 1000)
+        const capturedStep = step
+        setTimeout(() => {
+          if (seqIsPlayingRef.current) setSeqCurrentStep(capturedStep)
+        }, delay)
 
-      seqCurrentStepRef.current = (step + 1) % pattern.stepsPerBar
-      seqNextStepTimeRef.current += secondsPerStep
+        seqCurrentStepRef.current = (step + 1) % pattern.stepsPerBar
+        seqNextStepTimeRef.current += secondsPerStep
+      }
+
+      seqSchedulerRef.current = window.setTimeout(() => seqTickRef.current?.(), 25)
     }
-
-    seqSchedulerRef.current = window.setTimeout(() => seqTickRef.current?.(), 25)
-  }
+  })
 
   function startSeq() {
     seqCurrentStepRef.current = 0

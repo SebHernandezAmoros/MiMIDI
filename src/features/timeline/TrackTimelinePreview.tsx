@@ -3,7 +3,6 @@ import {
   getMidiTracks,
   getSamplerTracks,
   getTrackTimelineClipDuration,
-  isMidiTrack,
   type MidiTrack,
   type SamplerTrack,
   type TimelineTrack,
@@ -14,7 +13,6 @@ import "./TrackTimelinePreview.css"
 type TrackTimelinePreviewProps = {
   activeTrackId: string
   onDragStateChange?: (isDragging: boolean) => void
-  onRemoveSamplerMix?: (mixId: string) => void
   onRenameMix?: (mixId: string, name: string) => void
   onSelectMix?: (mixId: string) => void
   onSelectTrack: (trackId: string) => void
@@ -44,7 +42,6 @@ type TrackTimelineStyle = CSSProperties & {
 export function TrackTimelinePreview({
   activeTrackId,
   onDragStateChange,
-  onRemoveSamplerMix,
   onRenameMix,
   onSelectMix,
   onSelectTrack,

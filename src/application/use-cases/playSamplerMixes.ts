@@ -10,8 +10,6 @@ export function playSamplerMixes(
   if (mixes.length === 0) return { cancel: () => {} }
 
   let cancelled = false
-  const sources: AudioBufferSourceNode[] = []
-
   const slots = loadSlotMetas()
 
   void (async () => {

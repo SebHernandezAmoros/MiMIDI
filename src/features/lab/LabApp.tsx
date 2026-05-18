@@ -195,7 +195,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const [timelineView, setTimelineView] = useState<"notes" | "tracks">("notes")
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
-  const [isTimelineDragging, setIsTimelineDragging] = useState(false)
+  const [, setIsTimelineDragging] = useState(false)
   const [activeTrackId, setActiveTrackId] = useState(() => getInitialActiveTrackId(mode))
   const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
   const [selectedRecordedNoteId, setSelectedRecordedNoteId] = useState<string | null>(
@@ -215,7 +215,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const {
     state: project,
     undoStack,
-    redoStack,
     canUndo,
     canRedo,
     applyUpdate,
@@ -245,6 +244,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
   useEffect(() => {
     if (hasNoTracks && timelineView === "notes") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTimelineView("tracks")
     }
   }, [hasNoTracks, timelineView])
@@ -252,12 +252,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   useEffect(() => {
     const tracks = getMidiTracks(project.timeline)
     if (tracks.length > 0 && !tracks.some((t) => t.id === activeTrackId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTrackId(tracks[0].id)
     }
   }, [project.timeline, activeTrackId])
 
   useEffect(() => {
     if (!playbackTransport.isPlaying || !playbackTransport.playbackInfo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAbsolutePlayheadTime(null)
       return
     }
@@ -370,12 +372,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     }
   }
 
-  const shortcutHint = useMemo(() => {
-    const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
-    const mod = isMac ? "Cmd" : "Ctrl"
 
-    return `${mod}+Z / ${mod}+Y`
-  }, [])
 
   useEffect(() => {
     saveProject(project)
@@ -2541,143 +2538,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         </AppDialog>
 
         <aside className="perform-workspace-secondary perform-workspace-secondary-hidden">
-          <section className="perform-workspace-card">
-            <div className="app-surface-title-row">
-              <div>
-                <span className="app-surface-eyebrow">Proyecto</span>
-                <h3>{project.name}</h3>
-              </div>
-            </div>
-            <p className="app-surface-note">{projectMessage || "Listo para tocar y grabar."}</p>
-          </section>
-
-          <section className="perform-workspace-card">
-            <div className="app-surface-title-row">
-              <div>
-                <span className="app-surface-eyebrow">SMC Pad</span>
-                <h3>Percusion rapida</h3>
-              </div>
-            </div>
-            {performPad}
-          </section>
-
-          <section className="perform-workspace-card">
-            <div className="app-surface-title-row">
-              <div>
-                <span className="app-surface-eyebrow">Acciones</span>
-                <h3>Transporte y toma</h3>
-              </div>
-            </div>
-            {performActions}
-          </section>
-
-          <section className="perform-workspace-card">
-            <div className="app-surface-title-row">
-              <div>
-                <span className="app-surface-eyebrow">MIDI</span>
-                <h3>Actividad reciente</h3>
-              </div>
-            </div>
-            {performMidiLog}
-          </section>
-        </aside>
-      </>
-    )
-  }
-
-  if (false) {
-    return (
-      <>
-        <section className="perform-workspace-primary" aria-label="Panel principal Perform">
-          <section className="perform-workspace-card">
-            <div className="app-surface-title-row">
-              <div>
-                <span className="app-surface-eyebrow">Interpretacion</span>
-                <h3>{primaryTrack.name}</h3>
-              </div>
-              <span className="app-surface-status">
-                {recordingState === "recording" ? "Grabando" : "Listo"}
-              </span>
-            </div>
-            <p className="app-surface-note">
-              Modo {pianoMode === "note" ? "nota" : "acorde"} · Octava {previewOctave}
-            </p>
-          </section>
-
-          <section className="perform-workspace-card">
-            <div className="perform-mode-track-strip">
-              <button
-                aria-label="Pista anterior"
-                disabled={midiTracks[0]?.id === primaryTrack.id}
-                onClick={() => switchTrackByOffset(-1)}
-                type="button"
-              >
-                ←
-              </button>
-              <div className="perform-mode-track-display">
-                <span>Track activa</span>
-                <strong>{primaryTrack.name}</strong>
-              </div>
-              <button
-                aria-label="Pista siguiente"
-                disabled={midiTracks.at(-1)?.id === primaryTrack.id}
-                onClick={() => switchTrackByOffset(1)}
-                type="button"
-              >
-                →
-              </button>
-              <div className="perform-mode-octave-pill" aria-label="Octava visible activa">
-                <span>Octava</span>
-                <strong>{previewOctave}</strong>
-              </div>
-              <button onClick={addTrack} type="button">
-                + Track
-              </button>
-            </div>
-          </section>
-
-          <section className="perform-workspace-card">
-            <div className="perform-mode-track-strip">
-              <button
-                aria-label="Bajar octava"
-                disabled={previewOctave === previewOctaveOptions[0]}
-                onClick={() => stepPreviewOctave(-1)}
-                type="button"
-              >
-                −
-              </button>
-              <div className="perform-mode-track-display">
-                <span>Instrumento</span>
-                <strong>{selectedInstrument.name}</strong>
-              </div>
-              <button
-                aria-label="Subir octava"
-                disabled={previewOctave === previewOctaveOptions.at(-1)}
-                onClick={() => stepPreviewOctave(1)}
-                type="button"
-              >
-                +
-              </button>
-              <div className="perform-mode-octave-pill" aria-label="Nota seleccionada activa">
-                <span>Nota</span>
-                <strong>{selectedNote}</strong>
-              </div>
-              <button onClick={playTestNote} type="button">
-                Tocar
-              </button>
-            </div>
-          </section>
-
-          <section className="perform-workspace-card">
-            {performControls}
-          </section>
-
-          <section className="perform-workspace-card">
-            {performPiano}
-          </section>
-        </section>
-
-        <aside className="perform-workspace-secondary">
           <section className="perform-workspace-card">
             <div className="app-surface-title-row">
               <div>
