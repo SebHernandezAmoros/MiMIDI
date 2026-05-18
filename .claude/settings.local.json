@@ -7,7 +7,8 @@
       "PowerShell(Get-ChildItem \"c:\\\\SEBASTIAN\\\\5. EMPRENDIMIENTO\\\\REACT\\\\MiMIDI\\\\src\\\\application\" -Recurse -File | ForEach-Object { $_.FullName })",
       "Bash(Get-ChildItem -Path \"c:\\\\SEBASTIAN\\\\5. EMPRENDIMIENTO\\\\REACT\\\\MiMIDI\\\\src\" -Directory)",
       "Bash(Select-Object -ExpandProperty Name)",
-      "PowerShell(Get-ChildItem -Path \"c:\\\\SEBASTIAN\\\\5. EMPRENDIMIENTO\\\\REACT\\\\MiMIDI\" -File | Where-Object { $_.Name -match '\\(ARCHITECTURE|README|DOCS\\)' })"
+      "PowerShell(Get-ChildItem -Path \"c:\\\\SEBASTIAN\\\\5. EMPRENDIMIENTO\\\\REACT\\\\MiMIDI\" -File | Where-Object { $_.Name -match '\\(ARCHITECTURE|README|DOCS\\)' })",
+      "Bash(echo \"Exit: $?\")"
     ]
   }
 }

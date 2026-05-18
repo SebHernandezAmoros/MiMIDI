@@ -6,6 +6,8 @@ import {
   type ArpeggiatorHandle,
 } from "../../application/use-cases/arpeggiatorPlayback"
 import { exportProjectAudio as exportProjectAudioUseCase } from "../../application/use-cases/exportProjectAudio"
+import { exportProjectBundle } from "../../application/use-cases/exportProjectBundle"
+import { importProjectBundle } from "../../application/use-cases/importProjectBundle"
 import { playNote, playNotes } from "../../application/use-cases/playNote"
 import { setMasterVolume, type ADSREnvelope } from "../../engine/audio/audioEngine"
 import {
@@ -208,6 +210,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const [configSoundId, setConfigSoundId] = useState<SmcPadSoundId | null>(null)
   const [isTrackRemovalConfirmOpen, setIsTrackRemovalConfirmOpen] = useState(false)
   const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false)
+  const [isNewProjectConfirmOpen, setIsNewProjectConfirmOpen] = useState(false)
   const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
   const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
     MathematicalInstrument["category"]
@@ -230,6 +233,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const undoActionRef = useRef<() => void>(() => {})
   const redoActionRef = useRef<() => void>(() => {})
   const importInputRef = useRef<HTMLInputElement | null>(null)
+  const importBundleRef = useRef<HTMLInputElement | null>(null)
   const activeArpeggiatorHandleRef = useRef<ArpeggiatorHandle | null>(null)
   const activeArpeggiatorTriggerKeyRef = useRef<string | null>(null)
   const playbackTransport = usePlaybackTransport()
@@ -732,24 +736,33 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   function removeActiveTrack() {
     if (hasNoTracks) return
 
+    const isPercussion = primaryTrack.trackType === "percussion"
+    const isLastPercussionTrack = isPercussion && percussionTracks.length === 1
     const isLastMidiTrack = midiTracks.length === 1
     const trackName = primaryTrack.name
     const currentIndex = midiTracks.findIndex((track) => track.id === primaryTrack.id)
     const fallbackTrackId =
       midiTracks[currentIndex - 1]?.id ?? midiTracks[currentIndex + 1]?.id
+    const freshPadId = `track-${midiTracks.length}`
 
     applyUpdate((currentProject) => {
       const withoutTrack = removeTrack(currentProject, primaryTrack.id)
+      if (isLastPercussionTrack) return appendPadTrack(withoutTrack)
       if (!isLastMidiTrack) return withoutTrack
-      // Last midi track removed — insert a fresh Track 1 before any sampler tracks
       return { ...withoutTrack, timeline: [createProjectTrack(1), ...withoutTrack.timeline] }
     })
-    setActiveTrackId(isLastMidiTrack ? "track-1" : (fallbackTrackId ?? ""))
+    setActiveTrackId(
+      isLastPercussionTrack ? freshPadId :
+      isLastMidiTrack ? "track-1" :
+      (fallbackTrackId ?? ""),
+    )
     setSelectedRecordedNoteId(null)
     setProjectMessage(
-      isLastMidiTrack
-        ? `${trackName} eliminada. Pista vacia lista para grabar.`
-        : `Pista eliminada: ${trackName}.`,
+      isLastPercussionTrack
+        ? `${trackName} eliminada. Pad 1 listo para usar.`
+        : isLastMidiTrack
+          ? `${trackName} eliminada. Pista vacia lista para grabar.`
+          : `Pista eliminada: ${trackName}.`,
     )
   }
 
@@ -1192,6 +1205,43 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
   function openImportDialog() {
     importInputRef.current?.click()
+  }
+
+  async function exportBundle() {
+    try {
+      setProjectMessage("Empaquetando proyecto...")
+      const blob = await exportProjectBundle(project)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${project.name.replace(/\s+/g, "-").toLowerCase()}.mimidi`
+      link.click()
+      window.URL.revokeObjectURL(url)
+      setProjectMessage("Proyecto guardado como .mimidi (incluye muestras).")
+    } catch {
+      setProjectMessage("No se pudo exportar el bundle.")
+    }
+  }
+
+  async function importBundle(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      setProjectMessage("Importando proyecto...")
+      const importedProject = await importProjectBundle(file)
+      playbackTransport.stop()
+      stopArpeggiator()
+      resetRecordingSession()
+      setMidiEvents([])
+      replaceState(importedProject)
+      setActiveTrackId(getMidiTracks(importedProject.timeline)[0]?.id ?? "track-1")
+      setSelectedRecordedNoteId(null)
+      setProjectMessage(`Proyecto importado: ${importedProject.name}.`)
+    } catch {
+      setProjectMessage("No se pudo importar el archivo .mimidi.")
+    } finally {
+      event.target.value = ""
+    }
   }
 
   async function importProjectFile(event: ChangeEvent<HTMLInputElement>) {
@@ -1890,6 +1940,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         ref={importInputRef}
         type="file"
       />
+      <input
+        accept=".mimidi"
+        hidden
+        onChange={importBundle}
+        ref={importBundleRef}
+        type="file"
+      />
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-copy">
           <strong>{project.name || "Proyecto"}</strong>
@@ -1926,6 +1983,20 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             {isExportingAudio ? "Exportando..." : <><Play size={13} /> Exportar WAV</>}
           </button>
           <button
+            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
+            onClick={exportBundle}
+            type="button"
+          >
+            Guardar .mimidi
+          </button>
+          <button
+            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
+            onClick={() => importBundleRef.current?.click()}
+            type="button"
+          >
+            Abrir .mimidi
+          </button>
+          <button
             className="project-export-btn"
             onClick={exportProject}
             type="button"
@@ -1939,13 +2010,57 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           >
             Importar JSON
           </button>
+          <button
+            className="project-export-btn project-compact-btn-wide"
+            onClick={() => setIsNewProjectConfirmOpen(true)}
+            type="button"
+          >
+            Nuevo proyecto
+          </button>
         </div>
       </div>
     </section>
   )
 
   if (mode === "project-only") {
-    return projectWorkspace
+    return (
+      <>
+        {projectWorkspace}
+        <AppDialog
+          actions={
+            <>
+              <button onClick={() => setIsNewProjectConfirmOpen(false)} type="button">
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  setIsNewProjectConfirmOpen(false)
+                  restartProject()
+                }}
+                type="button"
+              >
+                Continuar sin guardar
+              </button>
+              <button
+                className="app-dialog-confirm"
+                onClick={() => {
+                  setIsNewProjectConfirmOpen(false)
+                  exportProject()
+                  restartProject()
+                }}
+                type="button"
+              >
+                Guardar y continuar
+              </button>
+            </>
+          }
+          description="El proyecto actual se perderá si no lo guardas primero."
+          onClose={() => setIsNewProjectConfirmOpen(false)}
+          open={isNewProjectConfirmOpen}
+          title="¿Empezar un nuevo proyecto?"
+        />
+      </>
+    )
   }
 
   if (mode === "plugins-only") {
@@ -2316,7 +2431,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       onPlayRecording={playRecording}
       onPlayTestChord={playTestChord}
       onPlayTestNote={playTestNote}
-      onRestartProject={restartProject}
+      onRestartProject={() => setIsRestartConfirmOpen(true)}
       onStartRecording={startRecording}
       onStopPlayback={playbackTransport.stop}
       onStopRecording={() => stopRecording()}

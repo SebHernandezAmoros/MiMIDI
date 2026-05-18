@@ -52,8 +52,10 @@ export function TrackTimelinePreview({
   timeline,
   timelineLength,
 }: TrackTimelinePreviewProps) {
-  const midiTracks = getMidiTracks(timeline)
-  const samplerTracks = getSamplerTracks(timeline)
+  const midiTracks = getMidiTracks(timeline).filter((t) => t.notes.length > 0)
+  const samplerTracks = getSamplerTracks(timeline).filter((t) =>
+    t.pattern.lanes.some((l) => l.steps.some((s) => s.active)),
+  )
   const [editingMixId, setEditingMixId] = useState<string | null>(null)
   const [editingMixName, setEditingMixName] = useState("")
 
@@ -159,7 +161,7 @@ export function TrackTimelinePreview({
       </div>
 
       {midiTracks.length === 0 && samplerTracks.length === 0 ? (
-        <p className="timeline-empty">Aun no existen pistas en el proyecto.</p>
+        <p className="timeline-empty">Graba notas o activa pasos en el secuenciador para ver las pistas aquí.</p>
       ) : (
         <div className="track-timeline-lanes">
           {midiTracks.map((track) => {
