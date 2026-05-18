@@ -55,7 +55,7 @@ export function LabSoundControls({
     <>
       <div className="control-group">
         <label>Modo del piano</label>
-        <div className="mode-switch" aria-label="Modo del piano">
+        <div className="mode-switch" aria-label="Modo de interaccion del piano">
           <button
             className={pianoMode === "note" ? "mode-switch-active" : ""}
             onClick={() => onPianoModeChange("note")}

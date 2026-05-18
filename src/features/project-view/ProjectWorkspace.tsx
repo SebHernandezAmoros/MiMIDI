@@ -8,5 +8,9 @@ type ProjectWorkspaceProps = {
 export function ProjectWorkspace({ body, title }: ProjectWorkspaceProps) {
   void body
   void title
-  return <LabApp mode="project-only" />
+  return (
+    <section className="app-mock-screen" aria-label="Workspace Project">
+      <LabApp mode="project-only" />
+    </section>
+  )
 }

@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from "react"
 import "./AudioSamplerScreen.css"
-import { Download, Gauge, Mic, Play, Square, Trash2, Upload } from "lucide-react"
+import { Download, Eraser, Gauge, ListPlus, Mic, Play, RotateCcw, Square, Trash2, Upload } from "lucide-react"
 import { AppDialog } from "../../app/components/AppDialog"
 import type { AppViewMessages } from "../../app/appI18n"
-import { type AudioCalibration } from "../../engine/audio/audioEngine"
+import { type AudioCalibration, getAudioCurrentTime } from "../../engine/audio/audioEngine"
 import { NUM_SLOTS, DEFAULT_CALIBRATION, type SampleSlotMeta, loadSlotMetas, saveSlotMetas } from "../../engine/audio/sampleModel"
+import { SEQ_DEFAULT_BPM, type SequencerPattern, createDefaultPattern, syncPatternLanes, resizePatternSteps, saveSeqPattern, loadSeqPattern } from "../../engine/audio/sequencerModel"
+import { addSamplerMix, getSamplerTracks } from "../../engine/project/projectModel"
+import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSampleBuffer, type SamplePlayback } from "../../application/use-cases/playSampleBuffer"
 import { importSampleFile } from "../../application/use-cases/importSampleFile"
 import { loadSampleAudioBuffer } from "../../application/use-cases/loadSampleAudioBuffer"
 import { deleteSampleSlot } from "../../application/use-cases/deleteSampleSlot"
 import { exportSampleSlot } from "../../application/use-cases/exportSampleSlot"
+import { exportSeqMix } from "../../application/use-cases/exportSeqMix"
+import { playSequencerStep } from "../../application/use-cases/playSequencerStep"
 
 const SEQ_SECONDS = 8
 
@@ -105,7 +110,6 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   void copy
 
   type SamplerView = "editor" | "muestras" | "secuenciador"
-
   const [samplerView, setSamplerView] = useState<SamplerView>("editor")
   const [slots, setSlots] = useState<(SampleSlotMeta | null)[]>(loadSlotMetas)
   const [selectedIndex, setSelectedIndex] = useState(1)
@@ -113,6 +117,18 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [renamingSlotIndex, setRenamingSlotIndex] = useState<number | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [seqExportOpen, setSeqExportOpen] = useState(false)
+  const [seqExportName, setSeqExportName] = useState("")
+  const [seqSendOpen, setSeqSendOpen] = useState(false)
+  const [seqSendName, setSeqSendName] = useState("")
+
+  // Sequencer state
+  const [seqPattern, setSeqPattern] = useState<SequencerPattern>(() =>
+    syncPatternLanes(loadSeqPattern(), loadSlotMetas()),
+  )
+  const [seqIsPlaying, setSeqIsPlaying] = useState(false)
+  const [seqCurrentStep, setSeqCurrentStep] = useState(-1)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -124,6 +140,15 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   const playheadRafRef = useRef<number | null>(null)
   const playStartRef = useRef<number>(0)
   const playDurationRef = useRef<number>(0)
+
+  // Sequencer refs (mutable, never cause re-renders)
+  const seqPatternRef = useRef(seqPattern)
+  const seqCurrentStepRef = useRef(0)
+  const seqNextStepTimeRef = useRef(0)
+  const seqSchedulerRef = useRef<number | null>(null)
+  const seqIsPlayingRef = useRef(false)
+  const slotsRef = useRef(slots)
+  const seqTickRef = useRef<(() => void) | null>(null)
 
   const selectedSlot = slots[selectedIndex - 1] ?? null
   const calibration: AudioCalibration = selectedSlot?.calibration ?? { ...DEFAULT_CALIBRATION }
@@ -320,7 +345,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
     const slot = slots[index - 1]
     if (!slot) return
     const buf = bufferCacheRef.current.get(slot.dbId)
-    if (buf) triggerBuffer(buf)
+    if (buf) triggerBuffer(buf, slot.calibration)
   }
 
   function getCanvasFraction(e: React.MouseEvent<HTMLCanvasElement>): number {
@@ -397,6 +422,129 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
   const filledCount = slots.filter(Boolean).length
 
+  // ── Sequencer: sync refs ────────────────────────────────────────────
+  slotsRef.current = slots
+
+  // Sync pattern lanes when slots are added/removed
+  const slotIds = slots.map(s => s?.dbId ?? "").join(",")
+  useEffect(() => {
+    const synced = syncPatternLanes(seqPatternRef.current, slots)
+    seqPatternRef.current = synced
+    setSeqPattern(synced)
+    saveSeqPattern(synced)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotIds])
+
+  // Cleanup scheduler on unmount
+  useEffect(() => {
+    return () => {
+      if (seqSchedulerRef.current !== null) clearTimeout(seqSchedulerRef.current)
+    }
+  }, [])
+
+  // ── Sequencer: tick (always latest via ref) ─────────────────────────
+  seqTickRef.current = () => {
+    const now = getAudioCurrentTime()
+    const pattern = seqPatternRef.current
+    const secondsPerStep = 60 / pattern.bpm / 4
+
+    while (seqNextStepTimeRef.current < now + 0.1) {
+      const step = seqCurrentStepRef.current
+      pattern.lanes.forEach(lane => {
+        if (!lane.steps[step]?.active) return
+        const slot = slotsRef.current.find(s => s?.dbId === lane.slotDbId)
+        if (!slot) return
+        const buf = bufferCacheRef.current.get(lane.slotDbId)
+        if (!buf) return
+        playSequencerStep(buf, slot.calibration, seqNextStepTimeRef.current)
+      })
+
+      const fireTime = seqNextStepTimeRef.current
+      const delay = Math.max(0, (fireTime - now) * 1000)
+      const capturedStep = step
+      setTimeout(() => {
+        if (seqIsPlayingRef.current) setSeqCurrentStep(capturedStep)
+      }, delay)
+
+      seqCurrentStepRef.current = (step + 1) % pattern.stepsPerBar
+      seqNextStepTimeRef.current += secondsPerStep
+    }
+
+    seqSchedulerRef.current = window.setTimeout(() => seqTickRef.current?.(), 25)
+  }
+
+  function startSeq() {
+    seqCurrentStepRef.current = 0
+    seqNextStepTimeRef.current = getAudioCurrentTime()
+    seqIsPlayingRef.current = true
+    setSeqIsPlaying(true)
+    setSeqCurrentStep(-1)
+    seqTickRef.current?.()
+  }
+
+  function stopSeq() {
+    if (seqSchedulerRef.current !== null) {
+      clearTimeout(seqSchedulerRef.current)
+      seqSchedulerRef.current = null
+    }
+    seqIsPlayingRef.current = false
+    setSeqIsPlaying(false)
+    setSeqCurrentStep(-1)
+  }
+
+  function toggleSeqStep(laneIdx: number, stepIdx: number) {
+    const next: SequencerPattern = {
+      ...seqPattern,
+      lanes: seqPattern.lanes.map((lane, li) =>
+        li !== laneIdx ? lane : {
+          ...lane,
+          steps: lane.steps.map((step, si) =>
+            si !== stepIdx ? step : { active: !step.active },
+          ),
+        },
+      ),
+    }
+    seqPatternRef.current = next
+    setSeqPattern(next)
+    saveSeqPattern(next)
+  }
+
+  function updateSeqBpm(bpm: number) {
+    const next = { ...seqPattern, bpm: Math.min(240, Math.max(40, bpm)) }
+    seqPatternRef.current = next
+    setSeqPattern(next)
+    saveSeqPattern(next)
+  }
+
+  function updateSeqSteps(stepsPerBar: number) {
+    const next = resizePatternSteps(seqPattern, stepsPerBar)
+    seqPatternRef.current = next
+    setSeqPattern(next)
+    saveSeqPattern(next)
+  }
+
+  function sendMixToTimeline(name: string) {
+    const project = loadStoredProject()
+    if (!project) return
+    const mixCount = getSamplerTracks(project.timeline).length
+    const mixName = name.trim() || `Mix ${mixCount + 1}`
+    const updated = addSamplerMix(project, seqPattern, mixName)
+    saveProject(updated)
+  }
+
+  function clearSeqPattern() {
+    const next: SequencerPattern = {
+      ...seqPattern,
+      lanes: seqPattern.lanes.map(lane => ({
+        ...lane,
+        steps: lane.steps.map(() => ({ active: false })),
+      })),
+    }
+    seqPatternRef.current = next
+    setSeqPattern(next)
+    saveSeqPattern(next)
+  }
+
   return (
     <>
       <section className="app-mock-screen audio-sampler-screen" aria-label="Sampler de audio">
@@ -426,18 +574,91 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
             <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-            <button
-              aria-label={isPlaying ? "Detener" : "Reproducir"}
-              className="ui-icon-btn"
-              disabled={!decodedBuffer || isLoading}
-              onClick={handlePlay}
-              title={isPlaying ? "Detener" : "Reproducir"}
-              type="button"
-            >
-              {isPlaying ? <Square size={18} /> : <Play size={18} />}
-            </button>
+            {samplerView !== "secuenciador" && (
+              <button
+                aria-label={isPlaying ? "Detener" : "Reproducir"}
+                className="ui-icon-btn"
+                disabled={!decodedBuffer || isLoading}
+                onClick={handlePlay}
+                title={isPlaying ? "Detener" : "Reproducir"}
+                type="button"
+              >
+                {isPlaying ? <Square size={18} /> : <Play size={18} />}
+              </button>
+            )}
+            {samplerView === "secuenciador" && (
+              <>
+                <button
+                  aria-label={seqIsPlaying ? "Detener secuencia" : "Reproducir secuencia"}
+                  className="ui-icon-btn"
+                  disabled={seqPattern.lanes.length === 0}
+                  onClick={seqIsPlaying ? stopSeq : startSeq}
+                  title={seqIsPlaying ? "Detener secuencia" : "Reproducir secuencia"}
+                  type="button"
+                >
+                  {seqIsPlaying ? <Square size={18} /> : <Play size={18} />}
+                </button>
+                <button
+                  className="ui-icon-btn"
+                  disabled={seqPattern.lanes.length === 0}
+                  onClick={clearSeqPattern}
+                  title="Limpiar todos los pasos"
+                  type="button"
+                >
+                  <Eraser size={18} />
+                </button>
 
-            <span aria-hidden="true" className="perform-mode-transport-divider" />
+                <span aria-hidden="true" className="perform-mode-transport-divider" />
+                <button
+                  className="ui-icon-btn"
+                  disabled={seqPattern.lanes.length === 0 || seqIsPlaying}
+                  onClick={() => { setSeqExportName(`mimidi-mix-${seqPattern.bpm}bpm`); setSeqExportOpen(true) }}
+                  title="Descargar mix del secuenciador"
+                  type="button"
+                >
+                  <Download size={18} />
+                </button>
+                <button
+                  className="ui-icon-btn"
+                  disabled={seqPattern.lanes.length === 0 || seqIsPlaying}
+                  onClick={() => { setSeqSendName(""); setSeqSendOpen(true) }}
+                  title="Enviar mix al timeline"
+                  type="button"
+                >
+                  <ListPlus size={18} />
+                </button>
+                <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+                {/* BPM */}
+                <div className="audio-sampler-seq-ctrl-group">
+                  <span className="audio-sampler-seq-ctrl-label">BPM</span>
+                  <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm - 1)} type="button">−</button>
+                  <span className="audio-sampler-seq-bpm-val">{seqPattern.bpm}</span>
+                  <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm + 1)} type="button">+</button>
+                </div>
+
+                <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+                {/* Número de pasos */}
+                <div className="audio-sampler-seq-ctrl-group">
+                  <span className="audio-sampler-seq-ctrl-label">PASOS</span>
+                  <button
+                    className={`audio-sampler-seq-small-btn${seqPattern.stepsPerBar === 16 ? " audio-sampler-seq-small-btn-on" : ""}`}
+                    onClick={() => updateSeqSteps(16)}
+                    type="button"
+                  >16</button>
+                  <button
+                    className={`audio-sampler-seq-small-btn${seqPattern.stepsPerBar === 32 ? " audio-sampler-seq-small-btn-on" : ""}`}
+                    onClick={() => updateSeqSteps(32)}
+                    type="button"
+                  >32</button>
+                </div>
+              </>
+            )}
+
+            {samplerView !== "secuenciador" && (
+              <span aria-hidden="true" className="perform-mode-transport-divider" />
+            )}
 
             <input
               accept="audio/*"
@@ -461,29 +682,53 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 <Upload size={18} />
               </button>
             )}
-            <button
-              className="ui-icon-btn"
-              disabled={!decodedBuffer || isLoading}
-              onClick={() => void handleExport()}
-              title="Descargar sample con calibración aplicada"
-              type="button"
-            >
-              <Download size={18} />
-            </button>
-            <button
-              className="ui-icon-btn"
-              disabled={!selectedSlot || isLoading}
-              onClick={() => void handleDelete()}
-              title="Eliminar sample"
-              type="button"
-            >
-              <Trash2 size={18} />
-            </button>
+            {samplerView === "editor" && (
+              <button
+                className="ui-icon-btn"
+                disabled={!decodedBuffer || isLoading}
+                onClick={() => void handleExport()}
+                title="Descargar sample con calibración aplicada"
+                type="button"
+              >
+                <Download size={18} />
+              </button>
+            )}
+            {samplerView === "editor" && selectedSlot && (
+              <button
+                className="ui-icon-btn"
+                disabled={isLoading}
+                onClick={() => resetCalibration(selectedIndex)}
+                title="Restablecer calibración del slot"
+                type="button"
+              >
+                <RotateCcw size={18} />
+              </button>
+            )}
+            {samplerView !== "secuenciador" && (
+              <span aria-hidden="true" className="perform-mode-transport-divider" />
+            )}
 
-            <span aria-hidden="true" className="perform-mode-transport-divider" />
+            {/* En MUESTRAS: input de renombrar el slot seleccionado */}
+            {samplerView === "muestras" && selectedSlot && (
+              <input
+                key={selectedIndex}
+                className="audio-sampler-toolbar-rename"
+                defaultValue={selectedSlot.name}
+                onBlur={(e) => handleRename(selectedIndex, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+                  if (e.key === "Escape") {
+                    (e.target as HTMLInputElement).value = selectedSlot.name
+                    ;(e.target as HTMLInputElement).blur()
+                  }
+                }}
+                placeholder="Nombre del slot"
+                type="text"
+              />
+            )}
 
-            {/* Selector de slot — solo slots ocupados */}
-            {filledCount > 0 && selectedSlot && (
+            {/* En EDITOR: navegador de slots */}
+            {samplerView === "editor" && filledCount > 0 && selectedSlot && (
               <div className="audio-sampler-slot-nav">
                 <button
                   className="audio-sampler-slot-nav-btn"
@@ -504,6 +749,21 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   aria-label="Slot siguiente"
                 >►</button>
               </div>
+            )}
+
+            {samplerView !== "secuenciador" && selectedSlot && (
+              <>
+                <span aria-hidden="true" className="perform-mode-transport-divider" />
+                <button
+                  className="ui-icon-btn"
+                  disabled={isLoading}
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  title="Eliminar sample"
+                  type="button"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -650,7 +910,6 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 const index = i + 1
                 const slot = slots[i] ?? null
                 const isActive = selectedIndex === index
-                const isRenaming = renamingSlotIndex === index
                 return (
                   <div
                     key={index}
@@ -662,29 +921,9 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                     onClick={() => handleSlotClick(index)}
                   >
                     <span className="audio-sampler-slot-num">{index}</span>
-                    {isRenaming && slot ? (
-                      <input
-                        autoFocus
-                        className="audio-sampler-slot-rename-input"
-                        defaultValue={slot.name}
-                        onClick={(e) => e.stopPropagation()}
-                        onBlur={(e) => handleRename(index, e.target.value)}
-                        onKeyDown={(e) => {
-                          e.stopPropagation()
-                          if (e.key === "Enter") handleRename(index, (e.target as HTMLInputElement).value)
-                          if (e.key === "Escape") setRenamingSlotIndex(null)
-                        }}
-                        type="text"
-                      />
-                    ) : (
-                      <span
-                        className="audio-sampler-slot-name"
-                        onDoubleClick={(e) => { if (slot) { e.stopPropagation(); setRenamingSlotIndex(index) } }}
-                        title={slot ? "Doble clic para renombrar" : undefined}
-                      >
-                        {slot?.name ?? `Slot ${index}`}
-                      </span>
-                    )}
+                    <span className="audio-sampler-slot-name">
+                      {slot?.name ?? `Slot ${index}`}
+                    </span>
                     {slot
                       ? <span className="audio-sampler-slot-duration">{formatDuration(slot.duration)}</span>
                       : <span className="audio-sampler-slot-empty">—</span>
@@ -696,35 +935,79 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
           </div>}
 
           {/* ── Panel 3: Secuenciador ──────────────────────────────── */}
-          {samplerView === "secuenciador" && <div className="audio-sampler-panel audio-sampler-panel-sequencer">
-            <span className="audio-sampler-panel-label">SECUENCIADOR</span>
-            <div className="audio-sampler-sequencer">
-              {filledCount > 0 ? (
-                <>
-                  <div className="audio-sampler-seq-ruler">
-                    {Array.from({ length: SEQ_SECONDS + 1 }, (_, i) => (
-                      <span key={i} className="audio-sampler-seq-ruler-mark">{i}s</span>
-                    ))}
-                  </div>
-                  {slots.map((slot, i) =>
-                    slot ? (
-                      <div key={slot.dbId} className="audio-sampler-seq-lane">
-                        <span className="audio-sampler-seq-lane-label">{slot.name}</span>
-                        <div className="audio-sampler-seq-lane-track" />
-                      </div>
-                    ) : null
-                  )}
-                </>
-              ) : (
-                <div className="audio-sampler-seq-empty">
+          {samplerView === "secuenciador" && (
+            <div className="audio-sampler-panel audio-sampler-panel-sequencer">
+              <span className="audio-sampler-panel-label">SECUENCIADOR</span>
+
+              {/* Contenido: grid de pasos o timeline */}
+              {seqPattern.lanes.length === 0 ? (
+                <div className="audio-sampler-step-empty">
                   <span>Sin muestras cargadas</span>
-                  <span className="audio-sampler-waveform-hint">
-                    Importa un archivo de audio para empezar
-                  </span>
+                  <span className="audio-sampler-waveform-hint">Importa muestras en la vista MUESTRAS</span>
+                </div>
+              ) : (
+                <div className="audio-sampler-step-grid">
+                  {/* Fila de playhead — muestra el paso actual */}
+                  <div className="audio-sampler-step-row audio-sampler-step-playhead-row">
+                    <span className="audio-sampler-step-row-label" />
+                    <div className="audio-sampler-step-cells">
+                      {Array.from({ length: Math.ceil(seqPattern.stepsPerBar / 4) }, (_, gi) => (
+                        <div key={gi} className="audio-sampler-step-group">
+                          {Array.from({ length: 4 }, (_, si) => {
+                            const stepIdx = gi * 4 + si
+                            return (
+                              <div
+                                key={si}
+                                className={`audio-sampler-step-ph${seqCurrentStep === stepIdx ? " audio-sampler-step-ph-active" : ""}`}
+                              />
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {seqPattern.lanes.map((lane, laneIdx) => {
+                    const slot = slots.find(s => s?.dbId === lane.slotDbId)
+                    const groups: { step: { active: boolean }; stepIdx: number }[][] =
+                      Array.from({ length: Math.ceil(lane.steps.length / 4) }, (_, gi) =>
+                        lane.steps.slice(gi * 4, gi * 4 + 4).map((step, si) => ({
+                          step,
+                          stepIdx: gi * 4 + si,
+                        })),
+                      )
+                    return (
+                      <div key={lane.slotDbId} className="audio-sampler-step-row">
+                        <span className="audio-sampler-step-row-label" title={slot?.name}>
+                          {slot?.name ?? "—"}
+                        </span>
+                        <div className="audio-sampler-step-cells">
+                          {groups.map((group, gi) => (
+                            <div key={gi} className="audio-sampler-step-group">
+                              {group.map(({ step, stepIdx }) => (
+                                <button
+                                  key={stepIdx}
+                                  aria-label={`Paso ${stepIdx + 1}`}
+                                  aria-pressed={step.active}
+                                  className={[
+                                    "audio-sampler-step-btn",
+                                    step.active ? "audio-sampler-step-btn-on" : "",
+                                    seqCurrentStep === stepIdx ? "audio-sampler-step-btn-current" : "",
+                                  ].join(" ").trim()}
+                                  onClick={() => toggleSeqStep(laneIdx, stepIdx)}
+                                  type="button"
+                                />
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
-          </div>}
+          )}
 
         </div>
       </section>
@@ -738,14 +1021,10 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
         <div className="audio-sampler-settings">
           <section className="ui-list-section">
             <span className="ui-list-section-title">RESUMEN</span>
-            <div className="ui-list-row ui-list-row-static">
-              <span className="ui-list-icon">S</span>
-              <span className="ui-list-label">Slots ocupados</span>
-              <span className="ui-list-value">{filledCount} / {NUM_SLOTS}</span>
-            </div>
-            <div className="ui-list-row ui-list-row-static">
-              <span className="ui-list-icon">↺</span>
-              <span className="ui-list-label">Restablecer todo</span>
+            <div className="audio-sampler-modal-summary">
+              <span className="audio-sampler-modal-summary-slots">
+                Slots <strong>{filledCount} / {NUM_SLOTS}</strong>
+              </span>
               <button
                 className="audio-sampler-cal-btn"
                 disabled={filledCount === 0}
@@ -755,56 +1034,153 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
               >Reset todo</button>
             </div>
           </section>
-          {slots.map((slot, i) =>
-            slot ? (
-              <section className="ui-list-section" key={slot.dbId}>
-                <span className="ui-list-section-title">SLOT {i + 1} — {slot.name}</span>
-                <div className="ui-list-row ui-list-row-static">
-                  <span className="ui-list-icon">D</span>
-                  <span className="ui-list-label">Duración original</span>
-                  <span className="ui-list-value">{formatDuration(slot.duration)}</span>
-                </div>
-                <div className="ui-list-row ui-list-row-static">
-                  <span className="ui-list-icon">T</span>
-                  <span className="ui-list-label">Trim</span>
-                  <span className="ui-list-value">
-                    {(slot.calibration.trimStart * slot.duration).toFixed(2)}s — {(slot.calibration.trimEnd * slot.duration).toFixed(2)}s
-                  </span>
-                </div>
-                <div className="ui-list-row ui-list-row-static">
-                  <span className="ui-list-icon">G</span>
-                  <span className="ui-list-label">Gain</span>
-                  <span className="ui-list-value">{Math.round(slot.calibration.gain * 100)}%</span>
-                </div>
-                <div className="ui-list-row ui-list-row-static">
-                  <span className="ui-list-icon">F</span>
-                  <span className="ui-list-label">Fade In / Out</span>
-                  <span className="ui-list-value">
-                    {slot.calibration.fadeIn.toFixed(2)}s / {slot.calibration.fadeOut.toFixed(2)}s
-                  </span>
-                </div>
-                <div className="ui-list-row ui-list-row-static">
-                  <span className="ui-list-icon">♪</span>
-                  <span className="ui-list-label">Tune</span>
-                  <span className="ui-list-value">
-                    {slot.calibration.tune > 0 ? "+" : ""}{slot.calibration.tune} st
-                  </span>
-                </div>
-                <div className="ui-list-row ui-list-row-static">
-                  <span className="ui-list-icon">↺</span>
-                  <span className="ui-list-label">Calibración</span>
+          <section className="ui-list-section">
+            <span className="ui-list-section-title">SECUENCIADOR</span>
+
+            {/* BPM */}
+            <div className="audio-sampler-modal-seq-card">
+              <div className="audio-sampler-modal-seq-card-header">
+                <span className="audio-sampler-modal-seq-card-label">BPM</span>
+                <span className="audio-sampler-modal-seq-card-value">{seqPattern.bpm}</span>
+              </div>
+              <div className="audio-sampler-modal-bpm-ctrl">
+                <input
+                  className="audio-sampler-modal-bpm-slider"
+                  max={240}
+                  min={40}
+                  onChange={e => updateSeqBpm(Number(e.target.value))}
+                  type="range"
+                  value={seqPattern.bpm}
+                />
+                <input
+                  className="audio-sampler-modal-bpm-input"
+                  max={240}
+                  min={40}
+                  onChange={e => updateSeqBpm(Number(e.target.value))}
+                  type="number"
+                  value={seqPattern.bpm}
+                />
+                <button
+                  className="audio-sampler-cal-btn"
+                  onClick={() => updateSeqBpm(SEQ_DEFAULT_BPM)}
+                  title="Restablecer BPM a 120"
+                  type="button"
+                >Reset</button>
+              </div>
+            </div>
+
+            {/* Pasos */}
+            <div className="audio-sampler-modal-seq-card">
+              <div className="audio-sampler-modal-seq-card-header">
+                <span className="audio-sampler-modal-seq-card-label">Pasos</span>
+                <span className="audio-sampler-modal-seq-card-value">{seqPattern.stepsPerBar}</span>
+              </div>
+              <div className="audio-sampler-modal-steps-ctrl">
+                {[4, 8, 16, 24, 32, 40].map(n => (
                   <button
-                    className="audio-sampler-cal-btn"
-                    onClick={() => resetCalibration(i + 1)}
+                    className={`audio-sampler-seq-small-btn${seqPattern.stepsPerBar === n ? " audio-sampler-seq-small-btn-on" : ""}`}
+                    key={n}
+                    onClick={() => updateSeqSteps(n)}
                     type="button"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </section>
-            ) : null
-          )}
+                  >{n}</button>
+                ))}
+              </div>
+            </div>
+          </section>
+
         </div>
+      </AppDialog>
+
+      <AppDialog
+        actions={
+          <>
+            <button onClick={() => setDeleteConfirmOpen(false)} type="button">
+              Cancelar
+            </button>
+            <button
+              className="app-dialog-confirm"
+              onClick={() => { setDeleteConfirmOpen(false); void handleDelete() }}
+              type="button"
+            >
+              Eliminar
+            </button>
+          </>
+        }
+        description={`"${selectedSlot?.name}" será eliminado permanentemente.`}
+        onClose={() => setDeleteConfirmOpen(false)}
+        open={deleteConfirmOpen}
+        title="¿Eliminar sample?"
+      />
+
+      <AppDialog
+        actions={
+          <>
+            <button onClick={() => setSeqExportOpen(false)} type="button">
+              Cancelar
+            </button>
+            <button
+              className="app-dialog-confirm"
+              onClick={() => {
+                setSeqExportOpen(false)
+                void exportSeqMix(seqPattern, slots, bufferCacheRef.current, seqExportName)
+              }}
+              type="button"
+            >
+              Descargar
+            </button>
+          </>
+        }
+        description="El mix se exportará como archivo WAV con todos los pasos activos."
+        onClose={() => setSeqExportOpen(false)}
+        open={seqExportOpen}
+        title="Exportar mix"
+      >
+        <input
+          autoFocus
+          className="audio-sampler-toolbar-rename"
+          onChange={e => setSeqExportName(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              setSeqExportOpen(false)
+              void exportSeqMix(seqPattern, slots, bufferCacheRef.current, seqExportName)
+            }
+            if (e.key === "Escape") setSeqExportOpen(false)
+          }}
+          placeholder={`mimidi-mix-${seqPattern.bpm}bpm`}
+          style={{ width: "100%" }}
+          type="text"
+          value={seqExportName}
+        />
+      </AppDialog>
+      <AppDialog
+        actions={
+          <>
+            <button onClick={() => setSeqSendOpen(false)} type="button">Cancelar</button>
+            <button
+              className="app-dialog-confirm"
+              onClick={() => { setSeqSendOpen(false); sendMixToTimeline(seqSendName) }}
+              type="button"
+            >Añadir</button>
+          </>
+        }
+        description="El patrón actual se añadirá como pista en el timeline del editor."
+        onClose={() => setSeqSendOpen(false)}
+        open={seqSendOpen}
+        title="Enviar al timeline"
+      >
+        <input
+          autoFocus
+          className="audio-sampler-toolbar-rename"
+          onChange={e => setSeqSendName(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") { setSeqSendOpen(false); sendMixToTimeline(seqSendName) }
+            if (e.key === "Escape") setSeqSendOpen(false)
+          }}
+          placeholder="Mix 1"
+          style={{ width: "100%" }}
+          type="text"
+          value={seqSendName}
+        />
       </AppDialog>
     </>
   )

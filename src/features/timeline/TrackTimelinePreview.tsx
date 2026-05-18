@@ -1,7 +1,12 @@
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react"
+import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import {
+  getMidiTracks,
+  getSamplerTracks,
   getTrackTimelineClipDuration,
-  type ProjectTrack,
+  isMidiTrack,
+  type MidiTrack,
+  type SamplerTrack,
+  type TimelineTrack,
 } from "../../engine/project/projectModel"
 import { isSmcPadRecordedNote } from "../../engine/midi/events"
 import "./TrackTimelinePreview.css"
@@ -9,15 +14,24 @@ import "./TrackTimelinePreview.css"
 type TrackTimelinePreviewProps = {
   activeTrackId: string
   onDragStateChange?: (isDragging: boolean) => void
+  onRemoveSamplerMix?: (mixId: string) => void
+  onRenameMix?: (mixId: string, name: string) => void
+  onSelectMix?: (mixId: string) => void
   onSelectTrack: (trackId: string) => void
+  selectedMixId?: string | null
+  onUpdateSamplerMixStartTime?: (
+    mixId: string,
+    startTime: number,
+    historyMode?: "transient" | "commit",
+  ) => void
   onUpdateTrackStartTime?: (
     trackId: string,
     startTime: number,
     historyMode?: "transient" | "commit",
   ) => void
   playheadTime?: number | null
+  timeline: TimelineTrack[]
   timelineLength: number
-  tracks: ProjectTrack[]
 }
 
 type TrackTimelineStyle = CSSProperties & {
@@ -30,17 +44,25 @@ type TrackTimelineStyle = CSSProperties & {
 export function TrackTimelinePreview({
   activeTrackId,
   onDragStateChange,
+  onRemoveSamplerMix,
+  onRenameMix,
+  onSelectMix,
   onSelectTrack,
+  onUpdateSamplerMixStartTime,
   onUpdateTrackStartTime,
   playheadTime,
+  selectedMixId,
+  timeline,
   timelineLength,
-  tracks,
 }: TrackTimelinePreviewProps) {
-  const orderedTracks = [...tracks]
+  const midiTracks = getMidiTracks(timeline)
+  const samplerTracks = getSamplerTracks(timeline)
+  const [editingMixId, setEditingMixId] = useState<string | null>(null)
+  const [editingMixName, setEditingMixName] = useState("")
 
   function startTrackClipDrag(
     event: ReactPointerEvent<HTMLElement>,
-    track: ProjectTrack,
+    track: MidiTrack,
   ) {
     if (!onUpdateTrackStartTime) {
       return
@@ -60,7 +82,7 @@ export function TrackTimelinePreview({
 
     const trackWidth = Math.max(trackElement.getBoundingClientRect().width, 1)
     const secondsPerPixel = timelineLength / trackWidth
-    const initialStart = track.timelineClip.startTime
+    const initialStart = track.startTime
     const startX = event.clientX
     let latestStart = initialStart
     let hasMoved = false
@@ -89,6 +111,41 @@ export function TrackTimelinePreview({
     window.addEventListener("pointercancel", stopDragging)
   }
 
+  function startMixClipDrag(
+    event: ReactPointerEvent<HTMLElement>,
+    mix: SamplerTrack,
+  ) {
+    if (!onUpdateSamplerMixStartTime) return
+    event.preventDefault()
+    event.stopPropagation()
+    onSelectMix?.(mix.id)
+    const trackElement = event.currentTarget.closest(".track-timeline-track")
+    if (!(trackElement instanceof HTMLElement)) return
+    onDragStateChange?.(true)
+    const trackWidth = Math.max(trackElement.getBoundingClientRect().width, 1)
+    const secondsPerPixel = timelineLength / trackWidth
+    const initialStart = mix.startTime
+    const startX = event.clientX
+    let latestStart = initialStart
+    let hasMoved = false
+    const handlePointerMove = (e: PointerEvent) => {
+      const delta = (e.clientX - startX) * secondsPerPixel
+      hasMoved = hasMoved || Math.abs(delta) > 0.0001
+      latestStart = Math.max(0, initialStart + delta)
+      onUpdateSamplerMixStartTime(mix.id, latestStart, "transient")
+    }
+    const stopDragging = () => {
+      if (hasMoved) onUpdateSamplerMixStartTime(mix.id, latestStart, "commit")
+      onDragStateChange?.(false)
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerup", stopDragging)
+      window.removeEventListener("pointercancel", stopDragging)
+    }
+    window.addEventListener("pointermove", handlePointerMove)
+    window.addEventListener("pointerup", stopDragging)
+    window.addEventListener("pointercancel", stopDragging)
+  }
+
   return (
     <section className="track-timeline-preview" aria-label="Timeline por pistas">
       <div className="track-timeline-header">
@@ -104,12 +161,12 @@ export function TrackTimelinePreview({
         </div>
       </div>
 
-      {orderedTracks.length === 0 ? (
+      {midiTracks.length === 0 && samplerTracks.length === 0 ? (
         <p className="timeline-empty">Aun no existen pistas en el proyecto.</p>
       ) : (
         <div className="track-timeline-lanes">
-          {orderedTracks.map((track) => {
-            const isActive = track.id === activeTrackId
+          {midiTracks.map((track) => {
+            const isActive = track.id === activeTrackId && !selectedMixId
             const clipDuration = getTrackTimelineClipDuration(track)
 
             return (
@@ -135,7 +192,7 @@ export function TrackTimelinePreview({
                   <strong>{track.name}</strong>
                   <span className="project-label">{track.notes.length} notas</span>
                   <span className="project-label">
-                    Inicio: {track.timelineClip.startTime.toFixed(2)}s
+                    Inicio: {track.startTime.toFixed(2)}s
                   </span>
                   <div className="track-timeline-badges" aria-label={`Estado de ${track.name}`}>
                     {track.muted ? <span className="track-timeline-badge">Mute</span> : null}
@@ -148,7 +205,9 @@ export function TrackTimelinePreview({
                     <div
                       aria-hidden="true"
                       className="timeline-playhead"
-                      style={{ left: `${Math.min(Math.max(playheadTime / timelineLength, 0), 1) * 100}%` }}
+                      style={{
+                        left: `${Math.min(Math.max(playheadTime / timelineLength, 0), 1) * 100}%`,
+                      }}
                     />
                   )}
                   <div
@@ -157,7 +216,7 @@ export function TrackTimelinePreview({
                     style={
                       {
                         "--track-clip-duration": clipDuration / timelineLength,
-                        "--track-clip-start": track.timelineClip.startTime / timelineLength,
+                        "--track-clip-start": track.startTime / timelineLength,
                       } as TrackTimelineStyle
                     }
                   >
@@ -166,7 +225,7 @@ export function TrackTimelinePreview({
                     ) : (
                       track.notes
                         .slice()
-                        .sort((firstNote, secondNote) => firstNote.startTime - secondNote.startTime)
+                        .sort((a, b) => a.startTime - b.startTime)
                         .map((note) => (
                           <span
                             className={[
@@ -180,13 +239,102 @@ export function TrackTimelinePreview({
                             key={note.id}
                             style={
                               {
-                                "--track-marker-duration": note.duration / clipDuration,
-                                "--track-marker-start": note.startTime / clipDuration,
+                                "--track-marker-duration":
+                                  note.duration / clipDuration,
+                                "--track-marker-start":
+                                  note.startTime / clipDuration,
                               } as TrackTimelineStyle
                             }
                           />
                         ))
                     )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {samplerTracks.map((mix) => {
+            const secondsPerStep = 60 / mix.pattern.bpm / 4
+            const mixDuration = mix.pattern.stepsPerBar * secondsPerStep
+            return (
+              <div
+                className={[
+                  "track-timeline-lane track-timeline-lane-mix",
+                  selectedMixId === mix.id
+                    ? "track-timeline-lane-mix-active"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                key={mix.id}
+                onClick={() => onSelectMix?.(mix.id)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="track-timeline-meta">
+                  {editingMixId === mix.id ? (
+                    <input
+                      autoFocus
+                      className="track-timeline-mix-name-input"
+                      onBlur={() => {
+                        if (editingMixName.trim())
+                          onRenameMix?.(mix.id, editingMixName.trim())
+                        setEditingMixId(null)
+                      }}
+                      onChange={(e) => setEditingMixName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          if (editingMixName.trim())
+                            onRenameMix?.(mix.id, editingMixName.trim())
+                          setEditingMixId(null)
+                        }
+                        if (e.key === "Escape") setEditingMixId(null)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      type="text"
+                      value={editingMixName}
+                    />
+                  ) : (
+                    <strong
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        setEditingMixId(mix.id)
+                        setEditingMixName(mix.name)
+                      }}
+                      title="Doble clic para renombrar"
+                    >
+                      {mix.name}
+                    </strong>
+                  )}
+                  <span className="project-label">
+                    {mix.pattern.bpm} BPM · {mix.pattern.stepsPerBar} pasos
+                  </span>
+                  <span className="project-label">
+                    Inicio: {mix.startTime.toFixed(2)}s
+                  </span>
+                </div>
+                <div className="track-timeline-track">
+                  {playheadTime != null && (
+                    <div
+                      aria-hidden="true"
+                      className="timeline-playhead"
+                      style={{
+                        left: `${Math.min(Math.max(playheadTime / timelineLength, 0), 1) * 100}%`,
+                      }}
+                    />
+                  )}
+                  <div
+                    className="track-timeline-clip track-timeline-clip-mix"
+                    onPointerDown={(e) => startMixClipDrag(e, mix)}
+                    style={
+                      {
+                        "--track-clip-duration": mixDuration / timelineLength,
+                        "--track-clip-start": mix.startTime / timelineLength,
+                      } as TrackTimelineStyle
+                    }
+                  >
+                    <span className="track-timeline-mix-label">{mix.name}</span>
                   </div>
                 </div>
               </div>

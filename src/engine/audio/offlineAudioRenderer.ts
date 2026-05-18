@@ -10,6 +10,7 @@ import {
 import type { MidiRecordedNote } from "../midi/events"
 import { noteToFrequency } from "../midi/notes"
 import {
+  getMidiTracks,
   getTrackVolumeAutomationValue,
   getScheduledTrackNotes,
   isTrackAudible,
@@ -131,7 +132,7 @@ function createScheduledPlaybackEvents(project: MusicalProject) {
   return getScheduledTrackNotes(project).flatMap((scheduledNote) => {
     const { note, relativeStartTime, track } = scheduledNote
 
-    if (!isTrackAudible(track, project.tracks)) {
+    if (!isTrackAudible(track, getMidiTracks(project.timeline))) {
       return []
     }
 

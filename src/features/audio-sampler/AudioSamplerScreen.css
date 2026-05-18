@@ -213,65 +213,196 @@
 /* ── Panel 3: Secuenciador ───────────────────────────────────────── */
 
 .audio-sampler-panel-sequencer {
+  flex: 1 1 0;
+  min-height: 8rem;
+}
+
+/* ── Barra de controles del secuenciador ─────────────────────────── */
+
+.audio-sampler-seq-controls {
   flex: 0 0 auto;
-}
-
-.audio-sampler-sequencer {
-  background: var(--ui-color-surface-inset);
-  overflow: hidden;
   display: flex;
-  flex-direction: column;
-  min-height: 4.5rem;
-  flex: 1;
-}
-
-/* Regla de tiempo */
-.audio-sampler-seq-ruler {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.22rem 0.6rem 0.18rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.65rem;
   border-bottom: 1px solid var(--ui-color-border);
   background: var(--ui-color-surface-raised);
 }
 
-.audio-sampler-seq-ruler-mark {
-  font-size: 0.6rem;
+.audio-sampler-seq-view-switch {
+  display: flex;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  overflow: hidden;
+}
+
+.audio-sampler-seq-view-btn {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.22rem 0.55rem;
+  background: var(--ui-color-surface);
+  border: none;
   color: var(--ui-color-text-muted);
-  opacity: 0.6;
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+}
+
+.audio-sampler-seq-view-btn[aria-pressed="true"] {
+  background: var(--ui-color-accent);
+  color: #fff;
+}
+
+.audio-sampler-seq-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--ui-color-border);
+  margin: 0 0.1rem;
+}
+
+.audio-sampler-seq-ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.audio-sampler-seq-ctrl-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ui-color-text-muted);
+  text-transform: uppercase;
+}
+
+.audio-sampler-seq-bpm-val {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ui-color-text);
+  min-width: 2rem;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-/* Lanes */
-.audio-sampler-seq-lane {
+.audio-sampler-seq-small-btn {
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: var(--ui-color-surface-inset);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 0.3rem;
+  padding: 0.18rem 0.42rem;
+  cursor: pointer;
+  color: var(--ui-color-text-muted);
+  line-height: 1;
+  transition: background 80ms ease, color 80ms ease;
+}
+
+.audio-sampler-seq-small-btn:hover {
+  background: var(--ui-color-surface-raised);
+  color: var(--ui-color-text);
+}
+
+.audio-sampler-seq-small-btn-on {
+  background: var(--ui-color-accent);
+  color: #fff;
+  border-color: var(--ui-color-accent);
+}
+
+.audio-sampler-seq-play-btn {
+  margin-left: auto;
+}
+
+/* ── Grid de pasos ───────────────────────────────────────────────── */
+
+.audio-sampler-step-grid {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.audio-sampler-step-row {
   display: flex;
   align-items: center;
-  height: 1.75rem;
-  border-bottom: 1px solid var(--ui-color-border);
+  gap: 0.5rem;
+  height: 2rem;
 }
 
-.audio-sampler-seq-lane:last-child {
-  border-bottom: none;
-}
-
-.audio-sampler-seq-lane-label {
-  flex: 0 0 5rem;
-  font-size: 0.68rem;
+.audio-sampler-step-row-label {
+  flex: 0 0 4.5rem;
+  font-size: 0.63rem;
   font-weight: 600;
   color: var(--ui-color-text-muted);
-  padding: 0 0.55rem;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 0.4rem;
   border-right: 1px solid var(--ui-color-border);
 }
 
-.audio-sampler-seq-lane-track {
+.audio-sampler-step-cells {
   flex: 1;
+  display: flex;
+  gap: 0.3rem;
+  min-width: 0;
   height: 100%;
 }
 
-/* Estado vacío del secuenciador */
-.audio-sampler-seq-empty {
+.audio-sampler-step-group {
+  flex: 1;
+  display: flex;
+  gap: 0.12rem;
+  height: 100%;
+}
+
+.audio-sampler-step-btn {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border-radius: 0.22rem !important;
+  border: 1px solid var(--ui-color-border) !important;
+  background: var(--ui-color-surface-inset) !important;
+  cursor: pointer;
+  transition: background 60ms ease, border-color 60ms ease;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+}
+
+.audio-sampler-step-btn:hover {
+  background: var(--ui-color-surface-raised) !important;
+}
+
+.audio-sampler-step-btn-on {
+  background: var(--ui-color-accent) !important;
+  border-color: var(--ui-color-accent) !important;
+}
+
+.audio-sampler-step-btn-on:hover {
+  opacity: 0.82;
+}
+
+/* Fila de playhead */
+.audio-sampler-step-playhead-row {
+  height: 0.45rem;
+  pointer-events: none;
+}
+
+.audio-sampler-step-ph {
+  flex: 1;
+  height: 100%;
+  border-radius: 0.1rem;
+  background: var(--ui-color-border);
+  transition: background 60ms ease;
+}
+
+.audio-sampler-step-ph-active {
+  background: var(--ui-color-accent);
+}
+
+/* Estado vacío */
+.audio-sampler-step-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -450,6 +581,8 @@
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-md);
   padding: 0.15rem 0.3rem;
+  flex: 0 0 auto;
+  width: 8rem;
 }
 
 .audio-sampler-slot-nav-btn {
@@ -462,6 +595,7 @@
   border-radius: var(--ui-radius-sm);
   line-height: 1;
   transition: background 80ms ease;
+  flex: 0 0 auto;
 }
 
 .audio-sampler-slot-nav-btn:hover {
@@ -473,14 +607,17 @@
   display: flex;
   align-items: baseline;
   gap: 0.3rem;
-  min-width: 5rem;
+  flex: 1;
+  min-width: 0;
   justify-content: center;
+  overflow: hidden;
 }
 
 .audio-sampler-slot-nav-num {
   font-size: 0.6rem;
   font-weight: 700;
   color: var(--ui-color-text-muted);
+  flex: 0 0 auto;
 }
 
 .audio-sampler-slot-nav-name {
@@ -490,7 +627,25 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 8rem;
+}
+
+/* Input de renombrar en toolbar (vista MUESTRAS) */
+.audio-sampler-toolbar-rename {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+  background: var(--ui-color-surface-inset);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  padding: 0.2rem 0.6rem;
+  outline: none;
+  width: 9rem;
+  line-height: 1.2;
+  transition: border-color 80ms ease;
+}
+
+.audio-sampler-toolbar-rename:focus {
+  border-color: var(--ui-color-accent);
 }
 
 /* Input de renombrar dentro del slot card */
@@ -512,6 +667,122 @@
 .audio-sampler-settings {
   display: grid;
   gap: 0.85rem;
+}
+
+.audio-sampler-modal-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-surface);
+}
+
+.audio-sampler-modal-summary-slots {
+  flex: 1 1 0%;
+  font-size: 0.78rem;
+  color: var(--ui-color-text-muted);
+}
+
+.audio-sampler-modal-summary-slots strong {
+  color: var(--ui-color-text);
+  font-weight: 700;
+}
+
+.audio-sampler-modal-seq-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-surface);
+}
+
+.audio-sampler-modal-seq-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.audio-sampler-modal-seq-card-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--ui-color-text-muted);
+  text-transform: uppercase;
+  flex: 1 1 0%;
+}
+
+.audio-sampler-modal-seq-card-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ui-color-accent);
+}
+
+.audio-sampler-modal-bpm-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.audio-sampler-modal-bpm-slider {
+  flex: 1 1 0%;
+  min-width: 0;
+  accent-color: var(--ui-color-accent);
+  cursor: pointer;
+}
+
+.audio-sampler-modal-bpm-input {
+  width: 3rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-family: inherit;
+  font-weight: 700;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface-inset);
+  color: var(--ui-color-text);
+  padding: 0.2rem 0.25rem;
+}
+
+.audio-sampler-modal-bpm-input:focus {
+  outline: none;
+  border-color: var(--ui-color-accent);
+}
+
+.audio-sampler-modal-steps-ctrl {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.audio-sampler-modal-slots-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+}
+
+.audio-sampler-modal-slot-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface);
+}
+
+.audio-sampler-modal-slot-name {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ui-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────── */

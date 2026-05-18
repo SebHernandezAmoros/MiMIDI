@@ -13,9 +13,11 @@ type LabProjectPanelProps = {
   activeInstrumentCategory: MathematicalInstrument["category"]
   envelopeHelpText: string
   envelope: ADSREnvelope
+  historyCount: number
   instrumentCategoryDescription: string
   instrumentCategories: MathematicalInstrument["category"][]
   noteCount: number
+  noteTimelineDuration: number
   onAddTrack: () => void
   onInstrumentCategoryChange: (
     category: MathematicalInstrument["category"],
@@ -24,11 +26,13 @@ type LabProjectPanelProps = {
   onProjectNameChange: (name: string) => void
   onProjectTrackTimelineDurationChange: (duration: number) => void
   onResetProjectTrackTimelineDuration: () => void
+  onResetTrackNoteTimelineDuration: () => void
   onRemoveActiveTrack: () => void
   onSwitchActiveTrack: (trackId: string) => void
   onTrackEnvelopeChange: (parameter: keyof ADSREnvelope, value: number) => void
   onTrackMutedToggle: () => void
   onTrackNameChange: (name: string) => void
+  onTrackNoteTimelineDurationChange: (duration: number) => void
   onTrackPanChange: (pan: number) => void
   onTrackSoloToggle: () => void
   onTrackVolumeAutomationChange: (automation: TrackVolumeAutomation) => void
@@ -58,20 +62,24 @@ export function LabProjectPanel({
   activeInstrumentCategory,
   envelopeHelpText,
   envelope,
+  historyCount,
   instrumentCategoryDescription,
   instrumentCategories,
   noteCount,
+  noteTimelineDuration,
   onAddTrack,
   onInstrumentCategoryChange,
   onPluginEnabledChange,
   onProjectNameChange,
   onProjectTrackTimelineDurationChange,
   onResetProjectTrackTimelineDuration,
+  onResetTrackNoteTimelineDuration,
   onRemoveActiveTrack,
   onSwitchActiveTrack,
   onTrackEnvelopeChange,
   onTrackMutedToggle,
   onTrackNameChange,
+  onTrackNoteTimelineDurationChange,
   onTrackPanChange,
   onTrackSoloToggle,
   onTrackVolumeAutomationChange,
@@ -133,6 +141,9 @@ export function LabProjectPanel({
           <span className="project-label">Pistas</span>
           <strong>{trackCount}</strong>
         </div>
+        <div>
+          <span className="project-label">Historial: {historyCount}</span>
+        </div>
       </div>
 
       {projectMessage ? <p className="project-message">{projectMessage}</p> : null}
@@ -184,6 +195,33 @@ export function LabProjectPanel({
                 onProjectTrackTimelineDurationChange(Number(event.target.value))
               }
             />
+            <span className="project-label">{projectTrackTimelineDuration.toFixed(1)}s</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="track-mix" aria-label="Duracion del timeline de notas">
+        <div className="track-mix-header">
+          <h2>Duracion de notas</h2>
+          <button onClick={onResetTrackNoteTimelineDuration} type="button">
+            Ajustar notas al contenido
+          </button>
+        </div>
+        <div className="track-mix-grid">
+          <div className="control-group">
+            <label htmlFor="track-note-timeline-duration">Duracion timeline notas (s)</label>
+            <input
+              id="track-note-timeline-duration"
+              max="9999"
+              min="1"
+              step="0.1"
+              type="number"
+              value={noteTimelineDuration}
+              onChange={(event) =>
+                onTrackNoteTimelineDurationChange(Number(event.target.value))
+              }
+            />
+            <span className="project-label">{noteTimelineDuration.toFixed(1)}s</span>
           </div>
         </div>
       </section>

@@ -6,6 +6,7 @@ import {
   createPlayOptions,
 } from "../../engine/audio/mathematicalInstruments"
 import {
+  getMidiTracks,
   getTrackVolumeAutomationValue,
   getScheduledTrackNotes,
   isTrackAudible,
@@ -58,7 +59,7 @@ export function playRecordedNotes(
 
       const { note: recordedNote, track } = scheduledNote
 
-      if (!isTrackAudible(track, project.tracks)) {
+      if (!isTrackAudible(track, getMidiTracks(project.timeline))) {
         return
       }
 

@@ -42,6 +42,7 @@ import {
   appendNoteToTrack,
   appendPadTrack,
   appendTrack,
+  createProjectTrack,
   updatePadSoundSetting,
   clearAllTrackNotes,
   compactTrackNotesStart,
@@ -70,13 +71,19 @@ import {
   updateTrackNoteTimelineDuration,
   updateTrackPan,
   updateTrackSolo,
-  updateTrackTimelineClip,
+  updateMidiTrackStartTime,
   updateTrackVolumeAutomation,
   updateTrackVolume,
   type TrackVolumeAutomation,
+  removeSamplerMix,
+  renameSamplerMix,
+  updateSamplerMixStartTime,
+  getMidiTracks,
+  getSamplerTracks,
 } from "../../engine/project/projectModel"
 import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
+import { playSamplerMixes } from "../../application/use-cases/playSamplerMixes"
 import {
   findRegisteredPluginByInstrumentId,
   getRegisteredPluginSummaries,
@@ -141,16 +148,17 @@ function getInitialProjectMessage() {
     return ""
   }
 
-  return storedProject.tracks.some((track) => track.notes.length > 0)
+  return getMidiTracks(storedProject.timeline).some((track) => track.notes.length > 0)
     ? `Proyecto restaurado: ${storedProject.name}.`
     : ""
 }
 
 function getInitialActiveTrackId(mode: LabAppMode) {
   const project = getInitialProject()
+  const tracks = getMidiTracks(project.timeline)
   const targetType: ProjectTrackType = mode === "sampler-only" ? "percussion" : "melodic"
-  return project.tracks.find((t) => t.trackType === targetType)?.id
-    ?? project.tracks[0]?.id
+  return tracks.find((t) => t.trackType === targetType)?.id
+    ?? tracks[0]?.id
     ?? "track-1"
 }
 
@@ -172,6 +180,8 @@ type LabAppProps = {
   settingsOpen?: boolean
   onSettingsClose?: () => void
 }
+
+const EMPTY_MIDI_TRACK = createProjectTrack(0)
 
 function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabAppProps) {
   const [volume, setVolume] = useState(0.8)
@@ -224,7 +234,27 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const activeArpeggiatorHandleRef = useRef<ArpeggiatorHandle | null>(null)
   const activeArpeggiatorTriggerKeyRef = useRef<string | null>(null)
   const playbackTransport = usePlaybackTransport()
+  const samplerMixPlaybackRef = useRef<{ cancel: () => void } | null>(null)
   const [absolutePlayheadTime, setAbsolutePlayheadTime] = useState<number | null>(null)
+  const [isMixOnlyPlaying, setIsMixOnlyPlaying] = useState(false)
+  const mixOnlyStartRef = useRef<{ startedAt: number; duration: number } | null>(null)
+  const [selectedMixId, setSelectedMixId] = useState<string | null>(null)
+  const [isMixDeleteConfirmOpen, setIsMixDeleteConfirmOpen] = useState(false)
+  const midiTracks = getMidiTracks(project.timeline)
+  const hasNoTracks = midiTracks.length === 0
+
+  useEffect(() => {
+    if (hasNoTracks && timelineView === "notes") {
+      setTimelineView("tracks")
+    }
+  }, [hasNoTracks, timelineView])
+
+  useEffect(() => {
+    const tracks = getMidiTracks(project.timeline)
+    if (tracks.length > 0 && !tracks.some((t) => t.id === activeTrackId)) {
+      setActiveTrackId(tracks[0].id)
+    }
+  }, [project.timeline, activeTrackId])
 
   useEffect(() => {
     if (!playbackTransport.isPlaying || !playbackTransport.playbackInfo) {
@@ -244,17 +274,38 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     return () => cancelAnimationFrame(rafId)
   }, [playbackTransport.isPlaying, playbackTransport.playbackInfo])
 
-  const melodicTracks = project.tracks.filter((t) => t.trackType === "melodic")
-  const percussionTracks = project.tracks.filter((t) => t.trackType === "percussion")
+  useEffect(() => {
+    if (!isMixOnlyPlaying || !mixOnlyStartRef.current) return
+    const { startedAt, duration } = mixOnlyStartRef.current
+    let rafId: number
+    function tick() {
+      const elapsed = (performance.now() - startedAt) / 1000
+      if (elapsed >= duration) {
+        setAbsolutePlayheadTime(null)
+        setIsMixOnlyPlaying(false)
+        mixOnlyStartRef.current = null
+        return
+      }
+      setAbsolutePlayheadTime(elapsed)
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [isMixOnlyPlaying])
+
+  const melodicTracks = midiTracks.filter((t) => t.trackType === "melodic")
+  const percussionTracks = midiTracks.filter((t) => t.trackType === "percussion")
   const primaryTrack = (() => {
     if (mode === "sampler-only") {
       return percussionTracks.find((t) => t.id === activeTrackId)
         ?? percussionTracks[0]
-        ?? project.tracks[0]
+        ?? midiTracks[0]
+        ?? EMPTY_MIDI_TRACK
     }
-    return project.tracks.find((t) => t.id === activeTrackId)
+    return midiTracks.find((t) => t.id === activeTrackId)
       ?? melodicTracks[0]
-      ?? project.tracks[0]
+      ?? midiTracks[0]
+      ?? EMPTY_MIDI_TRACK
   })()
   const {
     activeInstrumentCategory,
@@ -294,11 +345,11 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     [availableInstruments, instrumentDialogCategory, project.pluginStates],
   )
   const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
-  const allRecordedNotes = project.tracks.flatMap((track) => track.notes)
+  const allRecordedNotes = midiTracks.flatMap((track) => track.notes)
   const projectTrackTimelineLength = getProjectTrackTimelineLength(project)
   const primaryTrackNoteTimelineLength = getTrackNoteTimelineLength(primaryTrack)
   const noteCount = primaryTrack.notes.length
-  const isPrimaryTrackAudible = isTrackAudible(primaryTrack, project.tracks)
+  const isPrimaryTrackAudible = isTrackAudible(primaryTrack, midiTracks)
   const selectedRecordedNote =
     primaryTrack.notes.find((note) => note.id === selectedRecordedNoteId) ?? null
 
@@ -308,7 +359,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     if (!latestSnapshot) {
       selectedNoteHistoryStatus = "sin-cambios"
     } else {
-      const snapshotTrack = latestSnapshot.tracks.find((t) => t.id === primaryTrack.id)
+      const snapshotTrack = getMidiTracks(latestSnapshot.timeline).find((t) => t.id === primaryTrack.id)
       const snapshotNote = snapshotTrack?.notes.find((n) => n.id === selectedRecordedNoteId)
       selectedNoteHistoryStatus =
         !snapshotNote ||
@@ -565,6 +616,35 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     playbackTransport.play(project)
   }
 
+  function playAll(notesProject: MusicalProject) {
+    const startedAt = performance.now()
+    samplerMixPlaybackRef.current?.cancel()
+    const samplerTracks = getSamplerTracks(notesProject.timeline)
+    samplerMixPlaybackRef.current = playSamplerMixes(samplerTracks, startedAt)
+    const hasMidi = getMidiTracks(notesProject.timeline).some(t => t.notes.length > 0)
+    if (hasMidi) {
+      playbackTransport.play(notesProject)
+    } else if (samplerTracks.length > 0) {
+      const maxEnd = Math.max(
+        ...samplerTracks.map(m => {
+          const secondsPerStep = 60 / m.pattern.bpm / 4
+          return m.startTime + m.pattern.stepsPerBar * secondsPerStep
+        }),
+      )
+      mixOnlyStartRef.current = { startedAt, duration: maxEnd }
+      setIsMixOnlyPlaying(true)
+    }
+  }
+
+  function stopAll() {
+    playbackTransport.stop()
+    samplerMixPlaybackRef.current?.cancel()
+    samplerMixPlaybackRef.current = null
+    setIsMixOnlyPlaying(false)
+    mixOnlyStartRef.current = null
+    setAbsolutePlayheadTime(null)
+  }
+
   function triggerSmcPad(soundId: SmcPadSoundId, velocity = 1) {
     const sound = getSmcPadSoundDescriptor(soundId)
     const startTime = getCurrentRecordTime()
@@ -604,7 +684,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   function addTrack() {
     applyUpdate((currentProject) => {
       const nextProject = appendTrack(currentProject)
-      const nextTrack = nextProject.tracks.at(-1)
+      const nextTrack = getMidiTracks(nextProject.timeline).at(-1)
 
       if (nextTrack) {
         setActiveTrackId(nextTrack.id)
@@ -618,7 +698,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   function addPadTrack() {
     applyUpdate((currentProject) => {
       const nextProject = appendPadTrack(currentProject)
-      const nextTrack = nextProject.tracks.at(-1)
+      const nextTrack = getMidiTracks(nextProject.timeline).at(-1)
 
       if (nextTrack) {
         setActiveTrackId(nextTrack.id)
@@ -633,16 +713,17 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     stopArpeggiator()
     setActiveTrackId(trackId)
     setSelectedRecordedNoteId(null)
+    setSelectedMixId(null)
   }
 
   function switchTrackByOffset(offset: -1 | 1) {
-    const currentIndex = project.tracks.findIndex((track) => track.id === primaryTrack.id)
+    const currentIndex = midiTracks.findIndex((track) => track.id === primaryTrack.id)
 
     if (currentIndex < 0) {
       return
     }
 
-    const nextTrack = project.tracks[currentIndex + offset]
+    const nextTrack = midiTracks[currentIndex + offset]
 
     if (!nextTrack) {
       return
@@ -652,27 +733,31 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   }
 
   function removeActiveTrack() {
-    if (project.tracks.length <= 1) {
-      setProjectMessage("Debe existir al menos una pista.")
-      return
-    }
+    if (hasNoTracks) return
 
-    const currentIndex = project.tracks.findIndex((track) => track.id === primaryTrack.id)
+    const isLastMidiTrack = midiTracks.length === 1
+    const trackName = primaryTrack.name
+    const currentIndex = midiTracks.findIndex((track) => track.id === primaryTrack.id)
     const fallbackTrackId =
-      project.tracks[currentIndex - 1]?.id ?? project.tracks[currentIndex + 1]?.id
+      midiTracks[currentIndex - 1]?.id ?? midiTracks[currentIndex + 1]?.id
 
-    applyUpdate((currentProject) => removeTrack(currentProject, primaryTrack.id))
-    setActiveTrackId(fallbackTrackId ?? "track-1")
+    applyUpdate((currentProject) => {
+      const withoutTrack = removeTrack(currentProject, primaryTrack.id)
+      if (!isLastMidiTrack) return withoutTrack
+      // Last midi track removed — insert a fresh Track 1 before any sampler tracks
+      return { ...withoutTrack, timeline: [createProjectTrack(1), ...withoutTrack.timeline] }
+    })
+    setActiveTrackId(isLastMidiTrack ? "track-1" : (fallbackTrackId ?? ""))
     setSelectedRecordedNoteId(null)
-    setProjectMessage(`Pista eliminada: ${primaryTrack.name}.`)
+    setProjectMessage(
+      isLastMidiTrack
+        ? `${trackName} eliminada. Pista vacia lista para grabar.`
+        : `Pista eliminada: ${trackName}.`,
+    )
   }
 
   function confirmRemoveActiveTrack() {
-    if (project.tracks.length === 1) {
-      setIsRestartConfirmOpen(true)
-      return
-    }
-
+    if (hasNoTracks) return
     setIsTrackRemovalConfirmOpen(true)
   }
 
@@ -858,17 +943,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
     if (historyMode === "transient") {
       applyTransientUpdate((currentProject) =>
-        updateTrackTimelineClip(currentProject, trackId, {
-          startTime: safeStartTime,
-        }),
+        updateMidiTrackStartTime(currentProject, trackId, safeStartTime),
       )
       return
     }
 
     commitTransientUpdate((currentProject) =>
-      updateTrackTimelineClip(currentProject, trackId, {
-        startTime: safeStartTime,
-      }),
+      updateMidiTrackStartTime(currentProject, trackId, safeStartTime),
     )
   }
 
@@ -886,7 +967,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     applyUpdate((currentProject) =>
       updateProjectTrackTimelineDuration(
         currentProject,
-        getTracksTimelineLength(currentProject.tracks),
+        getTracksTimelineLength(currentProject.timeline),
       ),
     )
     setProjectMessage("Duracion del timeline ajustada al contenido.")
@@ -906,7 +987,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     applyUpdate((currentProject) =>
       updateTrackNoteTimelineDuration(currentProject, primaryTrack.id, (() => {
         const currentTrack =
-          currentProject.tracks.find((track) => track.id === primaryTrack.id) ?? primaryTrack
+          getMidiTracks(currentProject.timeline).find((track) => track.id === primaryTrack.id) ?? primaryTrack
 
         return getTrackNoteTimelineContentLength(currentTrack)
       })()),
@@ -964,8 +1045,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
     setSelectedRecordedNoteId(null)
     setActiveTrackId(
-      previousProject.tracks.find((track) => track.id === activeTrackId)?.id ??
-        previousProject.tracks[0]?.id ??
+      getMidiTracks(previousProject.timeline).find((track) => track.id === activeTrackId)?.id ??
+        getMidiTracks(previousProject.timeline)[0]?.id ??
         "track-1",
     )
     setProjectMessage("Deshacer aplicado.")
@@ -981,8 +1062,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
     setSelectedRecordedNoteId(null)
     setActiveTrackId(
-      nextProject.tracks.find((track) => track.id === activeTrackId)?.id ??
-        nextProject.tracks[0]?.id ??
+      getMidiTracks(nextProject.timeline).find((track) => track.id === activeTrackId)?.id ??
+        getMidiTracks(nextProject.timeline)[0]?.id ??
         "track-1",
     )
     setProjectMessage("Rehacer aplicado.")
@@ -1002,7 +1083,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       .map((snapshot) => ({ snapshot }))
       .reverse()
       .find(({ snapshot }) => {
-        const snapshotTrack = snapshot.tracks.find((track) => track.id === primaryTrack.id)
+        const snapshotTrack = getMidiTracks(snapshot.timeline).find((track) => track.id === primaryTrack.id)
         const snapshotNote = snapshotTrack?.notes.find(
           (note) => note.id === selectedRecordedNoteId,
         )
@@ -1020,7 +1101,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       return
     }
 
-    const snapshotTrack = candidateIndex.snapshot.tracks.find(
+    const snapshotTrack = getMidiTracks(candidateIndex.snapshot.timeline).find(
       (track) => track.id === primaryTrack.id,
     )
     const snapshotNote = snapshotTrack?.notes.find(
@@ -1132,7 +1213,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       resetRecordingSession()
       setMidiEvents([])
       replaceState(importedProject)
-      setActiveTrackId(importedProject.tracks[0]?.id ?? "track-1")
+      setActiveTrackId(getMidiTracks(importedProject.timeline)[0]?.id ?? "track-1")
       setSelectedRecordedNoteId(null)
       setProjectMessage(`Proyecto importado: ${importedProject.name}.`)
     } catch {
@@ -1255,7 +1336,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   }
 
   const editNotesToPlay = timelineView === "notes"
-    ? { ...project, tracks: [primaryTrack] }
+    ? { ...project, timeline: [primaryTrack, ...getSamplerTracks(project.timeline)] }
     : project
 
   const editSettingsDuration = timelineView === "notes"
@@ -1269,7 +1350,9 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           <div className="edit-view-switch" role="group" aria-label="Vista del timeline">
             <button
               aria-pressed={timelineView === "notes"}
+              disabled={hasNoTracks}
               onClick={() => setTimelineView("notes")}
+              title={hasNoTracks ? "Agrega una pista MIDI para editar notas" : undefined}
               type="button"
             >
               NOTAS
@@ -1289,22 +1372,50 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               value={primaryTrack.id}
               onChange={(e) => switchActiveTrack(e.target.value)}
             >
-              {project.tracks.map((track) => (
+              {midiTracks.map((track) => (
                 <option key={track.id} value={track.id}>{track.name}</option>
               ))}
             </select>
           )}
-          {timelineView === "tracks" && (
-            <input
-              aria-label="Nombre de la pista activa"
-              className="edit-note-input edit-track-name-input"
-              defaultValue={primaryTrack.name}
-              key={primaryTrack.id}
-              onBlur={(e) => updateTrackName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
-              type="text"
-            />
-          )}
+          {timelineView === "tracks" && (() => {
+            const activeMix = selectedMixId
+              ? getSamplerTracks(project.timeline).find((m) => m.id === selectedMixId)
+              : null
+            return activeMix ? (
+              <input
+                aria-label="Nombre del mix"
+                className="edit-note-input edit-track-name-input"
+                defaultValue={activeMix.name}
+                key={activeMix.id}
+                onBlur={(e) => {
+                  const name = e.target.value.trim()
+                  if (name) applyUpdate((p) => renameSamplerMix(p, activeMix.id, name))
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+                type="text"
+              />
+            ) : hasNoTracks ? (
+              <button
+                className="ui-icon-btn"
+                onClick={addTrack}
+                style={{ fontSize: "0.8rem", padding: "0.25rem 0.75rem", borderRadius: "999px" }}
+                title="Agregar pista MIDI"
+                type="button"
+              >
+                + Pista MIDI
+              </button>
+            ) : (
+              <input
+                aria-label="Nombre de la pista activa"
+                className="edit-note-input edit-track-name-input"
+                defaultValue={primaryTrack.name}
+                key={primaryTrack.id}
+                onBlur={(e) => updateTrackName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+                type="text"
+              />
+            )
+          })()}
           {mode === "edit-only" && timelineView === "notes" && selectedRecordedNote && (
             <>
               <span className="edit-note-chip">{selectedRecordedNote.note}</span>
@@ -1348,14 +1459,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           <button
             aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
             className="ui-icon-btn"
-            disabled={allRecordedNotes.length === 0 && !playbackTransport.isPlaying}
-            onClick={() => playbackTransport.isPlaying ? playbackTransport.stop() : playbackTransport.play(editNotesToPlay)}
+            disabled={allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0 && !playbackTransport.isPlaying && !isMixOnlyPlaying}
+            onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(editNotesToPlay)}
             title={playbackTransport.isPlaying ? "Detener" : "Reproducir"}
             type="button"
           >
-            {playbackTransport.isPlaying ? <Square size={18} /> : <Play size={18} />}
+            {(playbackTransport.isPlaying || isMixOnlyPlaying) ? <Square size={18} /> : <Play size={18} />}
           </button>
-          {mode === "edit-only" && timelineView === "notes" && (
+          {timelineView === "notes" && (
             <button
               className="ui-icon-btn"
               onClick={compactPrimaryTrackNoteTimelineStart}
@@ -1475,10 +1586,11 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           )}
           {mode === "edit-only" && timelineView === "tracks" && (
             <button
-              aria-label={`Eliminar ${primaryTrack.name}`}
+              aria-label={selectedMixId ? "Eliminar mix" : `Eliminar ${primaryTrack.name}`}
               className="ui-icon-btn"
-              onClick={confirmRemoveActiveTrack}
-              title={`Eliminar ${primaryTrack.name}`}
+              disabled={!selectedMixId && hasNoTracks}
+              onClick={selectedMixId ? () => setIsMixDeleteConfirmOpen(true) : confirmRemoveActiveTrack}
+              title={selectedMixId ? "Eliminar mix seleccionado" : `Eliminar ${primaryTrack.name}`}
               type="button"
             >
               <Trash2 size={18} />
@@ -1492,10 +1604,24 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           activeTrackId={primaryTrack.id}
           onSelectTrack={switchActiveTrack}
           onDragStateChange={setIsTimelineDragging}
+          onRemoveSamplerMix={(mixId) => applyUpdate((p) => removeSamplerMix(p, mixId))}
+          onRenameMix={(mixId, name) => applyUpdate((p) => renameSamplerMix(p, mixId, name))}
+          onSelectMix={setSelectedMixId}
+          selectedMixId={selectedMixId}
+          onUpdateSamplerMixStartTime={(mixId, startTime, mode) => {
+            const snapped = timelineSnapEnabled
+              ? Math.max(0, Math.round(startTime / timelineSnapStep) * timelineSnapStep)
+              : Math.max(0, startTime)
+            if (mode === "transient") {
+              applyTransientUpdate((p) => updateSamplerMixStartTime(p, mixId, snapped))
+            } else {
+              commitTransientUpdate((p) => updateSamplerMixStartTime(p, mixId, snapped))
+            }
+          }}
           onUpdateTrackStartTime={updateTrackStartTime}
           playheadTime={absolutePlayheadTime}
+          timeline={project.timeline}
           timelineLength={projectTrackTimelineLength}
-          tracks={project.tracks}
         />
       ) : (
         <>
@@ -1515,7 +1641,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             onRemoveSelectedNote={mode !== "edit-only" ? removeRecordedNote : undefined}
             onSelectNote={selectRecordedNote}
             onUpdateNote={updateRecordedNote}
-            playheadTime={absolutePlayheadTime !== null ? absolutePlayheadTime - primaryTrack.timelineClip.startTime : null}
+            playheadTime={absolutePlayheadTime !== null ? absolutePlayheadTime - primaryTrack.startTime : null}
             selectedNoteId={selectedRecordedNoteId}
             timelineLength={primaryTrackNoteTimelineLength}
           />
@@ -1644,14 +1770,44 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 onClick={acceptRemoveActiveTrack}
                 type="button"
               >
+                {midiTracks.length === 1 ? "Reiniciar pistas" : "Eliminar"}
+              </button>
+            </>
+          }
+          description={
+            midiTracks.length === 1
+              ? "Se eliminaran todas las notas y quedara una pista vacia. Los mixes del timeline no se borran."
+              : "La pista activa y sus notas se eliminaran de esta toma."
+          }
+          onClose={cancelRemoveActiveTrack}
+          open={isTrackRemovalConfirmOpen}
+          title={midiTracks.length === 1 ? "Reiniciar pistas MIDI?" : `Eliminar ${primaryTrack.name}?`}
+        />
+
+        <AppDialog
+          actions={
+            <>
+              <button onClick={() => setIsMixDeleteConfirmOpen(false)} type="button">
+                Cancelar
+              </button>
+              <button
+                className="app-dialog-confirm"
+                onClick={() => {
+                  const id = selectedMixId
+                  setIsMixDeleteConfirmOpen(false)
+                  setSelectedMixId(null)
+                  if (id) applyUpdate((p) => removeSamplerMix(p, id))
+                }}
+                type="button"
+              >
                 Eliminar
               </button>
             </>
           }
-          description="La pista activa y sus notas se eliminaran de esta toma."
-          onClose={cancelRemoveActiveTrack}
-          open={isTrackRemovalConfirmOpen}
-          title={`Eliminar ${primaryTrack.name}?`}
+          description="El mix se eliminara del timeline. Los slots y patrones del sampler no se borran."
+          onClose={() => setIsMixDeleteConfirmOpen(false)}
+          open={isMixDeleteConfirmOpen}
+          title="Eliminar mix del timeline?"
         />
 
         <AppDialog
@@ -1686,24 +1842,28 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       activeInstrumentCategory={activeInstrumentCategory}
       envelopeHelpText="Ajusta ADSR de la pista activa. Los cambios afectan las notas nuevas y quedan guardados con la grabacion."
       envelope={primaryTrack.envelope}
+      historyCount={undoStack.length}
       instrumentCategoryDescription={getInstrumentCategoryDescription(
         activeInstrumentCategory,
       )}
       instrumentCategories={instrumentCategories}
       instrumentOptions={visibleInstrumentOptions}
       noteCount={noteCount}
+      noteTimelineDuration={primaryTrack.noteTimelineDuration}
       onAddTrack={addTrack}
       onInstrumentCategoryChange={updateTrackInstrumentCategory}
       onPluginEnabledChange={updatePluginEnabled}
       onProjectNameChange={updateProjectName}
       onProjectTrackTimelineDurationChange={updateProjectTrackTimelineDurationValue}
       onResetProjectTrackTimelineDuration={resetProjectTrackTimelineDuration}
+      onResetTrackNoteTimelineDuration={resetPrimaryTrackNoteTimelineDuration}
       onRemoveActiveTrack={removeActiveTrack}
       onSwitchActiveTrack={switchActiveTrack}
       onTrackEnvelopeChange={updatePrimaryTrackEnvelope}
       onTrackInstrumentChange={updateTrackInstrumentId}
       onTrackMutedToggle={togglePrimaryTrackMuted}
       onTrackNameChange={updateTrackName}
+      onTrackNoteTimelineDurationChange={updatePrimaryTrackNoteTimelineDurationValue}
       onTrackPanChange={updatePrimaryTrackPan}
       onTrackSoloToggle={togglePrimaryTrackSolo}
       onTrackVolumeAutomationChange={updatePrimaryTrackVolumeAutomation}
@@ -1718,15 +1878,15 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       projectName={project.name}
       projectTrackTimelineDuration={project.trackTimelineDuration}
       plugins={registeredPlugins}
-      trackCount={project.tracks.length}
-      tracks={project.tracks}
+      trackCount={midiTracks.length}
+      tracks={midiTracks}
       volumeAutomation={primaryTrack.volumeAutomation}
       volume={primaryTrack.volume}
     />
   )
 
   const projectWorkspace = (
-    <section className="app-mock-screen" aria-label="Exportar proyecto">
+    <section className="app-mock-screen" aria-label="Proyecto actual">
       <input
         accept=".json,application/json"
         hidden
@@ -1774,7 +1934,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             onClick={exportProject}
             type="button"
           >
-            Guardar JSON
+            Exportar JSON
           </button>
           <button
             className="project-export-btn"
@@ -1868,7 +2028,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               aria-label={playbackTransport.isPlaying ? "Detener reproducción" : "Reproducir"}
               className={`perform-mode-transport-button${playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
               disabled={recordingState === "recording"}
-              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, tracks: [primaryTrack] }, { padSoundSettings: project.padSoundSettings })}
+              onClick={playbackTransport.isPlaying ? playbackTransport.stop : () => playbackTransport.play({ ...project, timeline: [primaryTrack] }, { padSoundSettings: project.padSoundSettings })}
               type="button"
             >
               <span className="perform-mode-transport-icon">
@@ -2214,8 +2374,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               removeTrackDisabled={false}
               selectedInstrumentId={selectedInstrument.id}
               selectedInstrumentName={selectedInstrument.name}
-              trackNextDisabled={project.tracks.at(-1)?.id === primaryTrack.id}
-              trackPreviousDisabled={project.tracks[0]?.id === primaryTrack.id}
+              trackNextDisabled={midiTracks.at(-1)?.id === primaryTrack.id}
+              trackPreviousDisabled={midiTracks[0]?.id === primaryTrack.id}
               visibleInstruments={dialogVisibleInstruments}
             />
           </header>
@@ -2448,7 +2608,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             <div className="perform-mode-track-strip">
               <button
                 aria-label="Pista anterior"
-                disabled={project.tracks[0]?.id === primaryTrack.id}
+                disabled={midiTracks[0]?.id === primaryTrack.id}
                 onClick={() => switchTrackByOffset(-1)}
                 type="button"
               >
@@ -2460,7 +2620,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               </div>
               <button
                 aria-label="Pista siguiente"
-                disabled={project.tracks.at(-1)?.id === primaryTrack.id}
+                disabled={midiTracks.at(-1)?.id === primaryTrack.id}
                 onClick={() => switchTrackByOffset(1)}
                 type="button"
               >

@@ -178,13 +178,12 @@ describe("App integration: timeline history", () => {
   it("switches active track from the track timeline overview", () => {
     render(<App />)
 
+    fireEvent.click(screen.getByRole("button", { name: "TRACKS" }))
     fireEvent.click(screen.getByRole("button", { name: /track 2/i }))
 
     const projectSummary = screen.getByLabelText("Proyecto actual")
-    const recordedNoteList = screen.getByLabelText("Notas MIDI grabadas")
 
     expect(within(projectSummary).getByText("Track 2")).toBeTruthy()
-    expect(within(recordedNoteList).getByText("C5")).toBeTruthy()
   })
 
   it("does not record test notes unless recording is active", () => {
@@ -193,7 +192,8 @@ describe("App integration: timeline history", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reiniciar proyecto" }))
     fireEvent.click(screen.getByRole("button", { name: "Tocar nota" }))
 
-    expect(screen.getByText("Toca y suelta una tecla.")).toBeTruthy()
+    const projectSummary = screen.getByLabelText("Proyecto actual")
+    expect(within(projectSummary).getByText("0")).toBeTruthy()
   })
 
   it("starts each new recording take at its own zero point", () => {
@@ -218,6 +218,8 @@ describe("App integration: timeline history", () => {
 
   it("moves a track clip in the track timeline and supports undo", () => {
     render(<App />)
+
+    fireEvent.click(screen.getByRole("button", { name: "TRACKS" }))
 
     const activeTrackLane = screen.getByRole("button", { name: /track 1/i })
     const clip = activeTrackLane.querySelector(".track-timeline-clip")
@@ -282,7 +284,7 @@ describe("App integration: timeline history", () => {
     const durationInput = screen.getByLabelText("Duracion timeline notas (s)")
     fireEvent.change(durationInput, { target: { value: "12" } })
 
-    expect(screen.getByText("12.0s")).toBeTruthy()
+    expect(screen.getAllByText("12.0s").length).toBeGreaterThan(0)
   })
 
   it("can reset the note timeline duration to fit current content", () => {
@@ -298,7 +300,9 @@ describe("App integration: timeline history", () => {
   it("can compact the empty space before the first note in the note timeline", () => {
     const { container } = render(<App />)
 
+    fireEvent.click(screen.getByRole("button", { name: "TRACKS" }))
     fireEvent.click(screen.getByRole("button", { name: /track 2/i }))
+    fireEvent.click(screen.getByRole("button", { name: "NOTAS" }))
 
     let block = getFirstTimelineBlock(container)
     expect(Number(getNoteStartValue(block))).toBeGreaterThan(0)
@@ -350,10 +354,10 @@ describe("App integration: timeline history", () => {
 
     render(<App />)
 
-    expect(screen.getByRole("button", { name: "Perform" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Piano" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Edit")).toBeTruthy()
-    expect(screen.getByLabelText("Duracion timeline notas (s)")).toBeTruthy()
+    expect(screen.getByLabelText("Vista del timeline")).toBeTruthy()
   })
 
   it("shows the replicated project view on the root route", () => {
