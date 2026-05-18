@@ -1601,7 +1601,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           activeTrackId={primaryTrack.id}
           onSelectTrack={switchActiveTrack}
           onDragStateChange={setIsTimelineDragging}
-          onRemoveSamplerMix={(mixId) => applyUpdate((p) => removeSamplerMix(p, mixId))}
           onRenameMix={(mixId, name) => applyUpdate((p) => renameSamplerMix(p, mixId, name))}
           onSelectMix={setSelectedMixId}
           selectedMixId={selectedMixId}
