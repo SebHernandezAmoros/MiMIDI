@@ -488,3 +488,57 @@ export function playNoise(duration = 1, options: PlayNoiseOptions = {}) {
 
   return voiceId
 }
+
+export function getAudioCurrentTime(): number {
+  return getAudioContext().currentTime
+}
+
+export function playAudioBufferCalibratedAt(
+  audioBuffer: AudioBuffer,
+  cal: AudioCalibration,
+  when: number,
+  volume = 1,
+  pan = 0,
+): void {
+  const ctx = getAudioContext()
+  const totalDur = audioBuffer.duration
+  const offset = clamp(cal.trimStart, 0, 1) * totalDur
+  const bufferDuration = Math.max(0.001, clamp(cal.trimEnd, 0, 1) * totalDur - offset)
+  const playbackRate = Math.pow(2, cal.tune / 12)
+  const realDuration = bufferDuration / playbackRate
+  const endTime = when + realDuration
+
+  const panNode = ctx.createStereoPanner()
+  panNode.pan.value = clamp(pan, -1, 1)
+  panNode.connect(getMasterGainNode(ctx))
+
+  const gainNode = ctx.createGain()
+  const baseGain = clamp(volume * cal.gain, 0, 4)
+  const fadeIn = clamp(cal.fadeIn, 0, realDuration * 0.9)
+  const fadeOut = clamp(cal.fadeOut, 0, realDuration * 0.9 - fadeIn)
+
+  if (fadeIn > 0) {
+    gainNode.gain.setValueAtTime(0.0001, when)
+    gainNode.gain.linearRampToValueAtTime(baseGain, when + fadeIn)
+  } else {
+    gainNode.gain.setValueAtTime(baseGain, when)
+  }
+  if (fadeOut > 0) {
+    gainNode.gain.setValueAtTime(baseGain, endTime - fadeOut)
+    gainNode.gain.linearRampToValueAtTime(0.0001, endTime)
+  }
+
+  gainNode.connect(panNode)
+  const source = ctx.createBufferSource()
+  source.buffer = audioBuffer
+  source.playbackRate.value = playbackRate
+  source.connect(gainNode)
+  source.start(when, offset)
+  source.stop(endTime)
+
+  source.onended = () => {
+    source.disconnect()
+    gainNode.disconnect()
+    panNode.disconnect()
+  }
+}

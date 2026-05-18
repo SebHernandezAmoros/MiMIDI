@@ -6841,3 +6841,213 @@ AudioSamplerScreen (UI)
 - src/engine/audio/sampleModel.ts (nuevo)
 - src/application/use-cases/playSampleBuffer.ts (nuevo)
 - src/features/audio-sampler/AudioSamplerScreen.tsx — imports actualizados, código de dominio eliminado
+
+---
+
+## Sampler — UX completa, use-cases, exportación y pulido (2026-05-17, sábado)
+
+### Qué se hizo
+
+Sesión de trabajo completa sobre el sampler. Se completó la capa de use-cases,
+se añadió calibración en tiempo real, exportación de audio, y se pulió toda la UX.
+
+### Use-cases nuevos (capa application)
+
+- **`importSampleFile.ts`** — lee un `File`, decodifica con Web Audio API, guarda
+  binario en IndexedDB vía `sampleStorage.ts`, retorna metadata completa.
+- **`loadSampleAudioBuffer.ts`** — carga un `AudioBuffer` desde IndexedDB por `dbId`.
+- **`deleteSampleSlot.ts`** — elimina el binario de IndexedDB.
+- **`exportSampleSlot.ts`** — renderiza offline el audio con toda la calibración aplicada
+  (trim, gain, fades, tune) usando `OfflineAudioContext` y descarga como WAV 24-bit.
+
+### Motor ampliado
+
+`audioEngine.ts` — `playAudioBufferCalibrated` devuelve `SamplePlayback`:
+- `stop()` — para reproducción
+- `setGain(linear)` — actualiza gain en vivo con `setTargetAtTime`
+- `setTune(semitones)` — actualiza playbackRate en vivo con `setTargetAtTime`
+- `realDurationMs` — duración real considerando trim + playbackRate
+
+Fix crítico de trim: se abandonó el tercer parámetro de `source.start(when, offset, duration)`
+(comportamiento no confiable) y se usa `source.stop(endTime)` con
+`endTime = now + bufferDuration / playbackRate` para corte exacto.
+
+### Layout del editor
+
+Panel de calibración separado del waveform: columna derecha (flex 1/3) con
+controles verticales. Waveform ocupa 2/3 del ancho. Playhead animado con
+`requestAnimationFrame` moviendo un `div` absoluto sobre el canvas.
+
+### Controles de calibración
+
+| Control | Implementación |
+|---------|----------------|
+| GAIN | Slider 0–200% + ícono Gauge (normalizar al pico) |
+| FADE IN | Slider 0–min(2s, duración×0.5) |
+| FADE OUT | Slider igual que fade in |
+| TUNE | Slider −24 a +24 semitonos con hints −24/0/+24 |
+
+GAIN row: slider ocupa todo el ancho disponible (`flex: 1 1 0%`), botón NORM
+tiene ancho de contenido (`flex: 0 0 auto`), icono Gauge 18px, border-radius 0.35rem.
+
+### Toolbar reestructurada
+
+Orden de tabs cambiado a: **MUESTRAS → EDITOR → SECUENCIADOR**
+
+Visibilidad de botones por vista:
+- Importar (Upload): solo en **MUESTRAS**
+- Descargar (Download): solo en **EDITOR**
+- Play, Delete: siempre visibles
+
+Navegador de slots: `◄ N nombre ►` — solo navega entre slots ocupados, modulo circular.
+Renombrar solo disponible en MUESTRAS con doble clic inline.
+
+TRIM display en toolbar solo en EDITOR con audio cargado.
+
+### Modal de opciones
+
+Por cada slot ocupado: Duración, Trim, Gain, Fade In/Out, Tune, botón Reset individual.
+En sección RESUMEN: botón "Reset todo" que restablece calibración de todos los slots a `DEFAULT_CALIBRATION`.
+
+### Archivos creados/modificados
+
+- `src/application/use-cases/importSampleFile.ts` (nuevo)
+- `src/application/use-cases/loadSampleAudioBuffer.ts` (nuevo)
+- `src/application/use-cases/deleteSampleSlot.ts` (nuevo)
+- `src/application/use-cases/exportSampleSlot.ts` (nuevo)
+- `src/engine/audio/sampleStorage.ts` (nuevo — IndexedDB para binarios de audio)
+- `src/engine/audio/audioEngine.ts` — `SamplePlayback`, fix trim, live gain/tune
+- `src/features/audio-sampler/AudioSamplerScreen.tsx` — UX completa
+- `src/features/audio-sampler/AudioSamplerScreen.css` — layout editor, cal panel, playhead, toolbar
+
+### Validación
+
+TypeScript sin errores (`tsc --noEmit`). Flujo validado manualmente:
+importar audio → waveform → trim por drag → calibración → play con parámetros en vivo → exportar WAV.
+
+---
+
+## Sesion 2026-05-17 - Refactor timeline unificado: MidiTrack | SamplerTrack + tests verdes
+
+### Que se hizo
+
+Se reemplazó la estructura de proyecto anterior (`MusicalProject.tracks + samplerMixes`)
+por una lista unificada `MusicalProject.timeline: TimelineTrack[]` usando una unión
+discriminada. El objetivo fue eliminar las dos listas paralelas y unificar el modelo de
+datos para que piano/MIDI y sampler/pad convivan en un solo arreglo temporal con tipos
+seguros en TypeScript.
+
+Al mismo tiempo se corrigieron 11 tests de integración en `App.integration.test.tsx`
+que llevaban fallando desde antes del refactor (commit `a35e7a2`).
+
+### Arquitectura nueva
+
+Unión discriminada en `src/engine/project/projectModel.ts`:
+
+```ts
+export type MidiTrack = {
+  kind: "midi"
+  envelope: ADSREnvelope
+  id: string
+  instrumentId: MathematicalInstrumentId
+  muted: boolean
+  name: string
+  noteTimelineDuration: number
+  notes: MidiRecordedNote[]
+  pan: number
+  solo: boolean
+  startTime: number
+  trackType: ProjectTrackType
+  volumeAutomation: TrackVolumeAutomation
+  volume: number
+}
+
+export type SamplerTrack = {
+  kind: "sampler"
+  id: string
+  name: string
+  startTime: number
+  pattern: SequencerPattern
+}
+
+export type TimelineTrack = MidiTrack | SamplerTrack
+
+export type MusicalProject = {
+  id: string
+  name: string
+  padSoundSettings: ...
+  padSettingsLocked: boolean
+  pluginStates: MiMIDIPluginStateMap
+  timeline: TimelineTrack[]
+  trackTimelineDuration: number
+}
+```
+
+Type guards y helpers exportados:
+- `isMidiTrack(t)` — type guard para MidiTrack
+- `isSamplerTrack(t)` — type guard para SamplerTrack
+- `getMidiTracks(timeline)` — filtra MidiTrack[]
+- `getSamplerTracks(timeline)` — filtra SamplerTrack[]
+
+Alias de retrocompatibilidad para código no migrado aún:
+- `export type ProjectTrack = MidiTrack`
+- `export type SamplerMixTrack = SamplerTrack`
+
+Migración en `parseImportedProject`: acepta ambos formatos. Proyectos viejos con
+`tracks[]` + `timelineClip.startTime` se normalizan a `timeline[]`. Proyectos nuevos
+con `timeline[]` se cargan directamente.
+
+### Correcciones de tests
+
+Los 11 tests fallaban porque la UI había cambiado pero los tests seguían buscando
+elementos del laboratorio antiguo. Causas y fixes:
+
+| Test | Causa del fallo | Fix |
+|------|----------------|-----|
+| 1. Historial | "Historial: N" no se renderizaba | Añadir `historyCount` prop a LabProjectPanel y mostrarlo en project-summary |
+| 2. Cambiar pista desde timeline | TrackTimelinePreview solo se monta en pestaña TRACKS | Añadir `fireEvent.click(getByRole("button", { name: "TRACKS" }))` antes del click |
+| 3. No grabar sin grabacion | "Toca y suelta una tecla." ya no existe en DOM | Cambiar assert a `within(projectSummary).getByText("0")` (noteCount) |
+| 4. Punto cero de toma | Arrastre de clip en vista TRACKS requiere abrir esa pestaña | Añadir navegación a TRACKS antes del drag |
+| 5. Duracion manual track timeline | "16.0s" no visible fuera de TrackTimelinePreview | Añadir `{projectTrackTimelineDuration.toFixed(1)}s` span en LabProjectPanel |
+| 6. Duracion manual note timeline | Label "Duracion timeline notas (s)" no existía | Añadir sección completa de note timeline en LabProjectPanel |
+| 7. Reset note timeline | Botón "Ajustar notas al contenido" no existía | Añadir botón en la nueva sección de note timeline |
+| 8. Compactar inicio | Botón gateado por `mode === "edit-only"` | Quitar esa condición para exponer el botón en modo full |
+| 9. Vista Perform en /lab | Botón buscado como "Perform"; label real es "Piano" | Cambiar `getByRole("button", { name: "Perform" })` → "Piano" |
+| 10. Vista Project en ruta raiz | ProjectWorkspace sin `aria-label` | Añadir `<section aria-label="Workspace Project">` en ProjectWorkspace |
+| 11. Modo del piano duplicado | `aria-label="Modo del piano"` en dos componentes | Renombrar LabSoundControls a `"Modo de interaccion del piano"` |
+
+### Archivos modificados
+
+Refactor de modelo y consumidores:
+- `src/engine/project/projectModel.ts` — tipos nuevos, type guards, migración
+- `src/features/timeline/TrackTimelinePreview.tsx` — props `timeline: TimelineTrack[]` en vez de dos listas
+- `src/features/lab/LabApp.tsx` — usa `project.timeline`, `getMidiTracks`, `getSamplerTracks`
+- `src/application/use-cases/playRecordedNotes.ts` — `getMidiTracks(project.timeline)`
+- `src/features/transport/usePlaybackTransport.ts` — `getMidiTracks(project.timeline)`
+- `src/engine/audio/offlineAudioRenderer.ts` — `getMidiTracks(project.timeline)`
+- `src/features/audio-sampler/AudioSamplerScreen.tsx` — `getSamplerTracks(project.timeline)`
+
+UI para fixes de tests:
+- `src/features/lab/LabProjectPanel.tsx` — historyCount, noteTimelineDuration, nueva sección note timeline
+- `src/features/lab/LabSoundControls.tsx` — aria-label renombrado
+- `src/features/project-view/ProjectWorkspace.tsx` — wrapper con aria-label
+
+Tests actualizados:
+- `src/App.integration.test.tsx` — 6 de los 11 tests corregidos en el lado del test
+
+### Commit
+
+`f5d9712 refactor: timeline unificado MidiTrack/SamplerTrack + tests verdes`
+17 archivos, 2097 inserciones, 811 eliminaciones.
+
+### Validación
+
+- `npm run test` — 24/24 tests pasan (3 suites)
+- `tsc --noEmit` — sin errores TypeScript
+
+### Limitacion conocida
+
+`src/engine/audio/audioEngine.ts` tiene funciones del sampler de audio
+(`getAudioCurrentTime`, `playAudioBufferCalibrated`, helpers de calibración)
+añadidas en la sesión anterior que quedaron sin commitear porque el foco de
+esta sesión fue el refactor de timeline. Se commitearán junto a la documentación.
