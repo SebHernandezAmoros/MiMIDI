@@ -7051,3 +7051,129 @@ Tests actualizados:
 (`getAudioCurrentTime`, `playAudioBufferCalibrated`, helpers de calibración)
 añadidas en la sesión anterior que quedaron sin commitear porque el foco de
 esta sesión fue el refactor de timeline. Se commitearán junto a la documentación.
+
+---
+
+## Sesión 2026-05-17 — Fixes de UX, lint y bundle .mimidi
+
+### Contexto
+
+Sesión de revisión y mejoras tras el refactor de timeline unificado. Se corrigieron
+errores de lint, se mejoraron comportamientos de UX y se implementó el formato de
+proyecto `.mimidi` (ZIP con audio incluido).
+
+### Cambios realizados
+
+#### 1. Fixes de lint en `src/` (commits 4e199c5, e32f589)
+
+Errores corregidos en `LabApp.tsx`, `AudioSamplerScreen.tsx`, `TrackTimelinePreview.tsx`
+y `playSamplerMixes.ts`:
+
+| Archivo | Problema | Solución |
+|---|---|---|
+| `LabApp.tsx` | `isTimelineDragging` valor no leído | `const [, setIsTimelineDragging]` |
+| `LabApp.tsx` | `redoStack` no usado | Eliminado del destructuring |
+| `LabApp.tsx` | `shortcutHint` useMemo no usado | Eliminado el bloque |
+| `LabApp.tsx` | Bloque `if (false)` muerto (~136 líneas) | Eliminado |
+| `LabApp.tsx` | `setTimelineView/setActiveTrackId/setAbsolutePlayheadTime` en effect | `eslint-disable-next-line` |
+| `LabApp.tsx` | `onRemoveSamplerMix` prop ya no existe | Eliminado del JSX |
+| `AudioSamplerScreen.tsx` | `seqTickRef.current` asignado en render | Movido a `useEffect()` sin deps |
+| `AudioSamplerScreen.tsx` | `slotsRef.current` asignado en render | Movido a `useEffect([slots])` |
+| `AudioSamplerScreen.tsx` | `setDecodedBuffer(null)` en effect | `eslint-disable-next-line` |
+| `AudioSamplerScreen.tsx` | `createDefaultPattern`, `SEQ_SECONDS`, `renamingSlotIndex` no usados | Eliminados |
+| `TrackTimelinePreview.tsx` | `isMidiTrack` import no usado | Eliminado |
+| `playSamplerMixes.ts` | `sources: AudioBufferSourceNode[]` declarado pero vacío | Eliminado |
+
+El lint de `src/` pasa sin errores. Los 3 problemas restantes están en
+`apps/mimidi-expo/` (app Expo congelada, no se toca).
+
+#### 2. Fix: botón "Reiniciar proyecto" no abría el diálogo
+
+`onRestartProject` en `LabApp.tsx` llamaba directamente a `restartProject()` sin
+pasar por `setIsRestartConfirmOpen(true)`. Corregido.
+
+#### 3. Fix: eliminar el último pad no regeneraba Pad 1
+
+`removeActiveTrack()` solo recreaba un track melódico vacío al borrar el último
+MIDI track. Ahora detecta si el track eliminado es de percusión y usa `appendPadTrack()`
+para regenerar un "Pad 1" — paridad con el comportamiento de tracks melódicos.
+
+```ts
+const isLastPercussionTrack = isPercussion && percussionTracks.length === 1
+if (isLastPercussionTrack) return appendPadTrack(withoutTrack)
+```
+
+#### 4. Feat: ocultar pistas vacías en el timeline
+
+`TrackTimelinePreview.tsx` ahora filtra antes de renderizar:
+
+```ts
+const midiTracks = getMidiTracks(timeline).filter((t) => t.notes.length > 0)
+const samplerTracks = getSamplerTracks(timeline).filter((t) =>
+  t.pattern.lanes.some((l) => l.steps.some((s) => s.active)),
+)
+```
+
+Cuando todo está vacío aparece: *"Graba notas o activa pasos en el secuenciador
+para ver las pistas aquí."*
+
+#### 5. Feat: botón "Nuevo proyecto" en vista de proyecto
+
+Botón en `projectWorkspace` que abre un modal con tres opciones:
+- **Guardar y continuar** — exporta JSON luego reinicia
+- **Continuar sin guardar** — reinicia directo
+- **Cancelar** — cierra sin acción
+
+Estado: `isNewProjectConfirmOpen`.
+
+#### 6. Feat: formato .mimidi — bundle ZIP con muestras de audio
+
+**Motivación:** el JSON de proyecto no incluía los audios del sampler (vivían en
+IndexedDB separado). Al importar en otro dispositivo los slots aparecían vacíos.
+
+**Solución:** formato `.mimidi` — un ZIP que contiene:
+
+```
+proyecto.mimidi
+├── project.json    — MusicalProject (mismo formato que el JSON anterior)
+├── slots.json      — SampleSlotMeta[] (metadatos de slots del sampler)
+└── samples/
+    ├── [dbId1]     — ArrayBuffer crudo del audio (formato original del usuario)
+    └── [dbId2]     — ...
+```
+
+**Dependencia añadida:** `fflate` (MIT, ~10KB gzip, sin restricciones de uso comercial).
+ZIP sin compresión (`level: 0`) porque el audio ya está comprimido.
+
+**Nuevos archivos:**
+- `src/application/use-cases/exportProjectBundle.ts`
+- `src/application/use-cases/importProjectBundle.ts`
+
+**Cambios en `LabApp.tsx`:**
+- Ref `importBundleRef` para el file input de `.mimidi`
+- Función `exportBundle()` — empaqueta y descarga
+- Función `importBundle()` — desempaqueta, restaura slots en localStorage e IndexedDB, carga proyecto
+- Botones primarios **"Guardar .mimidi"** / **"Abrir .mimidi"** en `projectWorkspace`
+- Botones secundarios "Exportar JSON" / "Importar JSON" se conservan para compatibilidad
+
+**Flujo de importación:**
+1. Unzip con fflate
+2. `parseImportedProject(project.json)` → estado React
+3. `saveSlotMetas(slots.json)` → localStorage
+4. `saveSampleBuffer(dbId, data)` por cada archivo en `samples/` → IndexedDB
+5. `replaceState(project)` + reset de UI
+
+### Archivos modificados
+
+| Archivo | Tipo |
+|---|---|
+| `src/features/lab/LabApp.tsx` | Modificado (todos los fixes + nuevas funciones) |
+| `src/features/timeline/TrackTimelinePreview.tsx` | Modificado (filtrado vacíos) |
+| `src/application/use-cases/exportProjectBundle.ts` | Nuevo |
+| `src/application/use-cases/importProjectBundle.ts` | Nuevo |
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- `npm run lint src/` — sin errores (0 warnings en src/)
+- Pruebas manuales pendientes: flujo completo export/import .mimidi entre sesiones
