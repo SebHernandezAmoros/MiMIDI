@@ -10,6 +10,8 @@ import { exportProjectBundle } from "../../application/use-cases/exportProjectBu
 import { importProjectBundle } from "../../application/use-cases/importProjectBundle"
 import { playNote, playNotes } from "../../application/use-cases/playNote"
 import { setMasterVolume, type ADSREnvelope } from "../../engine/audio/audioEngine"
+import { loadSlotMetas, saveSlotMetas, NUM_SLOTS } from "../../engine/audio/sampleModel"
+import { deleteSampleBuffer } from "../../engine/audio/sampleStorage"
 import {
   createPlayOptions,
   getInstrumentCategoryDescription,
@@ -1280,11 +1282,20 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     setProjectMessage("Notas limpiadas. Pistas y nombre conservados.")
   }
 
-  function restartProject() {
+  async function clearSamplerSlots() {
+    const slots = loadSlotMetas()
+    for (const slot of slots) {
+      if (slot) await deleteSampleBuffer(slot.dbId)
+    }
+    saveSlotMetas(Array<null>(NUM_SLOTS).fill(null))
+  }
+
+  async function restartProject() {
     playbackTransport.stop()
     stopArpeggiator()
     resetRecordingSession()
     setMidiEvents([])
+    await clearSamplerSlots()
     applyUpdate((currentProject) => resetProject(currentProject))
     setActiveTrackId("track-1")
     setSelectedRecordedNoteId(null)
@@ -1987,28 +1998,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             onClick={exportBundle}
             type="button"
           >
-            Guardar .mimidi
+            Exportar
           </button>
           <button
             className="project-export-btn project-export-btn-primary project-compact-btn-wide"
             onClick={() => importBundleRef.current?.click()}
             type="button"
           >
-            Abrir .mimidi
-          </button>
-          <button
-            className="project-export-btn"
-            onClick={exportProject}
-            type="button"
-          >
-            Exportar JSON
-          </button>
-          <button
-            className="project-export-btn"
-            onClick={openImportDialog}
-            type="button"
-          >
-            Importar JSON
+            Importar
           </button>
           <button
             className="project-export-btn project-compact-btn-wide"
@@ -2045,8 +2042,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 className="app-dialog-confirm"
                 onClick={() => {
                   setIsNewProjectConfirmOpen(false)
-                  exportProject()
-                  restartProject()
+                  void exportBundle()
+                  void restartProject()
                 }}
                 type="button"
               >

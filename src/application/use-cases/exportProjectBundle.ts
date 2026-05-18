@@ -1,4 +1,4 @@
-import { zip, strToU8 } from "fflate"
+import { zipSync, strToU8 } from "fflate"
 import { loadSlotMetas } from "../../engine/audio/sampleModel"
 import { loadSampleBuffer } from "../../engine/audio/sampleStorage"
 import type { MusicalProject } from "../../engine/project/projectModel"
@@ -17,11 +17,7 @@ export async function exportProjectBundle(project: MusicalProject): Promise<Blob
     if (buf) files[`samples/${slot.dbId}`] = new Uint8Array(buf)
   }
 
-  return new Promise((resolve, reject) => {
-    // level 0 = store sin comprimir (el audio ya está comprimido o es PCM)
-    zip(files, { level: 0 }, (err, data) => {
-      if (err) reject(err)
-      else resolve(new Blob([data], { type: "application/zip" }))
-    })
-  })
+  // level 0 = store sin comprimir (el audio ya está comprimido o es PCM)
+  const zipped = zipSync(files, { level: 0 })
+  return new Blob([zipped], { type: "application/zip" })
 }
