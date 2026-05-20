@@ -61,6 +61,7 @@ export type SamplerTrack = {
   clips: SamplerClip[]
   id: string
   muted: boolean
+  solo?: boolean
   name: string
   pattern: SequencerPattern
 }
@@ -182,6 +183,7 @@ export function addSamplerMix(
     id: `smix-${Date.now()}`,
     clips: [createSamplerClip(0)],
     muted: false,
+    solo: false,
     name,
     pattern,
   }
@@ -645,6 +647,19 @@ export function updateSamplerTrackMuted(
     ...project,
     timeline: project.timeline.map((t) =>
       t.kind === "sampler" && t.id === trackId ? { ...t, muted } : t,
+    ),
+  }
+}
+
+export function updateSamplerTrackSolo(
+  project: MusicalProject,
+  trackId: string,
+  solo: boolean,
+): MusicalProject {
+  return {
+    ...project,
+    timeline: project.timeline.map((t) =>
+      t.kind === "sampler" && t.id === trackId ? { ...t, solo } : t,
     ),
   }
 }

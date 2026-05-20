@@ -78,6 +78,7 @@ import {
   updateMidiClipStartTime,
   updateSamplerClipStartTime,
   updateSamplerTrackMuted,
+  updateSamplerTrackSolo,
   duplicateMidiClip,
   duplicateSamplerClip,
   removeMidiClip,
@@ -92,7 +93,7 @@ import {
   getMidiTrackNotes,
   getActiveClip,
 } from "../../engine/project/projectModel"
-import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, Check, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight } from "lucide-react"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, Check, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSamplerMixes } from "../../application/use-cases/playSamplerMixes"
 import {
@@ -647,23 +648,41 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     playbackTransport.play(project)
   }
 
-  function playAll(notesProject: MusicalProject) {
+  function playAll(notesProject: MusicalProject, fromZero = false) {
     const startedAt = performance.now()
     samplerMixPlaybackRef.current?.cancel()
-    const samplerTracks = getSamplerTracks(notesProject.timeline)
+    const allSamplerTracks = getSamplerTracks(notesProject.timeline)
+    const midiTracksForPlay = getMidiTracks(notesProject.timeline)
+    const hasMidiSolo = midiTracksForPlay.some(t => t.solo)
+    const hasMixSolo = allSamplerTracks.some(t => t.solo)
+    const samplerTracks = hasMidiSolo
+      ? []
+      : hasMixSolo
+        ? allSamplerTracks.filter(t => t.solo)
+        : allSamplerTracks
     samplerMixPlaybackRef.current = playSamplerMixes(samplerTracks, startedAt)
-    const hasMidi = getMidiTracks(notesProject.timeline).some(t => getMidiTrackNotes(t).length > 0)
-    if (hasMidi) {
-      playbackTransport.play(notesProject)
-    } else if (samplerTracks.length > 0) {
-      const maxEnd = Math.max(
-        ...samplerTracks.map(m => {
+
+    const mixMaxEnd = samplerTracks.length > 0
+      ? Math.max(...samplerTracks.map(m => {
           const secondsPerStep = 60 / m.pattern.bpm / 4
-          const clipEnd = m.clips.reduce((max, c) => Math.max(max, c.startTime + m.pattern.stepsPerBar * secondsPerStep), 0)
-          return clipEnd
-        }),
-      )
-      mixOnlyStartRef.current = { startedAt, duration: maxEnd }
+          return m.clips.reduce((max, c) => Math.max(max, c.startTime + m.pattern.stepsPerBar * secondsPerStep), 0)
+        }))
+      : 0
+
+    const hasMidi = !hasMixSolo && midiTracksForPlay.some(t => getMidiTrackNotes(t).length > 0)
+    if (hasMidi) {
+      playbackTransport.play(notesProject, {
+        fromZero,
+        onComplete: () => {
+          const elapsed = (performance.now() - startedAt) / 1000
+          if (mixMaxEnd > elapsed) {
+            mixOnlyStartRef.current = { startedAt, duration: mixMaxEnd }
+            setIsMixOnlyPlaying(true)
+          }
+        },
+      })
+    } else if (samplerTracks.length > 0) {
+      mixOnlyStartRef.current = { startedAt, duration: mixMaxEnd }
       setIsMixOnlyPlaying(true)
     }
   }
@@ -1470,7 +1489,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   }
 
   const editNotesToPlay = timelineView === "notes"
-    ? { ...project, timeline: [primaryTrack, ...getSamplerTracks(project.timeline)] }
+    ? { ...project, timeline: [primaryTrack] }
     : project
 
   const editSettingsDuration = timelineView === "notes"
@@ -1608,7 +1627,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
               className="ui-icon-btn"
               disabled={allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0 && !playbackTransport.isPlaying && !isMixOnlyPlaying}
-              onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(editNotesToPlay)}
+              onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(editNotesToPlay, timelineView === "tracks")}
               title={playbackTransport.isPlaying ? "Detener" : "Reproducir"}
               type="button"
             >
@@ -1642,15 +1661,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
           {mode === "edit-only" && !isNoteEditMode && !(timelineView === "tracks" && isTrackLaneFocused) && (
             <>
-              <button
-                aria-label="Solo pista"
-                className={`ui-icon-btn edit-mute-solo-btn${primaryTrack.solo ? " edit-mute-solo-btn-active" : ""}`}
-                onClick={togglePrimaryTrackSolo}
-                title="Solo"
-                type="button"
-              >
-                Solo
-              </button>
               <span aria-hidden="true" className="perform-mode-transport-divider" />
               <button
                 aria-label="Reducir duración"
@@ -1724,6 +1734,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             const lastMixClip = activeMix?.clips.at(-1)
             const dupDisabled = activeMix ? !lastMixClip : !activeClip
             const isMuted = activeMix ? activeMix.muted : primaryTrack.muted
+            const isSolo = activeMix ? (activeMix.solo ?? false) : primaryTrack.solo
             return (
               <>
                 <button
@@ -1740,6 +1751,21 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                   type="button"
                 >
                   <VolumeX size={18} />
+                </button>
+                <button
+                  aria-label="Solo"
+                  className={`ui-icon-btn edit-mute-solo-btn${isSolo ? " edit-mute-solo-btn-active" : ""}`}
+                  onClick={() => {
+                    if (activeMix) {
+                      applyUpdate((p) => updateSamplerTrackSolo(p, activeMix.id, !isSolo))
+                    } else {
+                      togglePrimaryTrackSolo()
+                    }
+                  }}
+                  title="Solo"
+                  type="button"
+                >
+                  Solo
                 </button>
                 <button
                   aria-label="Duplicar último clip"
@@ -1763,6 +1789,21 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                   disabled={!canDeleteSelectedClip}
                   onClick={() => setIsClipDeleteConfirmOpen(true)}
                   title={selectedClipId ? "Eliminar clip seleccionado" : "Selecciona un clip para eliminar"}
+                  type="button"
+                >
+                  <X size={18} />
+                </button>
+                <button
+                  aria-label={activeMix ? "Eliminar mix" : "Eliminar pista"}
+                  className="ui-icon-btn"
+                  onClick={() => {
+                    if (activeMix) {
+                      setIsMixDeleteConfirmOpen(true)
+                    } else {
+                      setIsTrackRemovalConfirmOpen(true)
+                    }
+                  }}
+                  title={activeMix ? `Eliminar ${activeMix.name} del timeline` : `Eliminar ${primaryTrack.name}`}
                   type="button"
                 >
                   <Trash2 size={18} />

@@ -50,36 +50,42 @@ type TrackTimelineStyle = CSSProperties & {
 
 // ─── Drag helpers ────────────────────────────────────────────────────────────
 
-function getOtherClipIntervals(
-  clips: { startTime: number; duration: number }[],
-  draggedClipId: string,
-  allClips: { id: string; startTime: number; duration: number }[],
-): { start: number; end: number }[] {
-  void clips
-  return allClips
-    .filter((c) => c.id !== draggedClipId)
-    .map((c) => ({ start: c.startTime, end: c.startTime + c.duration }))
+function preventOverlap(
+  newStart: number,
+  initialStart: number,
+  clipDuration: number,
+  others: { start: number; duration: number }[],
+): number {
+  const start = Math.max(0, newStart)
+  if (newStart >= initialStart) {
+    let cap = Infinity
+    for (const o of others) {
+      if (o.start >= initialStart + clipDuration - 0.001) {
+        cap = Math.min(cap, o.start - clipDuration)
+      }
+    }
+    return cap === Infinity ? start : Math.max(0, Math.min(start, cap))
+  } else {
+    let floor = 0
+    for (const o of others) {
+      if (o.start + o.duration <= initialStart + 0.001) {
+        floor = Math.max(floor, o.start + o.duration)
+      }
+    }
+    return Math.max(start, floor)
+  }
 }
 
-function clampNoOverlap(
-  newStart: number,
-  duration: number,
-  others: { start: number; end: number }[],
-): number {
-  let s = Math.max(0, newStart)
-  const end = s + duration
-
-  for (const o of others) {
-    // Overlap: push right if we'd start inside another clip
-    if (s < o.end && end > o.start) {
-      // Snap to nearest side
-      const gapLeft = Math.abs(s - (o.start - duration))
-      const gapRight = Math.abs(s - o.end)
-      s = gapLeft < gapRight ? Math.max(0, o.start - duration) : o.end
-    }
+function getRulerTicks(total: number): number[] {
+  const steps = [0.5, 1, 2, 5, 10, 15, 20, 30, 60]
+  const step = steps.find((s) => Math.floor(total / s) <= 12) ?? 60
+  const ticks: number[] = []
+  let t = 0
+  while (t <= total + 0.001) {
+    ticks.push(Math.round(t * 100) / 100)
+    t += step
   }
-
-  return s
+  return ticks
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -129,18 +135,16 @@ export function TrackTimelinePreview({
     const initialStart = clip.startTime
     const startX = event.clientX
     const clipDuration = getMidiClipDuration(clip)
-    const others = track.clips
+    const otherClips = track.clips
       .filter((c) => c.id !== clip.id)
-      .map((c) => ({ id: c.id, startTime: c.startTime, duration: getMidiClipDuration(c) }))
-
+      .map((c) => ({ start: c.startTime, duration: getMidiClipDuration(c) }))
     let latestStart = initialStart
     let hasMoved = false
 
     const handlePointerMove = (e: PointerEvent) => {
       const delta = (e.clientX - startX) * secondsPerPixel
       hasMoved = hasMoved || Math.abs(delta) > 0.0001
-      const raw = initialStart + delta
-      latestStart = clampNoOverlap(raw, clipDuration, others.map((o) => ({ start: o.startTime, end: o.startTime + o.duration })))
+      latestStart = preventOverlap(initialStart + delta, initialStart, clipDuration, otherClips)
       onUpdateMidiClipStartTime(track.id, clip.id, latestStart, "transient")
     }
 
@@ -179,18 +183,16 @@ export function TrackTimelinePreview({
     const initialStart = clip.startTime
     const startX = event.clientX
     const clipDuration = getSamplerTrackDuration(mix)
-    const others = mix.clips
+    const otherClips = mix.clips
       .filter((c) => c.id !== clip.id)
-      .map((c) => ({ start: c.startTime, end: c.startTime + clipDuration }))
-
+      .map((c) => ({ start: c.startTime, duration: clipDuration }))
     let latestStart = initialStart
     let hasMoved = false
 
     const handlePointerMove = (e: PointerEvent) => {
       const delta = (e.clientX - startX) * secondsPerPixel
       hasMoved = hasMoved || Math.abs(delta) > 0.0001
-      const raw = initialStart + delta
-      latestStart = clampNoOverlap(raw, clipDuration, others)
+      latestStart = preventOverlap(initialStart + delta, initialStart, clipDuration, otherClips)
       onUpdateSamplerClipStartTime(mix.id, clip.id, latestStart, "transient")
     }
 
@@ -229,6 +231,25 @@ export function TrackTimelinePreview({
         <p className="timeline-empty">Graba notas o activa pasos en el secuenciador para ver las pistas aquí.</p>
       ) : (
         <div className="track-timeline-lanes">
+          {/* Time ruler */}
+          <div className="track-timeline-time-ruler" aria-hidden="true">
+            <div className="track-timeline-time-ruler-meta" />
+            <div className="track-timeline-time-ruler-track">
+              {getRulerTicks(timelineLength).map((t) => (
+                <span
+                  className="track-timeline-time-ruler-tick"
+                  key={t}
+                  style={{
+                    left: `${(t / timelineLength) * 100}%`,
+                    transform: t === 0 ? "translateX(0)" : t >= timelineLength ? "translateX(-100%)" : "translateX(-50%)",
+                  }}
+                >
+                  {t === 0 ? "0" : t >= 60 ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : `${t}s`}
+                </span>
+              ))}
+            </div>
+          </div>
+
           {playheadTime != null && (
             <div aria-hidden="true" className="track-timeline-playhead-overlay">
               <div className="track-timeline-playhead-overlay-meta" />

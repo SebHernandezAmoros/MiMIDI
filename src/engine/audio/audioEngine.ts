@@ -499,7 +499,7 @@ export function playAudioBufferCalibratedAt(
   when: number,
   volume = 1,
   pan = 0,
-): void {
+): AudioBufferSourceNode {
   const ctx = getAudioContext()
   const totalDur = audioBuffer.duration
   const offset = clamp(cal.trimStart, 0, 1) * totalDur
@@ -541,4 +541,6 @@ export function playAudioBufferCalibratedAt(
     gainNode.disconnect()
     panNode.disconnect()
   }
+
+  return source
 }

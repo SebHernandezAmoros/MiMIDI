@@ -20,6 +20,7 @@ export type PlaybackHandle = {
 }
 
 export type PlayRecordedNotesOptions = PlayNoteOptions & {
+  fromZero?: boolean
   onComplete?: () => void
   padSoundSettings?: Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>>
 }
@@ -28,7 +29,7 @@ export function playRecordedNotes(
   project: MusicalProject,
   options: PlayRecordedNotesOptions = {},
 ): PlaybackHandle {
-  const { onComplete, ...playOverrides } = options
+  const { fromZero = false, onComplete, ...playOverrides } = options
   const scheduledNotes = getScheduledTrackNotes(project)
 
   if (scheduledNotes.length === 0) {
@@ -42,9 +43,9 @@ export function playRecordedNotes(
   }
 
   let isCancelled = false
-  const firstStartTime = Math.min(
-    ...scheduledNotes.map((scheduledNote) => scheduledNote.absoluteStartTime),
-  )
+  const firstStartTime = fromZero
+    ? 0
+    : Math.min(...scheduledNotes.map((scheduledNote) => scheduledNote.absoluteStartTime))
   const lastEndTime = Math.max(
     ...scheduledNotes.map(
       (scheduledNote) =>

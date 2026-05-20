@@ -18,10 +18,39 @@
 }
 
 .timeline-ruler {
-  display: flex;
-  justify-content: space-between;
-  color: #cfcfcf;
-  font-size: 0.85rem;
+  display: grid;
+  grid-template-columns: 3.25rem 1fr;
+  gap: 0.6rem;
+  padding-bottom: 0.1rem;
+}
+
+.timeline-ruler-track {
+  position: relative;
+  height: 1.25rem;
+}
+
+.timeline-ruler-tick {
+  position: absolute;
+  top: 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.timeline-ruler-tick::before {
+  content: "";
+  position: absolute;
+  top: -0.35rem;
+  left: 50%;
+  width: 1px;
+  height: 0.3rem;
+  background: #444;
+  transform: translateX(-50%);
 }
 
 .timeline-actions {

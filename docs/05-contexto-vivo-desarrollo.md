@@ -5305,6 +5305,89 @@ Queda una agenda honesta para revisar manana:
 5. como pensar compatibilidad de plugins sin volver la arquitectura un dolor de
    cabeza mayor
 
+## Movimiento 95 - 2026-05-20: Reproducción, timeline y drag en tracks
+
+Fecha: 2026-05-20
+
+Fase: Timeline / Reproducción / UX de pistas
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---|---|
+| `src/application/use-cases/playRecordedNotes.ts` | Opción `fromZero` para arrancar desde tiempo 0 o desde la primera nota |
+| `src/application/use-cases/playSamplerMixes.ts` | Stop real: registra `AudioBufferSourceNode` y llama `.stop()` al cancelar |
+| `src/engine/audio/audioEngine.ts` | `playAudioBufferCalibratedAt` retorna `AudioBufferSourceNode` |
+| `src/engine/project/projectModel.ts` | Campo `solo?: boolean` en `SamplerTrack`; función `updateSamplerTrackSolo` |
+| `src/features/lab/LabApp.tsx` | Múltiples correcciones (ver detalle) |
+| `src/features/timeline/TimelinePreview.tsx/css` | Regla de tiempo con ticks dinámicos en vista notas |
+| `src/features/timeline/TrackTimelinePreview.tsx/css` | Regla de tiempo, playhead alineado, drag sin solapamiento |
+
+### Correcciones de reproducción (LabApp)
+
+**Bug: vista notas reproducía todos los mixes**
+`editNotesToPlay` incluía `getSamplerTracks(...)` → `playAll` lanzaba todos los mixes.
+Fix: en vista "notes", `editNotesToPlay = { ...project, timeline: [primaryTrack] }`.
+
+**Bug: delay al reproducir en vista notas**
+`playAll` siempre pasaba `fromZero: true` → las notas esperaban su posición absoluta antes de sonar.
+Fix: `playAll(project, fromZero)` donde `fromZero = timelineView === "tracks"`.
+En vista notas: `fromZero = false` → arranca desde la nota más temprana sin silencio previo.
+
+**Bug: mix seguía sonando después de Stop**
+`playAudioBufferCalibratedAt` no devolvía el nodo. `cancel()` no podía detenerlos.
+Fix: función retorna `AudioBufferSourceNode`; `playSamplerMixes` rastrea los nodos y llama `.stop()` al cancelar.
+
+**Bug: playhead desaparecía cuando terminaba MIDI pero mixes seguían sonando**
+Al completar MIDI, `playbackTransport` ponía `isPlaying = false` y el playhead se borraba.
+Fix: `onComplete` en `playAll` activa `isMixOnlyPlaying` si `elapsed < mixMaxEnd` → el playhead continúa vía RAF del modo mix-only.
+
+**Bug: Solo en MIDI no silenciaba mixes**
+`playAll` no filtraba los sampler tracks según el estado de solo.
+Fix: si `hasMidiSolo → samplerTracks = []`; si `hasMixSolo → samplerTracks = soloedOnly` y `hasMidi = false`.
+
+### Solo para mixes
+
+`SamplerTrack` no tenía campo `solo`. Agregado como `solo?: boolean` (opcional para compatibilidad con proyectos guardados anteriores).
+Función `updateSamplerTrackSolo` agregada al modelo.
+Botón Solo movido del toolbar principal al submenu contextual (aparece para MIDI y para mixes).
+Regla de prioridad:
+- MIDI solo → solo ese MIDI, cero mixes
+- Mix solo → solo ese mix, cero MIDI
+- Sin solo → todo suena
+
+### Eliminación de pista/mix desde submenu
+
+Submenu de lane ahora tiene:
+- `X` (lucide) → eliminar clip seleccionado
+- `Trash2` → eliminar la pista MIDI completa o el mix completo (abre modal de confirmación)
+
+Antes solo existía `Trash2` para clips. El basurero grande queda reservado para la acción más destructiva.
+
+### Regla de tiempo en vista notas
+
+`TimelinePreview` tenía solo "0s" y el tiempo total a los extremos.
+Reemplazado por ruler con ticks dinámicos idénticos al de la vista tracks (función `getRulerTicks`, alineado con la columna de la etiqueta de nota via `grid-template-columns: 3.25rem 1fr`).
+
+### Drag sin solapamiento en tracks
+
+La función `clampNoOverlap` anterior hacía snap al vecino.
+Reemplazada por `preventOverlap(newStart, initialStart, clipDuration, others)`:
+- Moviendo a la derecha: se detiene antes del borde izquierdo del clip más próximo.
+- Moviendo a la izquierda: se detiene en el borde derecho del clip más próximo.
+- Los espacios vacíos siguen siendo posibles — no hay snap, solo bloqueo de colisión.
+
+### Validación
+
+- Reproducción desde notas: sin delay, solo esa pista.
+- Reproducción desde tracks: desde tiempo 0, con mixes, playhead continuo.
+- Stop detiene todo inmediatamente.
+- Solo MIDI silencia mixes; Solo Mix silencia MIDI.
+- Drag de clips en tracks y mixes: no se solapan, gaps libres.
+- Eliminar mix: modal de confirmación desde el submenu.
+
+---
+
 ## Movimiento 94 - Reenfoque oficial: web responsive primero y Expo en posible purga
 
 Fase: Bloque I / realineacion estrategica posterior a la exploracion en Expo

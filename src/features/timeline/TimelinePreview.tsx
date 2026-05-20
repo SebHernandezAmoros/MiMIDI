@@ -29,6 +29,18 @@ type TimelineLane = {
   recordedNotes: MidiRecordedNote[]
 }
 
+function getRulerTicks(total: number): number[] {
+  const steps = [0.5, 1, 2, 5, 10, 15, 20, 30, 60]
+  const step = steps.find((s) => Math.floor(total / s) <= 12) ?? 60
+  const ticks: number[] = []
+  let t = 0
+  while (t <= total + 0.001) {
+    ticks.push(Math.round(t * 100) / 100)
+    t += step
+  }
+  return ticks
+}
+
 function groupNotesByPitch(notes: MidiRecordedNote[]) {
   const laneMap = new Map<MusicalNote, MidiRecordedNote[]>()
 
@@ -138,9 +150,22 @@ export function TimelinePreview({
     <section className="timeline-preview" aria-label="Timeline MIDI">
       <h2>Timeline</h2>
 
-      <div className="timeline-ruler">
-        <span>0s</span>
-        <span>{timelineLength.toFixed(1)}s</span>
+      <div className="timeline-ruler" aria-hidden="true">
+        <div className="timeline-ruler-label" />
+        <div className="timeline-ruler-track">
+          {getRulerTicks(timelineLength).map((t) => (
+            <span
+              className="timeline-ruler-tick"
+              key={t}
+              style={{
+                left: `${(t / timelineLength) * 100}%`,
+                transform: t === 0 ? "translateX(0)" : t >= timelineLength ? "translateX(-100%)" : "translateX(-50%)",
+              }}
+            >
+              {t === 0 ? "0" : t >= 60 ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : `${t}s`}
+            </span>
+          ))}
+        </div>
       </div>
 
       {selectedNoteId && onRemoveSelectedNote ? (

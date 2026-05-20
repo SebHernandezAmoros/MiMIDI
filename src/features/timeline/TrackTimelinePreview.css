@@ -30,6 +30,46 @@
   position: relative;
 }
 
+/* ── Time ruler ─────────────────────────────────────────── */
+
+.track-timeline-time-ruler {
+  display: grid;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
+  gap: 0.85rem;
+  padding-bottom: 0.1rem;
+  /* Compensar border (1px) + padding (0.75rem) de cada lane para alinear con el contenido */
+  padding-inline: calc(0.75rem + 1px);
+}
+
+.track-timeline-time-ruler-track {
+  position: relative;
+  height: 1.25rem;
+}
+
+.track-timeline-time-ruler-tick {
+  position: absolute;
+  top: 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #666;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.track-timeline-time-ruler-tick::before {
+  content: "";
+  position: absolute;
+  top: -0.35rem;
+  left: 50%;
+  width: 1px;
+  height: 0.3rem;
+  background: #4a4a4a;
+  transform: translateX(-50%);
+}
+
 .track-timeline-lane {
   padding: 0.75rem;
   border: 1px solid #2f2f2f;
@@ -216,6 +256,8 @@
   gap: 0.85rem;
   pointer-events: none;
   z-index: 8;
+  /* Mismo ajuste que la regla: compensar border+padding del lane */
+  padding-inline: calc(0.75rem + 1px);
 }
 
 .track-timeline-playhead-overlay-meta {
@@ -232,8 +274,9 @@
   bottom: 0;
   width: 2px;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.85);
   pointer-events: none;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.25);
 }
 
 .track-timeline-mix-name-input {

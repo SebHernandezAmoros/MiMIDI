@@ -10,6 +10,7 @@ export function playSamplerMixes(
   if (mixes.length === 0) return { cancel: () => {} }
 
   let cancelled = false
+  const scheduledSources: AudioBufferSourceNode[] = []
   const slots = loadSlotMetas()
 
   void (async () => {
@@ -35,7 +36,8 @@ export function playSamplerMixes(
             const performanceNow = performance.now() / 1000
             const when = audioNow + (absoluteWhen - performanceNow)
             if (when < audioNow) continue
-            playAudioBufferCalibratedAt(buf, slot.calibration, when)
+            const node = playAudioBufferCalibratedAt(buf, slot.calibration, when)
+            scheduledSources.push(node)
           }
         }
       }
@@ -43,6 +45,13 @@ export function playSamplerMixes(
   })()
 
   return {
-    cancel: () => { cancelled = true },
+    cancel: () => {
+      cancelled = true
+      const now = getAudioCurrentTime()
+      for (const src of scheduledSources) {
+        try { src.stop(now) } catch { /* ya terminó */ }
+      }
+      scheduledSources.length = 0
+    },
   }
 }
