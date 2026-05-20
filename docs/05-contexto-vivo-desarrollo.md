@@ -7463,3 +7463,61 @@ Las pistas MIDI ya usaban `isTrackAudible` en `usePlaybackTransport`.
 
 - `tsc --noEmit` — sin errores al finalizar sesión
 - Sin commits publicados aún — cambios en rama local
+
+## Movimiento — Export WAV incluye mixes de sampler (2026-05-20)
+
+Fecha: 2026-05-20
+
+### Intención
+
+El export a WAV ignoraba completamente los mixes del secuenciador (SamplerTrack). Solo
+procesaba notas MIDI con síntesis matemática. El usuario lo detectó al exportar y no
+escuchar los mixes.
+
+### Causa raíz
+
+`offlineAudioRenderer.ts` usa `OfflineAudioContext` — renderizado matemático síncrono.
+Los mixes usan samples reales cargados de IndexedDB (async). Nunca se había implementado
+la carga y scheduling de esos buffers en el contexto offline.
+
+### Solución técnica
+
+**`src/engine/audio/offlineAudioRenderer.ts`**
+
+1. **`getProjectRenderDuration`**: actualizado para también considerar la duración total de
+   los mixes (`clip.startTime + getSamplerTrackDuration(track)`), garantizando que el
+   OfflineAudioContext tenga espacio suficiente para el audio de mixes.
+
+2. **`scheduleOfflineSamplerSample`**: nueva función interna que replica la lógica de
+   `playAudioBufferCalibratedAt` (calibración: trimStart, trimEnd, tune, gain, fadeIn,
+   fadeOut) pero usando nodos del `OfflineAudioContext`.
+
+3. **`scheduleSamplerMixesOffline`**: nueva función async que:
+   - Lee `loadSlotMetas()` (localStorage) para obtener metadatos y calibración por slot
+   - Para cada SamplerTrack no muteado, carga el buffer desde IndexedDB con `loadSampleBuffer`
+   - Decodifica con `ctx.decodeAudioData()` (del OfflineAudioContext, no el principal)
+   - Cachea buffers ya cargados para no releer el mismo sample varias veces
+   - Calcula `when = clip.startTime + stepIndex * secondsPerStep` y llama
+     `scheduleOfflineSamplerSample`
+
+4. **`renderProjectOffline`**: agrega `await scheduleSamplerMixesOffline(...)` antes de
+   `startRendering()`.
+
+### Archivos modificados
+
+| Archivo | Tipo |
+|---|---|
+| `src/engine/audio/offlineAudioRenderer.ts` | Modificado — soporte mixes + todos los pad sounds en export WAV |
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- Lógica espejada con `playSamplerMixes.ts` para consistencia de timing y calibración
+- Export JSON sigue guardando mixes completos (sin cambio)
+
+### Nota adicional — pad sounds incompletos
+
+Al implementar el soporte de mixes, se descubrió que `scheduleOfflineSmcPadEvent` solo
+tenía casos para 4 sonidos (kick, snare, hat, clap) de los 16 disponibles en `playSmcPadHit`.
+Se implementaron los 12 restantes como aproximaciones de síntesis sin filtros ni sweeps:
+tom, cowbell, rimshot, shaker, open-hat, crash, ride, floor-tom, hi-tom, conga, woodblock, sub.

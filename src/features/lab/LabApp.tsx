@@ -2159,11 +2159,11 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         <div className="project-compact-grid">
           <button
             className="project-export-btn project-export-btn-primary project-compact-btn-wide"
-            disabled={allRecordedNotes.length === 0 && !playbackTransport.isPlaying}
-            onClick={playbackTransport.isPlaying ? playbackTransport.stop : playRecording}
+            disabled={allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0 && !playbackTransport.isPlaying && !isMixOnlyPlaying}
+            onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(project, true)}
             type="button"
           >
-            {playbackTransport.isPlaying ? <><Square size={13} /> Detener</> : <><Play size={13} /> Reproducir</>}
+            {(playbackTransport.isPlaying || isMixOnlyPlaying) ? <><Square size={13} /> Detener</> : <><Play size={13} /> Reproducir</>}
           </button>
           <button
             className="project-export-btn project-export-btn-primary project-compact-btn-wide"
