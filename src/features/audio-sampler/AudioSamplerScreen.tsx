@@ -127,6 +127,8 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
   const [seqIsPlaying, setSeqIsPlaying] = useState(false)
   const [seqCurrentStep, setSeqCurrentStep] = useState(-1)
 
+  const [activeTrimHandle, setActiveTrimHandle] = useState<"start" | "end" | null>(null)
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const stopPlaybackRef = useRef<SamplePlayback | null>(null)
@@ -346,21 +348,30 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
     if (buf) triggerBuffer(buf, slot.calibration)
   }
 
-  function getCanvasFraction(e: React.MouseEvent<HTMLCanvasElement>): number {
+  function getCanvasFraction(e: React.PointerEvent<HTMLCanvasElement>): number {
     const rect = e.currentTarget.getBoundingClientRect()
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   }
 
-  function handleCanvasMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handleCanvasPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!decodedBuffer) return
     const frac = getCanvasFraction(e)
+    if (activeTrimHandle !== null) {
+      if (activeTrimHandle === "start") {
+        updateCalibration({ trimStart: Math.min(frac, calibration.trimEnd - 0.01) })
+      } else {
+        updateCalibration({ trimEnd: Math.max(frac, calibration.trimStart + 0.01) })
+      }
+      return
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
     const distStart = Math.abs(frac - calibration.trimStart)
     const distEnd = Math.abs(frac - calibration.trimEnd)
     dragTrimRef.current = { handle: distStart < distEnd ? "start" : "end" }
     e.preventDefault()
   }
 
-  function handleCanvasMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handleCanvasPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!dragTrimRef.current || !decodedBuffer) return
     const frac = getCanvasFraction(e)
     if (dragTrimRef.current.handle === "start") {
@@ -372,7 +383,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
     }
   }
 
-  function handleCanvasMouseUp() {
+  function handleCanvasPointerUp() {
     dragTrimRef.current = null
   }
 
@@ -563,12 +574,35 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
             {/* TRIM — solo visible en Editor con audio */}
             {samplerView === "editor" && decodedBuffer && selectedSlot && (
               <span className="audio-sampler-toolbar-trim">
-                TRIM&nbsp;
-                <span className="audio-sampler-toolbar-trim-val">
-                  {(calibration.trimStart * selectedSlot.duration).toFixed(2)}s
-                  {" — "}
-                  {(calibration.trimEnd * selectedSlot.duration).toFixed(2)}s
-                </span>
+                {activeTrimHandle !== "end" && (
+                  <button
+                    aria-pressed={activeTrimHandle === "start"}
+                    className={`audio-sampler-trim-btn${activeTrimHandle === "start" ? " active" : ""}`}
+                    onClick={() => setActiveTrimHandle(activeTrimHandle === "start" ? null : "start")}
+                    title="Toca el canvas para fijar el inicio del recorte"
+                    type="button"
+                  >
+                    Inicio
+                  </button>
+                )}
+                {activeTrimHandle !== null && (
+                  <span className="audio-sampler-toolbar-trim-val">
+                    {activeTrimHandle === "start"
+                      ? `${(calibration.trimStart * selectedSlot.duration).toFixed(2)}s`
+                      : `${(calibration.trimEnd * selectedSlot.duration).toFixed(2)}s`}
+                  </span>
+                )}
+                {activeTrimHandle !== "start" && (
+                  <button
+                    aria-pressed={activeTrimHandle === "end"}
+                    className={`audio-sampler-trim-btn${activeTrimHandle === "end" ? " active" : ""}`}
+                    onClick={() => setActiveTrimHandle(activeTrimHandle === "end" ? null : "end")}
+                    title="Toca el canvas para fijar el fin del recorte"
+                    type="button"
+                  >
+                    Fin
+                  </button>
+                )}
               </span>
             )}
 
@@ -682,7 +716,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 <Upload size={18} />
               </button>
             )}
-            {samplerView === "editor" && (
+            {samplerView === "editor" && activeTrimHandle === null && (
               <button
                 className="ui-icon-btn"
                 disabled={!decodedBuffer || isLoading}
@@ -693,7 +727,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 <Download size={18} />
               </button>
             )}
-            {samplerView === "editor" && selectedSlot && (
+            {samplerView === "editor" && selectedSlot && activeTrimHandle === null && (
               <button
                 className="ui-icon-btn"
                 disabled={isLoading}
@@ -704,7 +738,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 <RotateCcw size={18} />
               </button>
             )}
-            {samplerView !== "secuenciador" && (
+            {samplerView !== "secuenciador" && activeTrimHandle === null && (
               <span aria-hidden="true" className="perform-mode-transport-divider" />
             )}
 
@@ -728,7 +762,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
             )}
 
             {/* En EDITOR: navegador de slots */}
-            {samplerView === "editor" && filledCount > 0 && selectedSlot && (
+            {samplerView === "editor" && filledCount > 0 && selectedSlot && activeTrimHandle === null && (
               <div className="audio-sampler-slot-nav">
                 <button
                   className="audio-sampler-slot-nav-btn"
@@ -751,7 +785,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
               </div>
             )}
 
-            {samplerView !== "secuenciador" && selectedSlot && (
+            {samplerView !== "secuenciador" && selectedSlot && activeTrimHandle === null && (
               <>
                 <span aria-hidden="true" className="perform-mode-transport-divider" />
                 <button
@@ -786,10 +820,10 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                       <canvas
                         className="audio-sampler-canvas audio-sampler-canvas-trim"
                         ref={canvasRef}
-                        onMouseDown={handleCanvasMouseDown}
-                        onMouseMove={handleCanvasMouseMove}
-                        onMouseUp={handleCanvasMouseUp}
-                        onMouseLeave={handleCanvasMouseUp}
+                        onPointerDown={handleCanvasPointerDown}
+                        onPointerMove={handleCanvasPointerMove}
+                        onPointerUp={handleCanvasPointerUp}
+                        onPointerCancel={handleCanvasPointerUp}
                       />
                       <div className="audio-sampler-playhead" ref={playheadRef} />
                     </>

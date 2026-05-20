@@ -558,11 +558,9 @@
 
 /* TRIM en toolbar */
 .audio-sampler-toolbar-trim {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  color: var(--ui-color-text-muted);
-  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   white-space: nowrap;
 }
 
@@ -570,6 +568,26 @@
   font-size: 0.68rem;
   color: var(--ui-color-accent);
   font-variant-numeric: tabular-nums;
+}
+
+.audio-sampler-trim-btn {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--ui-color-border, #444);
+  background: transparent;
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.audio-sampler-trim-btn.active {
+  background: var(--ui-color-accent);
+  color: var(--ui-color-bg, #111);
+  border-color: var(--ui-color-accent);
 }
 
 /* Selector de slot en toolbar */

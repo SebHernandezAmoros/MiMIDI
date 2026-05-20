@@ -85,7 +85,7 @@ import {
   getMidiTracks,
   getSamplerTracks,
 } from "../../engine/project/projectModel"
-import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, ChevronsLeft, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight } from "lucide-react"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, Check, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSamplerMixes } from "../../application/use-cases/playSamplerMixes"
 import {
@@ -1408,29 +1408,33 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     ? primaryTrack.noteTimelineDuration
     : project.trackTimelineDuration
 
+  const isNoteEditMode = mode === "edit-only" && timelineView === "notes" && !!selectedRecordedNote
+
   const editWorkspace = (
     <section className="timeline-workspace" aria-label="Workspace de timeline">
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-controls">
-          <div className="edit-view-switch" role="group" aria-label="Vista del timeline">
-            <button
-              aria-pressed={timelineView === "notes"}
-              disabled={hasNoTracks}
-              onClick={() => setTimelineView("notes")}
-              title={hasNoTracks ? "Agrega una pista MIDI para editar notas" : undefined}
-              type="button"
-            >
-              NOTAS
-            </button>
-            <button
-              aria-pressed={timelineView === "tracks"}
-              onClick={() => setTimelineView("tracks")}
-              type="button"
-            >
-              TRACKS
-            </button>
-          </div>
-          {timelineView === "notes" && !(mode === "edit-only" && selectedRecordedNote) && (
+          {!isNoteEditMode && (
+            <div className="edit-view-switch" role="group" aria-label="Vista del timeline">
+              <button
+                aria-pressed={timelineView === "notes"}
+                disabled={hasNoTracks}
+                onClick={() => setTimelineView("notes")}
+                title={hasNoTracks ? "Agrega una pista MIDI para editar notas" : undefined}
+                type="button"
+              >
+                NOTAS
+              </button>
+              <button
+                aria-pressed={timelineView === "tracks"}
+                onClick={() => setTimelineView("tracks")}
+                type="button"
+              >
+                TRACKS
+              </button>
+            </div>
+          )}
+          {timelineView === "notes" && !isNoteEditMode && (
             <select
               aria-label="Seleccionar pista"
               className="ui-select"
@@ -1519,18 +1523,29 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               >
                 <RotateCcw size={15} />
               </button>
+              <button
+                aria-label="Confirmar edición"
+                className="ui-icon-btn"
+                onClick={() => setSelectedRecordedNoteId(null)}
+                title="Listo"
+                type="button"
+              >
+                <Check size={16} />
+              </button>
             </>
           )}
-          <button
-            aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
-            className="ui-icon-btn"
-            disabled={allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0 && !playbackTransport.isPlaying && !isMixOnlyPlaying}
-            onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(editNotesToPlay)}
-            title={playbackTransport.isPlaying ? "Detener" : "Reproducir"}
-            type="button"
-          >
-            {(playbackTransport.isPlaying || isMixOnlyPlaying) ? <Square size={18} /> : <Play size={18} />}
-          </button>
+          {!isNoteEditMode && (
+            <button
+              aria-label={playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"}
+              className="ui-icon-btn"
+              disabled={allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0 && !playbackTransport.isPlaying && !isMixOnlyPlaying}
+              onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(editNotesToPlay)}
+              title={playbackTransport.isPlaying ? "Detener" : "Reproducir"}
+              type="button"
+            >
+              {(playbackTransport.isPlaying || isMixOnlyPlaying) ? <Square size={18} /> : <Play size={18} />}
+            </button>
+          )}
           <span aria-hidden="true" className="perform-mode-transport-divider" />
 
           <label className="perform-mode-arp-toggle" aria-label="Snap al paso">
@@ -1556,7 +1571,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             </select>
           )}
 
-          {mode === "edit-only" && (
+          {mode === "edit-only" && !isNoteEditMode && (
             <>
               <button
                 aria-label="Silenciar pista"
