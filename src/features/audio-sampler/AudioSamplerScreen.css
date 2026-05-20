@@ -374,12 +374,20 @@
   background: var(--ui-color-surface-raised) !important;
 }
 
+.audio-sampler-step-btn:focus,
+.audio-sampler-step-btn:focus-visible {
+  outline: none;
+}
+
 .audio-sampler-step-btn-on {
   background: var(--ui-color-accent) !important;
   border-color: var(--ui-color-accent) !important;
 }
 
-.audio-sampler-step-btn-on:hover {
+.audio-sampler-step-btn-on:hover,
+.audio-sampler-step-btn-on:focus,
+.audio-sampler-step-btn-on:focus-visible {
+  background: var(--ui-color-accent) !important;
   opacity: 0.82;
 }
 

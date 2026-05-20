@@ -1028,7 +1028,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                                     step.active ? "audio-sampler-step-btn-on" : "",
                                     seqCurrentStep === stepIdx ? "audio-sampler-step-btn-current" : "",
                                   ].join(" ").trim()}
-                                  onClick={() => toggleSeqStep(laneIdx, stepIdx)}
+                                  onClick={(e) => { toggleSeqStep(laneIdx, stepIdx); (e.currentTarget as HTMLButtonElement).blur() }}
                                   type="button"
                                 />
                               ))}
