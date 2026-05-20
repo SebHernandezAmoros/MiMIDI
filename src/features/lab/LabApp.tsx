@@ -514,6 +514,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     onProjectUpdate: applyUpdate,
     onStopArpeggiator: () => stopArpeggiator(),
     onStopPlayback: playbackTransport.stop,
+    onStopRecording: () => {
+      applyUpdate((p) => {
+        const track = getMidiTracks(p.timeline).find((t) => t.id === primaryTrack.id)
+        if (!track || track.notes.length === 0) return p
+        return compactTrackNotesStart(p, primaryTrack.id)
+      })
+    },
     onUpdateMessage: setProjectMessage,
     primaryTrack,
   })
@@ -1524,17 +1531,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           >
             {(playbackTransport.isPlaying || isMixOnlyPlaying) ? <Square size={18} /> : <Play size={18} />}
           </button>
-          {timelineView === "notes" && (
-            <button
-              className="ui-icon-btn"
-              onClick={compactPrimaryTrackNoteTimelineStart}
-              title="Compactar inicio"
-              type="button"
-            >
-              <ChevronsLeft size={18} />
-            </button>
-          )}
-
           <span aria-hidden="true" className="perform-mode-transport-divider" />
 
           <label className="perform-mode-arp-toggle" aria-label="Snap al paso">

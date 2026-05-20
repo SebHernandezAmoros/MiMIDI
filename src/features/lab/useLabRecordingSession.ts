@@ -30,6 +30,7 @@ type UseLabRecordingSessionOptions = {
   ) => void
   onStopArpeggiator: () => void
   onStopPlayback: () => void
+  onStopRecording?: () => void
   onUpdateMessage: (message: string) => void
   primaryTrack: ProjectTrack
 }
@@ -60,6 +61,7 @@ export function useLabRecordingSession({
   onProjectUpdate,
   onStopArpeggiator,
   onStopPlayback,
+  onStopRecording,
   onUpdateMessage,
   primaryTrack,
 }: UseLabRecordingSessionOptions) {
@@ -223,6 +225,7 @@ export function useLabRecordingSession({
     recordingStartedAtRef.current = null
     setRecordingState("idle")
     onUpdateMessage(`Grabacion detenida en ${primaryTrack.name}.`)
+    onStopRecording?.()
   }
 
   function resetRecordingSession() {
