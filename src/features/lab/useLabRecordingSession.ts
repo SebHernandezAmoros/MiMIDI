@@ -11,6 +11,7 @@ import type { MusicalNote } from "../../engine/midi/notes"
 import {
   appendNoteToTrack,
   appendNotesToTrack,
+  createRecordingClip,
   type MusicalProject,
   type ProjectTrack,
 } from "../../engine/project/projectModel"
@@ -185,6 +186,7 @@ export function useLabRecordingSession({
     onStopArpeggiator()
     activeNoteEventsRef.current = {}
     recordingStartedAtRef.current = getPerformanceTimestamp()
+    onProjectUpdate((p) => createRecordingClip(p, primaryTrack.id))
     setRecordingState("recording")
     onUpdateMessage(`Grabacion iniciada en ${primaryTrack.name}.`)
   }

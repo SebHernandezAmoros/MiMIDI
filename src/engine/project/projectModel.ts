@@ -25,20 +25,32 @@ export type TrackVolumeAutomation = {
 
 export type ProjectTrackType = "melodic" | "percussion"
 
+// ─── Clip types ────────────────────────────────────────────────────────────
+
+export type MidiClip = {
+  id: string
+  notes: MidiRecordedNote[]  // timestamps relative to this clip's startTime
+  startTime: number           // position in the track timeline (seconds)
+}
+
+export type SamplerClip = {
+  id: string
+  startTime: number           // position in the track timeline (seconds)
+}
+
 // ─── Timeline track types ──────────────────────────────────────────────────
 
 export type MidiTrack = {
   kind: "midi"
+  clips: MidiClip[]
   envelope: ADSREnvelope
   id: string
   instrumentId: MathematicalInstrumentId
   muted: boolean
   name: string
   noteTimelineDuration: number
-  notes: MidiRecordedNote[]
   pan: number
   solo: boolean
-  startTime: number
   trackType: ProjectTrackType
   volumeAutomation: TrackVolumeAutomation
   volume: number
@@ -46,9 +58,10 @@ export type MidiTrack = {
 
 export type SamplerTrack = {
   kind: "sampler"
+  clips: SamplerClip[]
   id: string
+  muted: boolean
   name: string
-  startTime: number
   pattern: SequencerPattern
 }
 
@@ -90,6 +103,7 @@ export type MusicalProject = {
 
 export type ScheduledTrackNote = {
   absoluteStartTime: number
+  clip: MidiClip
   note: MidiRecordedNote
   relativeStartTime: number
   track: MidiTrack
@@ -114,6 +128,48 @@ function mapMidiTrack(
   }
 }
 
+function mapSamplerTrack(
+  project: MusicalProject,
+  trackId: string,
+  updater: (t: SamplerTrack) => SamplerTrack,
+): MusicalProject {
+  return {
+    ...project,
+    timeline: project.timeline.map((t) =>
+      isSamplerTrack(t) && t.id === trackId ? updater(t) : t,
+    ),
+  }
+}
+
+// ─── Clip helpers ──────────────────────────────────────────────────────────
+
+export function createMidiClip(startTime = 0): MidiClip {
+  return { id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, notes: [], startTime }
+}
+
+export function createSamplerClip(startTime = 0): SamplerClip {
+  return { id: `sclip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, startTime }
+}
+
+export function getMidiClipDuration(clip: MidiClip): number {
+  return Math.max(
+    clip.notes.reduce((max, n) => Math.max(max, n.startTime + n.duration), 0),
+    0.25,
+  )
+}
+
+export function getMidiTrackNotes(track: MidiTrack): MidiRecordedNote[] {
+  return track.clips.flatMap((c) => c.notes)
+}
+
+export function getActiveClip(track: MidiTrack): MidiClip | null {
+  return track.clips.at(-1) ?? null
+}
+
+export function getMidiTrackNoteCount(track: MidiTrack): number {
+  return track.clips.reduce((sum, c) => sum + c.notes.length, 0)
+}
+
 // ─── Sampler mix CRUD ──────────────────────────────────────────────────────
 
 export function addSamplerMix(
@@ -124,8 +180,9 @@ export function addSamplerMix(
   const mix: SamplerTrack = {
     kind: "sampler",
     id: `smix-${Date.now()}`,
+    clips: [createSamplerClip(0)],
+    muted: false,
     name,
-    startTime: 0,
     pattern,
   }
   return { ...project, timeline: [...project.timeline, mix] }
@@ -141,17 +198,44 @@ export function removeSamplerMix(
   }
 }
 
+export function updateSamplerClipStartTime(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+  startTime: number,
+): MusicalProject {
+  return mapSamplerTrack(project, trackId, (t) => ({
+    ...t,
+    clips: t.clips.map((c) =>
+      c.id === clipId ? { ...c, startTime: Math.max(0, startTime) } : c,
+    ),
+  }))
+}
+
+/** @deprecated Use updateSamplerClipStartTime */
 export function updateSamplerMixStartTime(
   project: MusicalProject,
   mixId: string,
   startTime: number,
 ): MusicalProject {
-  return {
-    ...project,
-    timeline: project.timeline.map((t) =>
-      isSamplerTrack(t) && t.id === mixId ? { ...t, startTime } : t,
-    ),
-  }
+  const track = project.timeline.find((t) => isSamplerTrack(t) && t.id === mixId) as SamplerTrack | undefined
+  const clipId = track?.clips[0]?.id
+  if (!clipId) return project
+  return updateSamplerClipStartTime(project, mixId, clipId, startTime)
+}
+
+export function duplicateSamplerClip(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+): MusicalProject {
+  return mapSamplerTrack(project, trackId, (track) => {
+    const sourceClip = track.clips.find((c) => c.id === clipId)
+    if (!sourceClip) return track
+    const samplerDuration = getSamplerTrackDuration(track)
+    const newClip = createSamplerClip(sourceClip.startTime + samplerDuration)
+    return { ...track, clips: [...track.clips, newClip].sort((a, b) => a.startTime - b.startTime) }
+  })
 }
 
 export function renameSamplerMix(
@@ -214,6 +298,7 @@ export function createProjectTrack(
 ): MidiTrack {
   return {
     kind: "midi",
+    clips: [],
     envelope: {
       attack: 0.02,
       decay: 0.12,
@@ -225,10 +310,8 @@ export function createProjectTrack(
     muted: false,
     name: `Track ${index}`,
     noteTimelineDuration: 8,
-    notes: [],
     pan: 0,
     solo: false,
-    startTime: 0,
     trackType,
     volumeAutomation: {
       enabled: false,
@@ -243,15 +326,24 @@ export function createProjectTrack(
 
 // ─── Note CRUD ─────────────────────────────────────────────────────────────
 
+function ensureLastClip(track: MidiTrack): MidiTrack {
+  if (track.clips.length > 0) return track
+  return { ...track, clips: [createMidiClip(0)] }
+}
+
 export function appendNoteToTrack(
   project: MusicalProject,
   trackId: string,
   note: MidiRecordedNote,
 ): MusicalProject {
-  return mapMidiTrack(project, trackId, (t) => ({
-    ...t,
-    notes: [note, ...t.notes],
-  }))
+  return mapMidiTrack(project, trackId, (t) => {
+    const track = ensureLastClip(t)
+    const clips = track.clips.slice()
+    const last = { ...clips[clips.length - 1] }
+    last.notes = [note, ...last.notes]
+    clips[clips.length - 1] = last
+    return { ...track, clips }
+  })
 }
 
 export function appendNotesToTrack(
@@ -259,10 +351,14 @@ export function appendNotesToTrack(
   trackId: string,
   notes: MidiRecordedNote[],
 ): MusicalProject {
-  return mapMidiTrack(project, trackId, (t) => ({
-    ...t,
-    notes: [[...notes].reverse(), t.notes].flat(),
-  }))
+  return mapMidiTrack(project, trackId, (t) => {
+    const track = ensureLastClip(t)
+    const clips = track.clips.slice()
+    const last = { ...clips[clips.length - 1] }
+    last.notes = [[...notes].reverse(), last.notes].flat()
+    clips[clips.length - 1] = last
+    return { ...track, clips }
+  })
 }
 
 export function removeNoteFromTrack(
@@ -272,7 +368,10 @@ export function removeNoteFromTrack(
 ): MusicalProject {
   return mapMidiTrack(project, trackId, (t) => ({
     ...t,
-    notes: t.notes.filter((n) => n.id !== noteId),
+    clips: t.clips.map((c) => ({
+      ...c,
+      notes: c.notes.filter((n) => n.id !== noteId),
+    })),
   }))
 }
 
@@ -284,7 +383,10 @@ export function updateNoteInTrack(
 ): MusicalProject {
   return mapMidiTrack(project, trackId, (t) => ({
     ...t,
-    notes: t.notes.map((n) => (n.id === noteId ? { ...n, ...patch } : n)),
+    clips: t.clips.map((c) => ({
+      ...c,
+      notes: c.notes.map((n) => (n.id === noteId ? { ...n, ...patch } : n)),
+    })),
   }))
 }
 
@@ -294,35 +396,38 @@ export function duplicateNoteInTrack(
   noteId: string,
   offsetSeconds = 0.05,
 ): MusicalProject {
-  return mapMidiTrack(project, trackId, (t) => {
-    const sourceNote = t.notes.find((n) => n.id === noteId)
-
-    if (!sourceNote) {
-      return t
-    }
-
-    const copiedNote: MidiRecordedNote = {
-      ...sourceNote,
-      id: `note-${sourceNote.note}-${(sourceNote.startTime + offsetSeconds).toFixed(3)}-${Date.now()}`,
-      startTime: Math.max(0, sourceNote.startTime + offsetSeconds),
-    }
-
-    return { ...t, notes: [copiedNote, ...t.notes] }
-  })
+  return mapMidiTrack(project, trackId, (t) => ({
+    ...t,
+    clips: t.clips.map((c) => {
+      const sourceNote = c.notes.find((n) => n.id === noteId)
+      if (!sourceNote) return c
+      const copiedNote: MidiRecordedNote = {
+        ...sourceNote,
+        id: `note-${sourceNote.note}-${(sourceNote.startTime + offsetSeconds).toFixed(3)}-${Date.now()}`,
+        startTime: Math.max(0, sourceNote.startTime + offsetSeconds),
+      }
+      return { ...c, notes: [copiedNote, ...c.notes] }
+    }),
+  }))
 }
 
 export function clearTrackNotes(
   project: MusicalProject,
   trackId: string,
 ): MusicalProject {
-  return mapMidiTrack(project, trackId, (t) => ({ ...t, notes: [] }))
+  return mapMidiTrack(project, trackId, (t) => ({
+    ...t,
+    clips: t.clips.map((c) => ({ ...c, notes: [] })),
+  }))
 }
 
 export function clearAllTrackNotes(project: MusicalProject): MusicalProject {
   return {
     ...project,
     timeline: project.timeline.map((t) =>
-      isMidiTrack(t) ? { ...t, notes: [] } : t,
+      isMidiTrack(t)
+        ? { ...t, clips: t.clips.map((c) => ({ ...c, notes: [] })) }
+        : t,
     ),
   }
 }
@@ -375,22 +480,110 @@ export function compactTrackNotesStart(
   trackId: string,
 ): MusicalProject {
   return mapMidiTrack(project, trackId, (t) => {
-    if (t.notes.length === 0) return t
+    if (t.clips.length === 0) return t
+    const lastIdx = t.clips.length - 1
+    const lastClip = t.clips[lastIdx]
+    if (lastClip.notes.length === 0) return t
 
-    const earliest = t.notes.reduce(
+    const earliest = lastClip.notes.reduce(
       (min, n) => Math.min(min, n.startTime),
       Number.POSITIVE_INFINITY,
     )
 
     if (!Number.isFinite(earliest) || earliest <= 0) return t
 
-    return {
-      ...t,
-      notes: t.notes.map((n) => ({
+    const newClips = t.clips.slice()
+    newClips[lastIdx] = {
+      ...lastClip,
+      notes: lastClip.notes.map((n) => ({
         ...n,
         startTime: Math.max(0, n.startTime - earliest),
       })),
     }
+
+    return { ...t, clips: newClips }
+  })
+}
+
+export function updateMidiClipStartTime(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+  startTime: number,
+): MusicalProject {
+  return mapMidiTrack(project, trackId, (t) => ({
+    ...t,
+    clips: t.clips.map((c) =>
+      c.id === clipId ? { ...c, startTime: Math.max(0, startTime) } : c,
+    ),
+  }))
+}
+
+/** @deprecated Use updateMidiClipStartTime */
+export function updateMidiTrackStartTime(
+  project: MusicalProject,
+  trackId: string,
+  startTime: number,
+): MusicalProject {
+  const track = project.timeline.find((t) => isMidiTrack(t) && t.id === trackId) as MidiTrack | undefined
+  const clipId = track?.clips[0]?.id
+  if (!clipId) return project
+  return updateMidiClipStartTime(project, trackId, clipId, startTime)
+}
+
+export function removeMidiClip(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+): MusicalProject {
+  return mapMidiTrack(project, trackId, (t) => ({
+    ...t,
+    clips: t.clips.filter((c) => c.id !== clipId),
+  }))
+}
+
+export function removeSamplerClip(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+): MusicalProject {
+  return mapSamplerTrack(project, trackId, (t) => ({
+    ...t,
+    clips: t.clips.filter((c) => c.id !== clipId),
+  }))
+}
+
+export function duplicateMidiClip(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+): MusicalProject {
+  return mapMidiTrack(project, trackId, (track) => {
+    const sourceClip = track.clips.find((c) => c.id === clipId)
+    if (!sourceClip) return track
+    const clipDuration = getMidiClipDuration(sourceClip)
+    const newClip = createMidiClip(sourceClip.startTime + clipDuration)
+    newClip.notes = sourceClip.notes.map((n) => ({
+      ...n,
+      id: `${n.id}-dup-${Date.now()}`,
+    }))
+    return {
+      ...track,
+      clips: [...track.clips, newClip].sort((a, b) => a.startTime - b.startTime),
+    }
+  })
+}
+
+export function createRecordingClip(
+  project: MusicalProject,
+  trackId: string,
+): MusicalProject {
+  return mapMidiTrack(project, trackId, (track) => {
+    const lastClip = track.clips.at(-1)
+    const startTime = lastClip
+      ? lastClip.startTime + getMidiClipDuration(lastClip)
+      : 0
+    return { ...track, clips: [...track.clips, createMidiClip(startTime)] }
   })
 }
 
@@ -443,6 +636,19 @@ export function updateTrackMuted(
   return mapMidiTrack(project, trackId, (t) => ({ ...t, muted }))
 }
 
+export function updateSamplerTrackMuted(
+  project: MusicalProject,
+  trackId: string,
+  muted: boolean,
+): MusicalProject {
+  return {
+    ...project,
+    timeline: project.timeline.map((t) =>
+      t.kind === "sampler" && t.id === trackId ? { ...t, muted } : t,
+    ),
+  }
+}
+
 export function updateTrackSolo(
   project: MusicalProject,
   trackId: string,
@@ -465,16 +671,6 @@ export function updateTrackVolumeAutomation(
   }))
 }
 
-export function updateMidiTrackStartTime(
-  project: MusicalProject,
-  trackId: string,
-  startTime: number,
-): MusicalProject {
-  return mapMidiTrack(project, trackId, (t) => ({
-    ...t,
-    startTime: clamp(startTime, 0, 9999),
-  }))
-}
 
 // ─── Plugin / instrument sync ──────────────────────────────────────────────
 
@@ -599,21 +795,13 @@ export function getTrackVolumeAutomationValue(
 }
 
 export function getTrackTimelineClipDuration(track: MidiTrack): number {
-  const trackDuration = track.notes.reduce(
-    (max, n) => Math.max(max, n.startTime + n.duration),
-    0,
-  )
-
-  return Math.max(trackDuration, 0.25)
+  return track.clips.reduce((max, c) => Math.max(max, getMidiClipDuration(c)), 0.25)
 }
 
 export function getTrackNoteTimelineContentLength(track: MidiTrack): number {
-  const lastNoteEnd = track.notes.reduce(
-    (max, n) => Math.max(max, n.startTime + n.duration),
-    0,
-  )
-
-  return Math.max(lastNoteEnd, 1)
+  const activeClip = getActiveClip(track)
+  if (!activeClip) return 1
+  return Math.max(getMidiClipDuration(activeClip), 1)
 }
 
 export function getTrackNoteTimelineLength(track: MidiTrack): number {
@@ -631,9 +819,16 @@ export function getSamplerTrackDuration(track: SamplerTrack): number {
 export function getTracksTimelineLength(timeline: TimelineTrack[]): number {
   const lastEnd = timeline.reduce((max, t) => {
     if (isMidiTrack(t)) {
-      return Math.max(max, t.startTime + getTrackTimelineClipDuration(t))
+      return t.clips.reduce(
+        (m, c) => Math.max(m, c.startTime + getMidiClipDuration(c)),
+        max,
+      )
     }
-    return Math.max(max, t.startTime + getSamplerTrackDuration(t))
+    const samplerDuration = getSamplerTrackDuration(t)
+    return t.clips.reduce(
+      (m, c) => Math.max(m, c.startTime + samplerDuration),
+      max,
+    )
   }, 0)
 
   return Math.max(lastEnd, 1)
@@ -652,12 +847,15 @@ export function getScheduledTrackNotes(
   project: MusicalProject,
 ): ScheduledTrackNote[] {
   return getMidiTracks(project.timeline).flatMap((track) =>
-    track.notes.map((note) => ({
-      absoluteStartTime: track.startTime + note.startTime,
-      note,
-      relativeStartTime: note.startTime,
-      track,
-    })),
+    track.clips.flatMap((clip) =>
+      clip.notes.map((note) => ({
+        absoluteStartTime: clip.startTime + note.startTime,
+        clip,
+        note,
+        relativeStartTime: note.startTime,
+        track,
+      })),
+    ),
   )
 }
 
@@ -735,13 +933,34 @@ function isMidiTrackData(value: unknown): boolean {
   return (
     typeof track.id === "string" &&
     typeof track.name === "string" &&
-    Array.isArray(track.notes) &&
-    track.notes.every(isRecordedNote) &&
+    (Array.isArray(track.clips) || Array.isArray(track.notes)) &&
     (typeof track.instrumentId === "string" ||
       typeof track.instrumentId === "undefined") &&
     typeof track.envelope === "object" &&
     track.envelope !== null
   )
+}
+
+function normalizeRawNote(note: MidiRecordedNote): MidiRecordedNote {
+  return {
+    ...note,
+    note: note.note as MusicalNote,
+    instrumentId: (note.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
+    playbackEnvelope:
+      typeof note.playbackEnvelope === "object" && note.playbackEnvelope !== null
+        ? {
+            attack: typeof note.playbackEnvelope.attack === "number" ? note.playbackEnvelope.attack : undefined,
+            decay: typeof note.playbackEnvelope.decay === "number" ? note.playbackEnvelope.decay : undefined,
+            sustain: typeof note.playbackEnvelope.sustain === "number" ? note.playbackEnvelope.sustain : undefined,
+            release: typeof note.playbackEnvelope.release === "number" ? note.playbackEnvelope.release : undefined,
+          }
+        : undefined,
+    playbackPan: typeof note.playbackPan === "number" ? note.playbackPan : undefined,
+    playbackTrackId: typeof note.playbackTrackId === "string" ? note.playbackTrackId : undefined,
+    playbackVolume: typeof note.playbackVolume === "number" ? note.playbackVolume : undefined,
+    playbackSource: note.playbackSource === "smc-pad" ? "smc-pad" : ("note" as const),
+    smcPadSoundId: isValidSmcPadSoundId(note.smcPadSoundId) ? note.smcPadSoundId : undefined,
+  }
 }
 
 function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
@@ -757,14 +976,6 @@ function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
     typeof raw.timelineClip === "object" && raw.timelineClip !== null
       ? (raw.timelineClip as Record<string, unknown>)
       : null
-
-  // Support both new format (raw.startTime) and old format (timelineClip.startTime)
-  const startTime =
-    typeof raw.startTime === "number"
-      ? Math.max(raw.startTime, 0)
-      : typeof rawTimelineClip?.startTime === "number"
-        ? Math.max(rawTimelineClip.startTime as number, 0)
-        : 0
 
   const normalizedAutomationPoints = Array.isArray(rawAutomation?.points)
     ? (rawAutomation.points as unknown[])
@@ -782,21 +993,43 @@ function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
         .sort((a, b) => a.time - b.time)
     : []
 
-  const rawNotes = Array.isArray(raw.notes)
-    ? (raw.notes as unknown[]).filter(isRecordedNote)
-    : []
+  // Normalize clips: support new format (clips[]) or migrate from old (notes + startTime)
+  let clips: MidiClip[]
+
+  if (Array.isArray(raw.clips)) {
+    clips = (raw.clips as unknown[])
+      .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+      .map((c) => ({
+        id: typeof c.id === "string" ? c.id : `clip-migrated-${Date.now()}`,
+        startTime: typeof c.startTime === "number" ? Math.max(c.startTime, 0) : 0,
+        notes: Array.isArray(c.notes)
+          ? (c.notes as unknown[]).filter(isRecordedNote).map(normalizeRawNote)
+          : [],
+      }))
+  } else {
+    // Old format: flat notes + startTime → single clip
+    const legacyStartTime =
+      typeof raw.startTime === "number"
+        ? Math.max(raw.startTime, 0)
+        : typeof rawTimelineClip?.startTime === "number"
+          ? Math.max(rawTimelineClip.startTime as number, 0)
+          : 0
+    const rawNotes = Array.isArray(raw.notes)
+      ? (raw.notes as unknown[]).filter(isRecordedNote).map(normalizeRawNote)
+      : []
+    clips = rawNotes.length > 0 || legacyStartTime > 0
+      ? [{ id: `clip-migrated-${raw.id as string}`, notes: rawNotes, startTime: legacyStartTime }]
+      : []
+  }
 
   return {
     kind: "midi",
+    clips,
     envelope: {
-      attack:
-        typeof rawEnvelope?.attack === "number" ? rawEnvelope.attack : 0.02,
-      decay:
-        typeof rawEnvelope?.decay === "number" ? rawEnvelope.decay : 0.12,
-      sustain:
-        typeof rawEnvelope?.sustain === "number" ? rawEnvelope.sustain : 0.68,
-      release:
-        typeof rawEnvelope?.release === "number" ? rawEnvelope.release : 0.24,
+      attack: typeof rawEnvelope?.attack === "number" ? rawEnvelope.attack : 0.02,
+      decay: typeof rawEnvelope?.decay === "number" ? rawEnvelope.decay : 0.12,
+      sustain: typeof rawEnvelope?.sustain === "number" ? rawEnvelope.sustain : 0.68,
+      release: typeof rawEnvelope?.release === "number" ? rawEnvelope.release : 0.24,
     },
     id: raw.id as string,
     instrumentId: (raw.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
@@ -806,65 +1039,15 @@ function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
       typeof raw.noteTimelineDuration === "number"
         ? Math.max(raw.noteTimelineDuration, 1)
         : 8,
-    notes: rawNotes.map((note) => ({
-      ...note,
-      note: note.note as MusicalNote,
-      instrumentId: (note.instrumentId as MathematicalInstrumentId) ?? "pure-sine",
-      playbackEnvelope:
-        typeof note.playbackEnvelope === "object" &&
-        note.playbackEnvelope !== null
-          ? {
-              attack:
-                typeof note.playbackEnvelope.attack === "number"
-                  ? note.playbackEnvelope.attack
-                  : undefined,
-              decay:
-                typeof note.playbackEnvelope.decay === "number"
-                  ? note.playbackEnvelope.decay
-                  : undefined,
-              sustain:
-                typeof note.playbackEnvelope.sustain === "number"
-                  ? note.playbackEnvelope.sustain
-                  : undefined,
-              release:
-                typeof note.playbackEnvelope.release === "number"
-                  ? note.playbackEnvelope.release
-                  : undefined,
-            }
-          : undefined,
-      playbackPan:
-        typeof note.playbackPan === "number" ? note.playbackPan : undefined,
-      playbackTrackId:
-        typeof note.playbackTrackId === "string"
-          ? note.playbackTrackId
-          : undefined,
-      playbackVolume:
-        typeof note.playbackVolume === "number"
-          ? note.playbackVolume
-          : undefined,
-      playbackSource:
-        note.playbackSource === "smc-pad" ? "smc-pad" : ("note" as const),
-      smcPadSoundId: isValidSmcPadSoundId(note.smcPadSoundId)
-        ? note.smcPadSoundId
-        : undefined,
-    })),
-    pan:
-      typeof raw.pan === "number" ? clamp(raw.pan, -1, 1) : 0,
+    pan: typeof raw.pan === "number" ? clamp(raw.pan, -1, 1) : 0,
     solo: typeof raw.solo === "boolean" ? raw.solo : false,
-    startTime,
     trackType: raw.trackType === "percussion" ? "percussion" : "melodic",
     volumeAutomation: {
-      enabled:
-        typeof rawAutomation?.enabled === "boolean"
-          ? rawAutomation.enabled
-          : false,
+      enabled: typeof rawAutomation?.enabled === "boolean" ? rawAutomation.enabled : false,
       points:
         normalizedAutomationPoints.length > 0
           ? normalizedAutomationPoints
-          : [
-              { time: 0, value: 1 },
-              { time: 4, value: 1 },
-            ],
+          : [{ time: 0, value: 1 }, { time: 4, value: 1 }],
     },
     volume: typeof raw.volume === "number" ? raw.volume : 1,
   }
@@ -961,13 +1144,26 @@ export function parseImportedProject(projectJson: string): MusicalProject {
           typeof item.name === "string" &&
           item.pattern
         ) {
+          // Support new format (clips[]) or migrate from old (startTime flat)
+          let samplerClips: SamplerClip[]
+          if (Array.isArray(item.clips)) {
+            samplerClips = (item.clips as unknown[])
+              .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+              .map((c) => ({
+                id: typeof c.id === "string" ? c.id : `sclip-migrated-${Date.now()}`,
+                startTime: typeof c.startTime === "number" ? Math.max(c.startTime, 0) : 0,
+              }))
+          } else {
+            const legacyStart = typeof item.startTime === "number" ? item.startTime : 0
+            samplerClips = [createSamplerClip(legacyStart)]
+          }
           return [
             {
               kind: "sampler",
               id: item.id,
+              clips: samplerClips,
+              muted: typeof item.muted === "boolean" ? item.muted : false,
               name: item.name,
-              startTime:
-                typeof item.startTime === "number" ? item.startTime : 0,
               pattern: item.pattern as SequencerPattern,
             },
           ]
@@ -1000,8 +1196,9 @@ export function parseImportedProject(projectJson: string): MusicalProject {
       .map((m) => ({
         kind: "sampler" as const,
         id: m.id as string,
+        clips: [createSamplerClip(typeof m.startTime === "number" ? m.startTime : 0)],
+        muted: typeof m.muted === "boolean" ? m.muted : false,
         name: m.name as string,
-        startTime: typeof m.startTime === "number" ? m.startTime : 0,
         pattern: m.pattern as SequencerPattern,
       }))
 

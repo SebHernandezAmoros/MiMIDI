@@ -5,7 +5,7 @@ import type {
 } from "../../application/use-cases/playRecordedNotes"
 import { playRecordedNotes } from "../../application/use-cases/playRecordedNotes"
 import { stopAllVoices } from "../../engine/audio/audioEngine"
-import { getMidiTracks, type MusicalProject } from "../../engine/project/projectModel"
+import { getMidiTracks, getMidiTrackNotes, type MusicalProject } from "../../engine/project/projectModel"
 
 export type TransportState = "idle" | "playing"
 
@@ -32,7 +32,7 @@ export function usePlaybackTransport() {
     project: MusicalProject,
     options: PlayRecordedNotesOptions = {},
   ) {
-    if (getMidiTracks(project.timeline).every((track) => track.notes.length === 0) || transportState === "playing") {
+    if (getMidiTracks(project.timeline).every((track) => getMidiTrackNotes(track).length === 0) || transportState === "playing") {
       return
     }
 

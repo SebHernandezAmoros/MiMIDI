@@ -75,15 +75,22 @@ import {
   updateTrackNoteTimelineDuration,
   updateTrackPan,
   updateTrackSolo,
-  updateMidiTrackStartTime,
+  updateMidiClipStartTime,
+  updateSamplerClipStartTime,
+  updateSamplerTrackMuted,
+  duplicateMidiClip,
+  duplicateSamplerClip,
+  removeMidiClip,
+  removeSamplerClip,
   updateTrackVolumeAutomation,
   updateTrackVolume,
   type TrackVolumeAutomation,
   removeSamplerMix,
   renameSamplerMix,
-  updateSamplerMixStartTime,
   getMidiTracks,
   getSamplerTracks,
+  getMidiTrackNotes,
+  getActiveClip,
 } from "../../engine/project/projectModel"
 import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, Check, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
@@ -152,7 +159,7 @@ function getInitialProjectMessage() {
     return ""
   }
 
-  return getMidiTracks(storedProject.timeline).some((track) => track.notes.length > 0)
+  return getMidiTracks(storedProject.timeline).some((track) => getMidiTrackNotes(track).length > 0)
     ? `Proyecto restaurado: ${storedProject.name}.`
     : ""
 }
@@ -245,6 +252,9 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const mixOnlyStartRef = useRef<{ startedAt: number; duration: number } | null>(null)
   const [selectedMixId, setSelectedMixId] = useState<string | null>(null)
   const [isMixDeleteConfirmOpen, setIsMixDeleteConfirmOpen] = useState(false)
+  const [selectedClipId, setSelectedClipId] = useState<{ trackId: string; clipId: string; type: "midi" | "sampler" } | null>(null)
+  const [isClipDeleteConfirmOpen, setIsClipDeleteConfirmOpen] = useState(false)
+  const [isTrackLaneFocused, setIsTrackLaneFocused] = useState(false)
   const midiTracks = getMidiTracks(project.timeline)
   const hasNoTracks = midiTracks.length === 0
 
@@ -254,6 +264,15 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       setTimelineView("tracks")
     }
   }, [hasNoTracks, timelineView])
+
+  useEffect(() => {
+    if (timelineView !== "tracks") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsTrackLaneFocused(false)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedClipId(null)
+    }
+  }, [timelineView])
 
   useEffect(() => {
     const tracks = getMidiTracks(project.timeline)
@@ -353,13 +372,15 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     [availableInstruments, instrumentDialogCategory, project.pluginStates],
   )
   const visibleNotes = useMemo(() => createPianoPreviewNotes(previewOctave), [previewOctave])
-  const allRecordedNotes = midiTracks.flatMap((track) => track.notes)
+  const allRecordedNotes = midiTracks.flatMap((track) => getMidiTrackNotes(track))
   const projectTrackTimelineLength = getProjectTrackTimelineLength(project)
   const primaryTrackNoteTimelineLength = getTrackNoteTimelineLength(primaryTrack)
-  const noteCount = primaryTrack.notes.length
+  const primaryTrackNotes = getMidiTrackNotes(primaryTrack)
+  const activeClip = getActiveClip(primaryTrack)
+  const noteCount = primaryTrackNotes.length
   const isPrimaryTrackAudible = isTrackAudible(primaryTrack, midiTracks)
   const selectedRecordedNote =
-    primaryTrack.notes.find((note) => note.id === selectedRecordedNoteId) ?? null
+    primaryTrackNotes.find((note) => note.id === selectedRecordedNoteId) ?? null
 
   let selectedNoteHistoryStatus: "modificada" | "sin-cambios" | null = null
   if (selectedRecordedNoteId && selectedRecordedNote) {
@@ -368,7 +389,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       selectedNoteHistoryStatus = "sin-cambios"
     } else {
       const snapshotTrack = getMidiTracks(latestSnapshot.timeline).find((t) => t.id === primaryTrack.id)
-      const snapshotNote = snapshotTrack?.notes.find((n) => n.id === selectedRecordedNoteId)
+      const snapshotNote = snapshotTrack ? getMidiTrackNotes(snapshotTrack).find((n) => n.id === selectedRecordedNoteId) : undefined
       selectedNoteHistoryStatus =
         !snapshotNote ||
         snapshotNote.startTime !== selectedRecordedNote.startTime ||
@@ -517,7 +538,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     onStopRecording: () => {
       applyUpdate((p) => {
         const track = getMidiTracks(p.timeline).find((t) => t.id === primaryTrack.id)
-        if (!track || track.notes.length === 0) return p
+        if (!track || getMidiTrackNotes(track).length === 0) return p
         return compactTrackNotesStart(p, primaryTrack.id)
       })
     },
@@ -631,14 +652,15 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     samplerMixPlaybackRef.current?.cancel()
     const samplerTracks = getSamplerTracks(notesProject.timeline)
     samplerMixPlaybackRef.current = playSamplerMixes(samplerTracks, startedAt)
-    const hasMidi = getMidiTracks(notesProject.timeline).some(t => t.notes.length > 0)
+    const hasMidi = getMidiTracks(notesProject.timeline).some(t => getMidiTrackNotes(t).length > 0)
     if (hasMidi) {
       playbackTransport.play(notesProject)
     } else if (samplerTracks.length > 0) {
       const maxEnd = Math.max(
         ...samplerTracks.map(m => {
           const secondsPerStep = 60 / m.pattern.bpm / 4
-          return m.startTime + m.pattern.stepsPerBar * secondsPerStep
+          const clipEnd = m.clips.reduce((max, c) => Math.max(max, c.startTime + m.pattern.stepsPerBar * secondsPerStep), 0)
+          return clipEnd
         }),
       )
       mixOnlyStartRef.current = { startedAt, duration: maxEnd }
@@ -724,6 +746,22 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     setActiveTrackId(trackId)
     setSelectedRecordedNoteId(null)
     setSelectedMixId(null)
+  }
+
+  function selectTrackLane(trackId: string) {
+    switchActiveTrack(trackId)
+    setIsTrackLaneFocused(true)
+  }
+
+  function selectMixLane(mixId: string) {
+    setSelectedMixId(mixId)
+    setIsTrackLaneFocused(true)
+  }
+
+  function exitTrackLaneFocus() {
+    setSelectedClipId(null)
+    setSelectedMixId(null)
+    setIsTrackLaneFocused(false)
   }
 
   function switchTrackByOffset(offset: -1 | 1) {
@@ -914,7 +952,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     patch: Partial<{ startTime: number; duration: number }>,
     historyMode: "transient" | "commit" = "commit",
   ) {
-    const noteToUpdate = primaryTrack.notes.find((note) => note.id === noteId)
+    const noteToUpdate = primaryTrackNotes.find((note) => note.id === noteId)
 
     if (!noteToUpdate) {
       return
@@ -951,8 +989,9 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     )
   }
 
-  function updateTrackStartTime(
+  function updateMidiClipStartTimeHandler(
     trackId: string,
+    clipId: string,
     startTime: number,
     historyMode: "transient" | "commit" = "commit",
   ) {
@@ -961,15 +1000,47 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     const safeStartTime = Math.max(0, quantize(startTime))
 
     if (historyMode === "transient") {
-      applyTransientUpdate((currentProject) =>
-        updateMidiTrackStartTime(currentProject, trackId, safeStartTime),
-      )
+      applyTransientUpdate((p) => updateMidiClipStartTime(p, trackId, clipId, safeStartTime))
       return
     }
+    commitTransientUpdate((p) => updateMidiClipStartTime(p, trackId, clipId, safeStartTime))
+  }
 
-    commitTransientUpdate((currentProject) =>
-      updateMidiTrackStartTime(currentProject, trackId, safeStartTime),
-    )
+  const canDeleteSelectedClip = (() => {
+    if (!selectedClipId) return false
+    if (selectedClipId.type === "midi") {
+      const track = getMidiTracks(project.timeline).find((t) => t.id === selectedClipId.trackId)
+      return (track?.clips.length ?? 0) > 1
+    }
+    const mix = getSamplerTracks(project.timeline).find((m) => m.id === selectedClipId.trackId)
+    return (mix?.clips.length ?? 0) > 1
+  })()
+
+  function confirmDeleteSelectedClip() {
+    if (!selectedClipId) return
+    if (selectedClipId.type === "midi") {
+      applyUpdate((p) => removeMidiClip(p, selectedClipId.trackId, selectedClipId.clipId))
+    } else {
+      applyUpdate((p) => removeSamplerClip(p, selectedClipId.trackId, selectedClipId.clipId))
+    }
+    setSelectedClipId(null)
+    setIsClipDeleteConfirmOpen(false)
+  }
+
+  function updateSamplerClipStartTimeHandler(
+    trackId: string,
+    clipId: string,
+    startTime: number,
+    historyMode: "transient" | "commit" = "commit",
+  ) {
+    const snapped = timelineSnapEnabled
+      ? Math.max(0, Math.round(startTime / timelineSnapStep) * timelineSnapStep)
+      : Math.max(0, startTime)
+    if (historyMode === "transient") {
+      applyTransientUpdate((p) => updateSamplerClipStartTime(p, trackId, clipId, snapped))
+    } else {
+      commitTransientUpdate((p) => updateSamplerClipStartTime(p, trackId, clipId, snapped))
+    }
   }
 
   function updateProjectTrackTimelineDurationValue(value: number) {
@@ -1017,12 +1088,12 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   }
 
   function compactPrimaryTrackNoteTimelineStart() {
-    if (primaryTrack.notes.length === 0) {
+    if (!activeClip || activeClip.notes.length === 0) {
       setProjectMessage(`No hay notas en ${primaryTrack.name} para compactar.`)
       return
     }
 
-    const earliestStartTime = primaryTrack.notes.reduce(
+    const earliestStartTime = activeClip.notes.reduce(
       (minimumStartTime, note) => Math.min(minimumStartTime, note.startTime),
       Number.POSITIVE_INFINITY,
     )
@@ -1103,9 +1174,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       .reverse()
       .find(({ snapshot }) => {
         const snapshotTrack = getMidiTracks(snapshot.timeline).find((track) => track.id === primaryTrack.id)
-        const snapshotNote = snapshotTrack?.notes.find(
-          (note) => note.id === selectedRecordedNoteId,
-        )
+        const snapshotNote = snapshotTrack ? getMidiTrackNotes(snapshotTrack).find((note) => note.id === selectedRecordedNoteId) : undefined
 
         return (
           snapshotNote &&
@@ -1123,9 +1192,9 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     const snapshotTrack = getMidiTracks(candidateIndex.snapshot.timeline).find(
       (track) => track.id === primaryTrack.id,
     )
-    const snapshotNote = snapshotTrack?.notes.find(
-      (note) => note.id === selectedRecordedNoteId,
-    )
+    const snapshotNote = snapshotTrack
+      ? getMidiTrackNotes(snapshotTrack).find((note) => note.id === selectedRecordedNoteId)
+      : undefined
 
     if (!snapshotNote) {
       setProjectMessage("No se encontro version anterior para esta nota.")
@@ -1571,17 +1640,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             </select>
           )}
 
-          {mode === "edit-only" && !isNoteEditMode && (
+          {mode === "edit-only" && !isNoteEditMode && !(timelineView === "tracks" && isTrackLaneFocused) && (
             <>
-              <button
-                aria-label="Silenciar pista"
-                className={`ui-icon-btn edit-mute-solo-btn${primaryTrack.muted ? " edit-mute-solo-btn-active" : ""}`}
-                onClick={togglePrimaryTrackMuted}
-                title="Mute"
-                type="button"
-              >
-                <VolumeX size={18} />
-              </button>
               <button
                 aria-label="Solo pista"
                 className={`ui-icon-btn edit-mute-solo-btn${primaryTrack.solo ? " edit-mute-solo-btn-active" : ""}`}
@@ -1621,26 +1681,30 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               </button>
             </>
           )}
-          <button
-            aria-label="Deshacer"
-            className="ui-icon-btn"
-            disabled={!canUndo}
-            onClick={undoProjectEdit}
-            title="Deshacer"
-            type="button"
-          >
-            <Undo2 size={18} />
-          </button>
-          <button
-            aria-label="Rehacer"
-            className="ui-icon-btn"
-            disabled={!canRedo}
-            onClick={redoProjectEdit}
-            title="Rehacer"
-            type="button"
-          >
-            <Redo2 size={18} />
-          </button>
+          {!(timelineView === "tracks" && isTrackLaneFocused) && (
+            <>
+              <button
+                aria-label="Deshacer"
+                className="ui-icon-btn"
+                disabled={!canUndo}
+                onClick={undoProjectEdit}
+                title="Deshacer"
+                type="button"
+              >
+                <Undo2 size={18} />
+              </button>
+              <button
+                aria-label="Rehacer"
+                className="ui-icon-btn"
+                disabled={!canRedo}
+                onClick={redoProjectEdit}
+                title="Rehacer"
+                type="button"
+              >
+                <Redo2 size={18} />
+              </button>
+            </>
+          )}
           {timelineView === "notes" && (
             <button
               aria-label="Eliminar nota seleccionada"
@@ -1653,41 +1717,84 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <Trash2 size={18} />
             </button>
           )}
-          {mode === "edit-only" && timelineView === "tracks" && (
-            <button
-              aria-label={selectedMixId ? "Eliminar mix" : `Eliminar ${primaryTrack.name}`}
-              className="ui-icon-btn"
-              disabled={!selectedMixId && hasNoTracks}
-              onClick={selectedMixId ? () => setIsMixDeleteConfirmOpen(true) : confirmRemoveActiveTrack}
-              title={selectedMixId ? "Eliminar mix seleccionado" : `Eliminar ${primaryTrack.name}`}
-              type="button"
-            >
-              <Trash2 size={18} />
-            </button>
-          )}
+          {timelineView === "tracks" && isTrackLaneFocused && (() => {
+            const activeMix = selectedMixId
+              ? getSamplerTracks(project.timeline).find((m) => m.id === selectedMixId)
+              : null
+            const lastMixClip = activeMix?.clips.at(-1)
+            const dupDisabled = activeMix ? !lastMixClip : !activeClip
+            const isMuted = activeMix ? activeMix.muted : primaryTrack.muted
+            return (
+              <>
+                <button
+                  aria-label={isMuted ? "Activar audio" : "Silenciar"}
+                  className={`ui-icon-btn edit-mute-solo-btn${isMuted ? " edit-mute-solo-btn-active" : ""}`}
+                  onClick={() => {
+                    if (activeMix) {
+                      applyUpdate((p) => updateSamplerTrackMuted(p, activeMix.id, !activeMix.muted))
+                    } else {
+                      togglePrimaryTrackMuted()
+                    }
+                  }}
+                  title={isMuted ? "Activar audio" : "Silenciar"}
+                  type="button"
+                >
+                  <VolumeX size={18} />
+                </button>
+                <button
+                  aria-label="Duplicar último clip"
+                  className="ui-icon-btn"
+                  disabled={dupDisabled}
+                  onClick={() => {
+                    if (activeMix && lastMixClip) {
+                      applyUpdate((p) => duplicateSamplerClip(p, activeMix.id, lastMixClip.id))
+                    } else if (activeClip) {
+                      applyUpdate((p) => duplicateMidiClip(p, primaryTrack.id, activeClip.id))
+                    }
+                  }}
+                  title={activeMix ? `Duplicar clip de ${activeMix.name}` : `Duplicar clip de ${primaryTrack.name}`}
+                  type="button"
+                >
+                  <Copy size={18} />
+                </button>
+                <button
+                  aria-label="Eliminar clip seleccionado"
+                  className="ui-icon-btn"
+                  disabled={!canDeleteSelectedClip}
+                  onClick={() => setIsClipDeleteConfirmOpen(true)}
+                  title={selectedClipId ? "Eliminar clip seleccionado" : "Selecciona un clip para eliminar"}
+                  type="button"
+                >
+                  <Trash2 size={18} />
+                </button>
+                <button
+                  aria-label="Terminar edición de tracks"
+                  className="ui-icon-btn"
+                  onClick={exitTrackLaneFocus}
+                  title="Listo"
+                  type="button"
+                >
+                  <Check size={18} />
+                </button>
+              </>
+            )
+          })()}
         </div>
       </header>
 
       {timelineView === "tracks" ? (
         <TrackTimelinePreview
           activeTrackId={primaryTrack.id}
-          onSelectTrack={switchActiveTrack}
           onDragStateChange={setIsTimelineDragging}
           onRenameMix={(mixId, name) => applyUpdate((p) => renameSamplerMix(p, mixId, name))}
-          onSelectMix={setSelectedMixId}
-          selectedMixId={selectedMixId}
-          onUpdateSamplerMixStartTime={(mixId, startTime, mode) => {
-            const snapped = timelineSnapEnabled
-              ? Math.max(0, Math.round(startTime / timelineSnapStep) * timelineSnapStep)
-              : Math.max(0, startTime)
-            if (mode === "transient") {
-              applyTransientUpdate((p) => updateSamplerMixStartTime(p, mixId, snapped))
-            } else {
-              commitTransientUpdate((p) => updateSamplerMixStartTime(p, mixId, snapped))
-            }
-          }}
-          onUpdateTrackStartTime={updateTrackStartTime}
+          onSelectClip={(info) => { setSelectedClipId(info); if (info) setIsTrackLaneFocused(true) }}
+          onSelectMix={selectMixLane}
+          onSelectTrack={selectTrackLane}
+          onUpdateMidiClipStartTime={updateMidiClipStartTimeHandler}
+          onUpdateSamplerClipStartTime={updateSamplerClipStartTimeHandler}
           playheadTime={absolutePlayheadTime}
+          selectedClipId={selectedClipId}
+          selectedMixId={selectedMixId}
           timeline={project.timeline}
           timelineLength={projectTrackTimelineLength}
         />
@@ -1704,12 +1811,12 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             />
           )}
           <TimelinePreview
-            notes={primaryTrack.notes}
+            notes={activeClip?.notes ?? []}
             onDragStateChange={setIsTimelineDragging}
             onRemoveSelectedNote={mode !== "edit-only" ? removeRecordedNote : undefined}
             onSelectNote={selectRecordedNote}
             onUpdateNote={updateRecordedNote}
-            playheadTime={absolutePlayheadTime !== null ? absolutePlayheadTime - primaryTrack.startTime : null}
+            playheadTime={absolutePlayheadTime !== null ? absolutePlayheadTime - (activeClip?.startTime ?? 0) : null}
             selectedNoteId={selectedRecordedNoteId}
             timelineLength={primaryTrackNoteTimelineLength}
           />
@@ -1900,6 +2007,27 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           onClose={() => setIsRestartConfirmOpen(false)}
           open={isRestartConfirmOpen}
           title="Reiniciar proyecto?"
+        />
+
+        <AppDialog
+          actions={
+            <>
+              <button onClick={() => setIsClipDeleteConfirmOpen(false)} type="button">
+                Cancelar
+              </button>
+              <button
+                className="app-dialog-confirm"
+                onClick={confirmDeleteSelectedClip}
+                type="button"
+              >
+                Eliminar clip
+              </button>
+            </>
+          }
+          description="El clip y sus notas se eliminaran del timeline. Esta accion se puede deshacer con Ctrl+Z."
+          onClose={() => setIsClipDeleteConfirmOpen(false)}
+          open={isClipDeleteConfirmOpen}
+          title="Eliminar clip?"
         />
       </>
     )

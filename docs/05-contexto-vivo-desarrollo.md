@@ -7177,3 +7177,206 @@ ZIP sin compresión (`level: 0`) porque el audio ya está comprimido.
 - `tsc --noEmit` — sin errores
 - `npm run lint src/` — sin errores (0 warnings en src/)
 - Pruebas manuales pendientes: flujo completo export/import .mimidi entre sesiones
+
+
+---
+
+## Sesión 2026-05-19 — Multi-clip, toolbar contextual, playhead global y mute por pista
+
+### Contexto
+
+Sesión de continuación de funcionalidades del timeline por pistas. Se hicieron cambios grandes sin commits intermedios; todos los cambios viven en la rama actual no publicada.
+
+---
+
+### 1. Refactor: modelo multi-clip (MidiTrack / SamplerTrack)
+
+**Antes:** `MidiTrack.notes: MidiRecordedNote[]` — todas las notas en un array plano.
+
+**Ahora:** `MidiTrack.clips: MidiClip[]` donde:
+
+```ts
+type MidiClip = {
+  id: string
+  notes: MidiRecordedNote[]
+  startTime: number     // posición en la timeline en segundos
+}
+```
+
+Para samplers: `SamplerTrack.clips: SamplerClip[]` donde:
+
+```ts
+type SamplerClip = {
+  id: string
+  startTime: number
+}
+// La duración se deriva del patrón (stepsPerBar × BPM)
+```
+
+**Funciones nuevas/actualizadas en `projectModel.ts`:**
+
+```ts
+getMidiTrackNotes(track)         // flatten de todos los clips → MidiRecordedNote[]
+getMidiClipDuration(clip)        // tiempo del último note.startTime + note.duration
+getSamplerTrackDuration(mix)     // (stepsPerBar / bpm) * 60 * 4
+duplicateMidiClip(project, trackId, clipId)
+duplicateSamplerClip(project, mixId, clipId)
+updateMidiClipStartTime(...)
+updateSamplerClipStartTime(...)
+```
+
+**Migración backward-compatible:** `parseImportedProject` detecta el formato antiguo (array `notes` plano) y lo envuelve en un clip automáticamente.
+
+**Bug crítico derivado:** `usePlaybackTransport.ts` tenía `track.notes.length === 0` como guard — la propiedad `notes` dejó de existir. El TypeError callaba silenciosamente todas las pistas MIDI mientras el sampler (que iniciaba antes) seguía sonando. Fix: `getMidiTrackNotes(track).length === 0`.
+
+---
+
+### 2. Feat: toolbar contextual al seleccionar fila en Tracks
+
+**Estado `isTrackLaneFocused`** — se activa cuando el usuario hace click en una fila del timeline.
+
+**Cuando está activo (fila seleccionada):**
+- Se ocultan: Solo, Duration (±), Undo, Redo
+- Aparecen: **Mute** (VolumeX), **Dup** (Copy), **Trash** (borrar clip seleccionado), **Check** (salir del modo edición)
+
+**Check** limpia `selectedClipId`, `selectedMixId` e `isTrackLaneFocused` juntos.
+
+**Mute en toolbar:** actúa sobre la fila activa:
+- Si hay `selectedMixId` → silencia ese SamplerTrack
+- Si no → silencia el `primaryTrack` MIDI
+
+```tsx
+// bloque en LabApp toolbar
+{timelineView === "tracks" && isTrackLaneFocused && (() => {
+  const activeMix = selectedMixId ? getSamplerTracks(...).find(...) : null
+  const isMuted = activeMix ? activeMix.muted : primaryTrack.muted
+  return (
+    <>
+      <button className={`ui-icon-btn edit-mute-solo-btn${isMuted ? " edit-mute-solo-btn-active" : ""}`}
+        onClick={() => activeMix
+          ? applyUpdate(p => updateSamplerTrackMuted(p, activeMix.id, !activeMix.muted))
+          : togglePrimaryTrackMuted()}>
+        <VolumeX size={18} />
+      </button>
+      <button disabled={dupDisabled} onClick={...}><Copy /></button>
+      <button disabled={!canDeleteSelectedClip} onClick={() => setIsClipDeleteConfirmOpen(true)}><Trash2 /></button>
+      <button onClick={exitTrackLaneFocus}><Check /></button>
+    </>
+  )
+})()}
+```
+
+---
+
+### 3. Feat: selección de clips por click
+
+`onPointerDown` en cada clip inicia el drag. Si el puntero no se movió al soltar (`!hasMoved`), se llama `onSelectClip?.({ trackId, clipId, type })` en lugar de commitear el drag.
+
+```ts
+const stopDragging = () => {
+  if (hasMoved) onUpdateMidiClipStartTime(track.id, clip.id, latestStart, "commit")
+  else onSelectClip?.({ trackId: track.id, clipId: clip.id, type: "midi" })
+  ...
+}
+```
+
+Estado `selectedClipId: { trackId, clipId } | null` en LabApp.
+
+**CSS — clip seleccionado:**
+```css
+.track-timeline-clip-selected {
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+```
+
+---
+
+### 4. Feat: playhead global sobre todos los tracks
+
+**Problema:** el playhead anterior era una línea por cada lane (`.timeline-playhead`), no alineada entre pistas.
+
+**Solución:** overlay `position: absolute` sobre `.track-timeline-lanes` con el mismo `grid-template-columns` que los lanes:
+
+```css
+.track-timeline-playhead-overlay {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
+  grid-template-rows: 1fr;   /* crítico: sin esto height = 0 */
+  gap: 0.85rem;
+  pointer-events: none;
+  z-index: 8;
+}
+```
+
+La columna meta es un spacer vacío; la columna track contiene el playhead relativo:
+
+```tsx
+<div className="track-timeline-playhead-overlay">
+  <div className="track-timeline-playhead-overlay-meta" />
+  <div className="track-timeline-playhead-overlay-track">
+    <div className="track-timeline-global-playhead"
+      style={{ left: `${Math.min(Math.max(playheadTime / timelineLength, 0), 1) * 100}%` }} />
+  </div>
+</div>
+```
+
+Se eliminaron los playheads individuales por lane (`.timeline-playhead`).
+
+**Clips activos:** clase `track-timeline-clip-playing` cuando `playheadTime` cae dentro del rango del clip:
+
+```css
+.track-timeline-clip-playing {
+  border-color: rgba(255, 220, 100, 0.7) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 220, 100, 0.3);
+}
+```
+
+---
+
+### 5. Feat: mute por pista (backend)
+
+**`SamplerTrack`** ahora tiene `muted: boolean` (default `false`).
+
+```ts
+export function updateSamplerTrackMuted(
+  project: MusicalProject,
+  trackId: string,
+  muted: boolean,
+): MusicalProject {
+  return { ...project, timeline: project.timeline.map((t) =>
+    t.kind === "sampler" && t.id === trackId ? { ...t, muted } : t) }
+}
+```
+
+`playSamplerMixes` verifica antes de reproducir:
+```ts
+if (mix.muted) continue
+```
+
+Las pistas MIDI ya usaban `isTrackAudible` en `usePlaybackTransport`.
+
+**Visual de lane silenciado:**
+```css
+.track-timeline-lane-muted .track-timeline-track { opacity: 0.35; }
+.track-timeline-badge-muted { background: rgba(255,180,50,0.15); color: #ffb432; }
+```
+
+---
+
+### Archivos modificados
+
+| Archivo | Tipo |
+|---|---|
+| `src/features/lab/LabApp.tsx` | Modificado — toolbar contextual, estados, handlers |
+| `src/features/timeline/TrackTimelinePreview.tsx` | Modificado — multi-clip, playhead global, selección |
+| `src/features/timeline/TrackTimelinePreview.css` | Modificado — nuevas clases playhead/clip/mute |
+| `src/engine/project/projectModel.ts` | Modificado — tipos MidiClip/SamplerClip, nuevas funciones |
+| `src/application/use-cases/playSamplerMixes.ts` | Modificado — check muted |
+| `src/application/use-cases/usePlaybackTransport.ts` | Fix — getMidiTrackNotes en vez de track.notes |
+
+### Validación
+
+- `tsc --noEmit` — sin errores al finalizar sesión
+- Sin commits publicados aún — cambios en rama local
