@@ -2590,7 +2590,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     return (
       <>
         <section className="perform-workspace-primary" aria-label="Panel principal Perform">
-          <header className="app-mock-toolbar perform-mode-toolbar-bar">
+          <header className="app-mock-toolbar">
             <PerformResponsiveToolbar
               activeInstrumentCategory={instrumentDialogCategory}
               allRecordedNotesCount={allRecordedNotes.length}
