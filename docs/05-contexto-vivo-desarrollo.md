@@ -7604,3 +7604,54 @@ de `App.css` (especificidad 0,1,1) sobreescribía `.project-compact-name-input`
 
 - `tsc --noEmit` — sin errores
 - Vista coherente con tokens del sistema en modo claro y oscuro
+
+## Movimiento — Refactor LabApp.tsx: extracción de hooks (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+`LabApp.tsx` había crecido a ~2919 líneas mezclando lógica de estado de proyecto,
+reproducción, grabación y performance en un solo componente. El refactor extrae esa
+lógica en tres hooks custom dedicados, dejando LabApp como coordinador JSX (~950 líneas).
+
+### Estructura resultante
+
+| Archivo | Responsabilidad |
+|---|---|
+| `useLabProject.ts` (~430 líneas) | Estado del proyecto, historial (undo/redo), mutaciones del modelo, import/export, atajos de teclado |
+| `useLabPlayback.ts` (~110 líneas) | Transport (usePlaybackTransport), animación del playhead via RAF, reproducción de mixes del sampler |
+| `useLabPerform.ts` (~250 líneas) | Volumen, octava, modo piano, arpegiador, eventos MIDI, pads SMC |
+| `LabApp.tsx` (~950 líneas) | Coordinador JSX: llama a los tres hooks + useLabRecordingSession + useLabInstrumentCatalog |
+
+### Problema de dependencias circulares y solución
+
+`useLabProject` necesita callbacks de hooks que todavía no existen cuando se llama:
+- `onStopPlayback` → viene de `labPlayback.stopAll`
+- `onStopArpeggiator` → viene de `labPerform.stopArpeggiator`
+
+Solución: refs actualizadas en cada render en LabApp antes de que se invoque cualquier callback:
+
+```ts
+const stopPlaybackRef = useRef<() => void>(() => {})
+const stopArpeggiatorRef = useRef<(r?: boolean) => void>(() => {})
+// ...hooks inicializados...
+stopPlaybackRef.current = labPlayback.stopAll
+stopArpeggiatorRef.current = labPerform.stopArpeggiator
+```
+
+Los closures dentro de `useLabProject` capturan la referencia al ref, no el valor — por eso siempre apuntan al valor actual cuando se ejecuta el callback.
+
+Mismo patrón para `volumeRef`: el export WAV necesita el volumen real del slider
+(que vive en `labPerform.volume`) pero `useLabProject` se inicializa antes. Se resuelve con
+`getVolume: () => volumeRef.current` donde `volumeRef.current = labPerform.volume` se actualiza cada render.
+
+### Tipos exportados que cambiaron de ubicación
+
+- `ChordType` → antes en LabApp, ahora exportado desde `useLabPerform.ts`
+- `LabAppMode` → antes en LabApp, ahora exportado desde `useLabProject.ts`
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- `vite build` — 1813 módulos, 532 ms, sin warnings
