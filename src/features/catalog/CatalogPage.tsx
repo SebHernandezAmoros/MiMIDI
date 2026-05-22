@@ -218,12 +218,12 @@ export function CatalogPage() {
 
         {/* LIST ROWS */}
         <section className="catalog-section">
-          <SectionHeader title="List row" tag=".ui-list-row · .ui-list-section" />
+          <SectionHeader title="List row · Label muted" tag=".ui-list-row · .ui-list-section · .ui-label-muted" />
           <div className="catalog-row">
             <PreviewBox theme="light" fullWidth>
               <div className="catalog-list-demo">
                 <section className="ui-list-section">
-                  <span className="ui-list-section-title">IDIOMA</span>
+                  <span className="ui-label-muted">IDIOMA</span>
                   <button className="ui-list-row ui-list-row-static" type="button">
                     <span className="ui-list-icon">L</span>
                     <span className="ui-list-label">Language</span>
@@ -234,7 +234,7 @@ export function CatalogPage() {
                   </button>
                 </section>
                 <section className="ui-list-section">
-                  <span className="ui-list-section-title">TEMA</span>
+                  <span className="ui-label-muted">TEMA</span>
                   <div className="ui-list-row ui-list-row-static">
                     <span className="ui-list-icon">☀</span>
                     <span className="ui-list-label">Modo Oscuro</span>
@@ -245,7 +245,7 @@ export function CatalogPage() {
                   </div>
                 </section>
                 <section className="ui-list-section">
-                  <span className="ui-list-section-title">AUDIO</span>
+                  <span className="ui-label-muted">AUDIO</span>
                   <button className="ui-list-row" type="button">
                     <span className="ui-list-icon">A</span>
                     <span className="ui-list-label">Salida de Audio</span>
@@ -264,7 +264,7 @@ export function CatalogPage() {
             <PreviewBox theme="dark" fullWidth>
               <div className="catalog-list-demo">
                 <section className="ui-list-section">
-                  <span className="ui-list-section-title">PLUGIN</span>
+                  <span className="ui-label-muted">PLUGIN</span>
                   <article className="ui-list-row ui-list-row-plugin">
                     <span className="ui-badge">MC</span>
                     <div className="ui-plugin-copy">
@@ -400,6 +400,123 @@ export function CatalogPage() {
           </div>
         </section>
 
+        {/* SURFACE CARD */}
+        <section className="catalog-section">
+          <SectionHeader title="Surface card" tag=".ui-surface-card" />
+          <div className="catalog-row">
+            <PreviewBox theme="light">
+              <div className="ui-surface-card" style={{ display: "grid", gap: "0.5rem", minWidth: "12rem" }}>
+                <span className="ui-label-muted">Sección</span>
+                <span style={{ fontSize: "0.9rem", color: "var(--ui-color-text)" }}>Contenido de la tarjeta</span>
+              </div>
+            </PreviewBox>
+            <PreviewBox theme="dark">
+              <div className="ui-surface-card" style={{ display: "grid", gap: "0.5rem", minWidth: "12rem" }}>
+                <span className="ui-label-muted">Sección</span>
+                <span style={{ fontSize: "0.9rem", color: "var(--ui-color-text)" }}>Contenido de la tarjeta</span>
+              </div>
+            </PreviewBox>
+          </div>
+        </section>
+
+        {/* RANGE INPUT */}
+        <section className="catalog-section">
+          <SectionHeader title="Range input" tag="input[type=range] · global" />
+          <div className="catalog-row">
+            <PreviewBox theme="light">
+              <div className="catalog-item">
+                <span className="catalog-item-label">Volumen</span>
+                <input defaultValue={70} max={100} min={0} style={{ width: "10rem" }} type="range" />
+              </div>
+            </PreviewBox>
+            <PreviewBox theme="dark">
+              <div className="catalog-item">
+                <span className="catalog-item-label" style={{ color: "#a0a0a0" }}>Volumen</span>
+                <input defaultValue={40} max={100} min={0} style={{ width: "10rem" }} type="range" />
+              </div>
+            </PreviewBox>
+          </div>
+        </section>
+
+        {/* TOGGLE GROUP */}
+        <section className="catalog-section">
+          <SectionHeader title="Toggle group" tag=".ui-toggle-group" />
+          <div className="catalog-row">
+            <PreviewBox theme="light">
+              <div className="ui-toggle-group" role="group">
+                <button aria-pressed={true} type="button">NOTAS</button>
+                <button aria-pressed={false} type="button">TRACKS</button>
+              </div>
+            </PreviewBox>
+            <PreviewBox theme="dark">
+              <div className="ui-toggle-group" role="group">
+                <button aria-pressed={false} type="button">NOTAS</button>
+                <button aria-pressed={true} type="button">TRACKS</button>
+              </div>
+            </PreviewBox>
+          </div>
+        </section>
+
+        {/* CHIP */}
+        <section className="catalog-section">
+          <SectionHeader title="Chip" tag=".ui-chip" />
+          <div className="catalog-row">
+            <PreviewBox theme="light">
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <span className="ui-chip">Activo</span>
+                <span className="ui-chip">Mute</span>
+                <span className="ui-chip">MIDI</span>
+              </div>
+            </PreviewBox>
+            <PreviewBox theme="dark">
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <span className="ui-chip">Activo</span>
+                <span className="ui-chip">Solo</span>
+              </div>
+            </PreviewBox>
+          </div>
+        </section>
+
+        {/* DIVIDER */}
+        <section className="catalog-section">
+          <SectionHeader title="Divider" tag=".ui-divider" />
+          <div className="catalog-row">
+            <PreviewBox theme="light" fullWidth>
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                <span className="ui-label-muted">Sección A</span>
+                <div className="ui-divider" />
+                <span className="ui-label-muted">Sección B</span>
+              </div>
+            </PreviewBox>
+            <PreviewBox theme="dark" fullWidth>
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                <span className="ui-label-muted">Sección A</span>
+                <div className="ui-divider" />
+                <span className="ui-label-muted">Sección B</span>
+              </div>
+            </PreviewBox>
+          </div>
+        </section>
+
+        {/* EMPTY STATE */}
+        <section className="catalog-section">
+          <SectionHeader title="Empty state" tag=".ui-empty-state" />
+          <div className="catalog-row">
+            <PreviewBox theme="light">
+              <div className="ui-empty-state" style={{ minWidth: "12rem" }}>
+                <span>Sin muestras</span>
+                <span style={{ fontSize: "0.78rem" }}>Importa un archivo de audio para comenzar</span>
+              </div>
+            </PreviewBox>
+            <PreviewBox theme="dark">
+              <div className="ui-empty-state" style={{ minWidth: "12rem" }}>
+                <span>Sin notas</span>
+                <span style={{ fontSize: "0.78rem" }}>Graba para ver las notas aquí</span>
+              </div>
+            </PreviewBox>
+          </div>
+        </section>
+
         {/* ICONS */}
         <section className="catalog-section">
           <SectionHeader title="Iconos — Lucide React" tag="lucide-react · MIT License" />
@@ -440,7 +557,7 @@ export function CatalogPage() {
             <PreviewBox theme={theme} fullWidth>
               <header className="app-mock-toolbar">
                 <div className="app-mock-toolbar-controls">
-                  <div className="edit-view-switch" role="group">
+                  <div className="ui-toggle-group" role="group">
                     <button aria-pressed={true} type="button">NOTAS</button>
                     <button aria-pressed={false} type="button">TRACKS</button>
                   </div>

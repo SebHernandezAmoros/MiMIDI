@@ -565,7 +565,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
           <div className="app-mock-toolbar-controls">
 
             {/* Switch de vista */}
-            <div className="edit-view-switch" role="group" aria-label={t.viewLabel}>
+            <div className="ui-toggle-group" role="group" aria-label={t.viewLabel}>
               <button aria-pressed={samplerView === "muestras"} onClick={() => setSamplerView("muestras")} type="button">{t.tabSamples}</button>
               <button aria-pressed={samplerView === "editor"} onClick={() => setSamplerView("editor")} type="button">{t.tabEditor}</button>
               <button aria-pressed={samplerView === "secuenciador"} onClick={() => setSamplerView("secuenciador")} type="button">{t.tabSequencer}</button>
@@ -1054,7 +1054,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
       >
         <div className="audio-sampler-settings">
           <section className="ui-list-section">
-            <span className="ui-list-section-title">{t.summaryTitle}</span>
+            <span className="ui-label-muted">{t.summaryTitle}</span>
             <div className="audio-sampler-modal-summary">
               <span className="audio-sampler-modal-summary-slots">
                 {tpl(t.slotsLabel, { current: String(filledCount), total: String(NUM_SLOTS) })}
@@ -1069,7 +1069,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
             </div>
           </section>
           <section className="ui-list-section">
-            <span className="ui-list-section-title">{t.tabSequencer}</span>
+            <span className="ui-label-muted">{t.tabSequencer}</span>
 
             {/* BPM */}
             <div className="audio-sampler-modal-seq-card">

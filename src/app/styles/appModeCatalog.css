@@ -290,36 +290,6 @@
   align-items: center;
 }
 
-.edit-view-switch {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  background: rgb(0 0 0 / 0.07);
-  border-radius: 999px;
-  padding: 0.18rem;
-  gap: 0;
-}
-
-.app-theme-classic .edit-view-switch > button,
-.edit-view-switch > button {
-  padding: 0.26rem 0.72rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  border-radius: 999px;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  color: var(--app-color-text-muted);
-  white-space: nowrap;
-}
-
-.app-theme-classic .edit-view-switch > button[aria-pressed="true"],
-.edit-view-switch > button[aria-pressed="true"] {
-  background: #ffffff;
-  color: var(--app-color-text-strong);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
-}
 
 .edit-note-chip {
   font-size: 0.72rem;
@@ -378,11 +348,6 @@
   box-shadow: none;
 }
 
-.app-dialog .ui-pill-btn-active {
-  background: #1a1a1a;
-  color: #ffffff;
-  box-shadow: none;
-}
 
 .edit-settings-track-section {
   display: grid;
@@ -414,7 +379,6 @@
 
 .edit-settings-track-row input[type="range"] {
   width: 100%;
-  accent-color: var(--app-color-accent);
 }
 
 .edit-settings-track-toggles {
@@ -464,7 +428,6 @@
 
 .app-settings-volume-slider {
   width: 100%;
-  accent-color: var(--app-color-accent);
 }
 
 .app-theme-classic button,
@@ -489,6 +452,20 @@
 
 .app-theme-classic .app-mode-nav button {
   min-width: 0;
+}
+
+.app-theme-classic .ui-toggle-group > button {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0.26rem 0.72rem;
+  color: var(--app-color-text-muted);
+}
+
+.app-theme-classic .ui-toggle-group > button[aria-pressed="true"] {
+  background: #ffffff;
+  color: var(--app-color-text-strong);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
 }
 
 .app-theme-classic button:active,
@@ -703,67 +680,6 @@ input.project-compact-name-input:focus {
   color: var(--app-color-text-muted);
 }
 
-.app-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgb(80 64 72 / 0.34);
-  backdrop-filter: blur(4px);
-  z-index: 40;
-}
-
-.app-dialog {
-  width: min(100%, 22rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 1rem;
-  max-height: calc(100dvh - 2rem);
-  overflow: hidden;
-  border: 1px solid rgb(239 239 239 / 0.96);
-  border-radius: 1.1rem;
-  background:
-    linear-gradient(180deg, rgb(248 248 248 / 0.96), rgb(235 235 235 / 0.98)),
-    var(--app-color-surface-paper);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.78),
-    0 0.8rem 1.8rem rgb(90 74 82 / 0.16);
-}
-
-.app-dialog-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  min-height: 0;
-}
-
-.app-dialog-copy {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.app-dialog-copy strong {
-  font-size: 1.1rem;
-}
-
-.app-dialog-copy p {
-  margin: 0;
-  color: var(--app-color-text-muted);
-}
-
-.app-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-
-.app-dialog-confirm {
-  color: #7b211a;
-}
 
 .sr-only {
   position: absolute;
@@ -821,13 +737,6 @@ input.project-compact-name-input:focus {
   color: var(--ui-color-text-muted);
 }
 
-/* Controles de edición */
-[data-ui-theme="dark"] .edit-view-switch > button[aria-pressed="true"],
-[data-ui-theme="dark"] .app-theme-classic .edit-view-switch > button[aria-pressed="true"] {
-  background: var(--ui-color-surface-raised);
-  color: var(--ui-color-text);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.32);
-}
 
 [data-ui-theme="dark"] .edit-note-input {
   border-color: var(--ui-color-border);
@@ -846,23 +755,6 @@ input.project-compact-name-input:focus {
   border-color: #e0e0e0;
 }
 
-/* Dialogs */
-[data-ui-theme="dark"] .app-dialog {
-  border-color: var(--ui-color-border);
-  background: var(--ui-color-surface-raised);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.04),
-    0 0.8rem 1.8rem rgb(0 0 0 / 0.4);
-}
-
-[data-ui-theme="dark"] .app-dialog .ui-pill-btn-active {
-  background: #e0e0e0;
-  color: #1a1a1a;
-}
-
-[data-ui-theme="dark"] .app-dialog-confirm {
-  color: #ff8080;
-}
 
 /* Pantalla de bloqueo en portrait */
 [data-ui-theme="dark"] .app-shell-portrait-blocker {

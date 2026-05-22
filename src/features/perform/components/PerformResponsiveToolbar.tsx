@@ -140,7 +140,7 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* NOTE / CHORD mode */}
-      <div className="edit-view-switch" role="group" aria-label={tp.pianoMode}>
+      <div className="ui-toggle-group" role="group" aria-label={tp.pianoMode}>
         <button
           aria-pressed={pianoMode === "note"}
           onClick={() => onPianoModeChange("note")}

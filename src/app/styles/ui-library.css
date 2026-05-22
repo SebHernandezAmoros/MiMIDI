@@ -44,9 +44,8 @@
   --ui-radius-pill: 999px;
 }
 
-/* Modo oscuro — aplicar [data-ui-theme="dark"] o .ui-dark en un ancestro */
-[data-ui-theme="dark"],
-.ui-dark {
+/* Modo oscuro */
+[data-ui-theme="dark"] {
   --ui-color-text:        #f0f0f0;
   --ui-color-text-muted:  #a0a0a0;
   --ui-color-accent:      #ff3150;
@@ -297,11 +296,13 @@
 }
 
 /* --------------------------------------------------------
-   6. UI-LIST-SECTION
+   6. UI-LIST-SECTION · UI-LABEL-MUTED
    Grupo de filas con título de sección.
+   .ui-label-muted: label pequeño uppercase muted, uso genérico
+   en cualquier contexto (no solo en listas).
    Uso:
    <section class="ui-list-section">
-     <span class="ui-list-section-title">IDIOMA</span>
+     <span class="ui-label-muted">IDIOMA</span>
      <button class="ui-list-row">...</button>
    </section>
    -------------------------------------------------------- */
@@ -311,7 +312,7 @@
   gap: 0.45rem;
 }
 
-.ui-list-section-title {
+.ui-label-muted {
   font-size: 0.88rem;
   letter-spacing: 0.08em;
   color: var(--ui-color-text-muted);
@@ -638,37 +639,7 @@
 }
 
 /* --------------------------------------------------------
-   13. UI-TOOLBAR
-   Barra de herramientas horizontal.
-   -------------------------------------------------------- */
-
-.ui-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-  padding-bottom: 0.7rem;
-  border-bottom: 1px solid var(--ui-color-border);
-}
-
-.ui-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.ui-toolbar-label {
-  font-size: 0.88rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--ui-color-text);
-}
-
-/* --------------------------------------------------------
-   14. UI-SELECT
+   13. UI-SELECT
    Select estilizado que respeta el tema.
    Uso: <select class="ui-select"><option>...</option></select>
    -------------------------------------------------------- */
@@ -694,8 +665,10 @@
 }
 
 /* --------------------------------------------------------
-   15. UI-SURFACE-CARD
-   Tarjeta de superficie base.
+   14. UI-SURFACE-CARD
+   Tarjeta de superficie base con borde y radio.
+   Uso: <div class="ui-surface-card">...</div>
+   Para layout interno (flex/grid, gap) usar una clase específica.
    -------------------------------------------------------- */
 
 .ui-surface-card {
@@ -703,20 +676,204 @@
   border-radius: var(--ui-radius-lg);
   background: var(--ui-color-surface);
   padding: 0.75rem;
+  overflow: hidden;
 }
 
 /* --------------------------------------------------------
-   16. APP-DIALOG-WIDE
-   Variante ancha del dialog de la app. Para PerformInstrumentDialog.
-   Se aplica junto con .app-dialog como modificador.
+   15. UI-RANGE-INPUT
+   Slider nativo con accent-color del tema y cursor pointer.
+   Se aplica globalmente a todos los input[type="range"].
    -------------------------------------------------------- */
 
-.app-dialog-wide {
-  width: min(100%, 36rem);
+input[type="range"] {
+  accent-color: var(--ui-color-accent);
+  cursor: pointer;
 }
 
 /* --------------------------------------------------------
-   17. RESPONSIVE
+   17. UI-TOGGLE-GROUP
+   Segmented control: grupo de botones exclusivos con fondo pill.
+   Uso:
+   <div class="ui-toggle-group" role="group">
+     <button aria-pressed="true">NOTAS</button>
+     <button aria-pressed="false">TRACKS</button>
+   </div>
+   -------------------------------------------------------- */
+
+.ui-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgb(0 0 0 / 0.07);
+  border-radius: var(--ui-radius-pill);
+  padding: 0.18rem;
+  gap: 0;
+}
+
+.ui-toggle-group > button {
+  padding: 0.26rem 0.72rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: var(--ui-radius-pill);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--ui-color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-toggle-group > button[aria-pressed="true"] {
+  background: #ffffff;
+  color: var(--ui-color-text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
+}
+
+[data-ui-theme="dark"] .ui-toggle-group > button[aria-pressed="true"] {
+  background: var(--ui-color-surface-raised);
+  color: var(--ui-color-text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.32);
+}
+
+/* --------------------------------------------------------
+   18. UI-CHIP
+   Etiqueta/badge de pill pequeño.
+   Uso: <span class="ui-chip">Activo</span>
+   -------------------------------------------------------- */
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-color-surface-inset);
+  font-size: 0.75rem;
+  color: var(--ui-color-text-muted);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------
+   19. UI-DIVIDER
+   Línea horizontal separadora.
+   Uso: <div class="ui-divider" aria-hidden="true"></div>
+   -------------------------------------------------------- */
+
+.ui-divider {
+  height: 1px;
+  background: var(--ui-color-border);
+}
+
+/* --------------------------------------------------------
+   20. UI-EMPTY-STATE
+   Placeholder centrado cuando no hay contenido.
+   Uso:
+   <div class="ui-empty-state">
+     <span>Sin datos</span>
+   </div>
+   -------------------------------------------------------- */
+
+.ui-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+/* --------------------------------------------------------
+   21. APP-DIALOG
+   Modal de confirmación y settings. Sistema completo.
+   Uso: ver AppDialog.tsx
+   -------------------------------------------------------- */
+
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(80 64 72 / 0.34);
+  backdrop-filter: blur(4px);
+  z-index: 40;
+}
+
+.app-dialog {
+  width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+  border: 1px solid rgb(239 239 239 / 0.96);
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, rgb(248 248 248 / 0.96), rgb(235 235 235 / 0.98));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.78),
+    0 0.8rem 1.8rem rgb(90 74 82 / 0.16);
+}
+
+.app-dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+
+.app-dialog-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.app-dialog-copy strong {
+  font-size: 1.1rem;
+}
+
+.app-dialog-copy p {
+  margin: 0;
+  color: var(--ui-color-text-muted);
+}
+
+.app-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.app-dialog-confirm {
+  color: #7b211a;
+}
+
+.app-dialog .ui-pill-btn-active {
+  background: #1a1a1a;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+[data-ui-theme="dark"] .app-dialog {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 0.8rem 1.8rem rgb(0 0 0 / 0.4);
+}
+
+[data-ui-theme="dark"] .app-dialog .ui-pill-btn-active {
+  background: #e0e0e0;
+  color: #1a1a1a;
+}
+
+[data-ui-theme="dark"] .app-dialog-confirm {
+  color: #ff8080;
+}
+
+/* --------------------------------------------------------
+   22. RESPONSIVE
    -------------------------------------------------------- */
 
 @media (max-width: 640px) {

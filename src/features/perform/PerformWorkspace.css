@@ -382,7 +382,6 @@
 .perform-settings-gate-input {
   flex: 1;
   min-width: 0;
-  accent-color: var(--app-color-accent);
 }
 
 .perform-settings-gate-value {

@@ -35,7 +35,7 @@ export function SettingsScreen({
     <section className="app-mock-screen" aria-label="Workspace Settings">
       <div className="app-settings-groups">
         <section className="ui-list-section" aria-label={m.sections.language}>
-          <span className="ui-list-section-title">{m.sections.language}</span>
+          <span className="ui-label-muted">{m.sections.language}</span>
           <label className="ui-list-row" style={{ cursor: "default" }} htmlFor="settings-language">
             <span className="ui-list-icon">L</span>
             <span className="ui-list-label">{m.items.language}</span>
@@ -51,7 +51,7 @@ export function SettingsScreen({
         </section>
 
         <section className="ui-list-section" aria-label={m.sections.theme}>
-          <span className="ui-list-section-title">{m.sections.theme}</span>
+          <span className="ui-label-muted">{m.sections.theme}</span>
           <div className="ui-list-row ui-list-row-static">
             <span className="ui-list-icon">S</span>
             <span className="ui-list-label">{m.items.darkMode}</span>
@@ -67,7 +67,7 @@ export function SettingsScreen({
         </section>
 
         <section className="ui-list-section" aria-label={m.sections.piano}>
-          <span className="ui-list-section-title">{m.sections.piano}</span>
+          <span className="ui-label-muted">{m.sections.piano}</span>
           <div className="ui-list-row ui-list-row-static">
             <span className="ui-list-icon">K</span>
             <span className="ui-list-label">{m.items.showKeyLabels}</span>
@@ -83,7 +83,7 @@ export function SettingsScreen({
         </section>
 
         <section className="ui-list-section" aria-label={m.sections.audio}>
-          <span className="ui-list-section-title">{m.sections.audio}</span>
+          <span className="ui-label-muted">{m.sections.audio}</span>
           <label className="ui-list-row" style={{ cursor: "default" }} htmlFor="settings-master-volume">
             <span className="ui-list-icon">V</span>
             <span className="ui-list-label">{m.items.masterVolume}</span>
@@ -104,7 +104,7 @@ export function SettingsScreen({
         </section>
 
         <section className="ui-list-section" aria-label={m.sections.lab}>
-          <span className="ui-list-section-title">{m.sections.lab}</span>
+          <span className="ui-label-muted">{m.sections.lab}</span>
           <button className="ui-list-row" onClick={onOpenLab} type="button">
             <span className="ui-list-icon">L</span>
             <span className="ui-list-label">{m.items.goToLab}</span>

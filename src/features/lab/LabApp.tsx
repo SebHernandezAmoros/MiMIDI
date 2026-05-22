@@ -310,7 +310,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-controls">
           {!isNoteEditMode && (
-            <div className="edit-view-switch" role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}>
+            <div className="ui-toggle-group" role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}>
               <button
                 aria-pressed={timelineView === "notes"}
                 disabled={lab.hasNoTracks}

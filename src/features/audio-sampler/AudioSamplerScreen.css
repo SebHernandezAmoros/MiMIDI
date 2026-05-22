@@ -502,7 +502,6 @@
 .audio-sampler-cal-slider-full {
   width: 100%;
   height: 0.22rem;
-  accent-color: var(--ui-color-accent);
 }
 
 .audio-sampler-cal-gain-row {
@@ -756,8 +755,6 @@
 .audio-sampler-modal-bpm-slider {
   flex: 1 1 0%;
   min-width: 0;
-  accent-color: var(--ui-color-accent);
-  cursor: pointer;
 }
 
 .audio-sampler-modal-bpm-input {

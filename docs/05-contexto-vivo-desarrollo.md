@@ -8001,3 +8001,134 @@ src/features/sampler/SamplerScreen.tsx                (sesión anterior)
 - `tsc --noEmit` — sin errores tras cada lote de cambios
 - Verificación visual en navegador con `lang=en` y `lang=es` pendiente de
   confirmación final por el usuario
+
+---
+
+## Sesión 2026-05-22 — Auditoría y optimización del catálogo CSS (ui-library.css)
+
+### Intención
+
+Auditar el uso real del catálogo de primitivos CSS (`ui-library.css`) para:
+1. Eliminar clases definidas pero nunca usadas
+2. Crear primitivos nuevos para patrones que se repetían en múltiples archivos
+3. Centralizar estilos de componentes globales que vivían en archivos incorrectos
+4. Dejar el catálogo como fuente de verdad completa y documentada en `/catalog`
+
+---
+
+### Diagnóstico previo
+
+| Métrica | Valor |
+|---|---|
+| Clases definidas antes | 43 |
+| Clases sin ningún uso | 6 (14%) |
+| Tokens CSS definidos | 25 |
+| Primitivos exhibidos en `/catalog` | 13 |
+
+---
+
+### Cambios realizados
+
+#### 1. Limpieza — clases eliminadas de `ui-library.css`
+
+| Clase eliminada | Razón |
+|---|---|
+| `.ui-dark` | Nunca aplicada; el código usa `[data-ui-theme="dark"]` |
+| `.ui-surface-card` (redefinida) | Expandida con `overflow: hidden` y documentada |
+| `.ui-toolbar` | Sin ningún uso en el codebase |
+| `.ui-toolbar-group` | Sin ningún uso en el codebase |
+| `.ui-toolbar-label` | Sin ningún uso en el codebase |
+| `.app-dialog-wide` | Sin ningún uso en el codebase |
+
+El selector del bloque de tokens oscuros se simplificó de
+`[data-ui-theme="dark"], .ui-dark {` a `[data-ui-theme="dark"] {`.
+
+#### 2. Renombrado — `.ui-list-section-title` → `.ui-label-muted`
+
+El nombre `ui-list-section-title` era demasiado específico para un patrón
+genérico (label pequeño, uppercase, color muted). Al renombrarlo a
+`ui-label-muted` el primitivo se adoptó naturalmente fuera de listas.
+
+Archivos actualizados: `SettingsScreen.tsx` (5 usos), `AudioSamplerScreen.tsx`
+(2 usos), `CatalogPage.tsx` (4 usos).
+
+#### 3. Nuevo primitivo — regla global `input[type="range"]`
+
+El patrón `accent-color: var(--ui-color-accent); cursor: pointer` se repetía
+en 4 archivos CSS distintos sin ningún primitivo que los unificara.
+
+Se añadió como sección 15 en `ui-library.css` con una regla global que aplica
+automáticamente a todos los `input[type="range"]` del proyecto.
+
+`accent-color` eliminado de: `appModeCatalog.css` (2 reglas),
+`PerformWorkspace.css` (1), `AudioSamplerScreen.css` (2).
+
+#### 4. Nuevos primitivos — segunda ronda
+
+Tras una segunda auditoría más profunda se añadieron 5 primitivos nuevos:
+
+| Primitivo | Sección | Descripción |
+|---|---|---|
+| `.ui-toggle-group` | 17 | Segmented control (era `.edit-view-switch` en appModeCatalog) |
+| `.ui-chip` | 18 | Etiqueta pill pequeña con borde |
+| `.ui-divider` | 19 | Línea horizontal separadora de 1px |
+| `.ui-empty-state` | 20 | Placeholder centrado sin contenido |
+| `.app-dialog` + familia | 21 | Sistema completo de modals (movido de appModeCatalog) |
+
+#### 5. Migración `.edit-view-switch` → `.ui-toggle-group`
+
+El segmented control estaba atrapado con un nombre específico de feature
+(`.edit-view-switch`) en `appModeCatalog.css`. Se extrajo como primitivo
+genérico `.ui-toggle-group` en `ui-library.css`.
+
+Archivos TSX actualizados: `LabApp.tsx`, `PerformResponsiveToolbar.tsx`,
+`AudioSamplerScreen.tsx`, `CatalogPage.tsx`.
+
+**Bug de especificidad corregido:** al mover el CSS, la regla
+`.app-theme-classic button` de `App.css` (especificidad 0,1,1) sobreescribía
+el nuevo `.ui-toggle-group > button` (misma especificidad, pero `App.css`
+va antes en la cascada). La solución fue añadir en `appModeCatalog.css` el
+override de alta especificidad `.app-theme-classic .ui-toggle-group > button`
+(0,2,1), exactamente como funcionaba antes con el selector doble de
+`.edit-view-switch`.
+
+#### 6. Migración `.app-dialog*` desde `appModeCatalog.css`
+
+Los estilos del sistema de dialogs vivían en `appModeCatalog.css` (archivo
+de estilos específico de la app) siendo en realidad primitivos reutilizables.
+Se movieron a `ui-library.css` sección 21, incluyendo los dark mode overrides.
+
+Los tokens `--app-color-*` usados en la definición original se reemplazaron
+por `--ui-color-*` equivalentes para que el primitivo sea autocontenido.
+
+---
+
+### Estado del catálogo tras la sesión
+
+| Métrica | Valor |
+|---|---|
+| Clases activas en `ui-library.css` | ~40 |
+| Primitivos exhibidos en `/catalog` | 20 |
+| Secciones numeradas en `ui-library.css` | 22 (incluyendo RESPONSIVE) |
+
+---
+
+### Archivos modificados
+
+```
+src/app/styles/ui-library.css          (+247 líneas, −40 líneas)
+src/app/styles/appModeCatalog.css      (−136 líneas migradas)
+src/features/audio-sampler/AudioSamplerScreen.css   (−3 líneas)
+src/features/audio-sampler/AudioSamplerScreen.tsx   (clase renombrada)
+src/features/catalog/CatalogPage.tsx   (+129 líneas — demos nuevos)
+src/features/lab/LabApp.tsx            (clase renombrada)
+src/features/perform/PerformWorkspace.css           (−1 línea)
+src/features/perform/components/PerformResponsiveToolbar.tsx  (clase renombrada)
+src/features/settings-view/SettingsScreen.tsx       (clase renombrada)
+```
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- Bug de especificidad del toggle-group verificado y corregido
+- Verificación visual en `/catalog` pendiente de confirmación en navegador
