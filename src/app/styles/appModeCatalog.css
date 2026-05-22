@@ -538,30 +538,54 @@
 
 .project-compact-body {
   display: grid;
-  gap: 0.75rem;
-  padding: 0.9rem 0.8rem;
+  gap: 0.85rem;
+  padding: 0.85rem 0.9rem;
   align-content: start;
 }
 
 .project-compact-name-row {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
-.project-compact-name-input {
-  font-size: 0.95rem;
+.project-compact-label {
+  font-size: 0.68rem;
   font-weight: 700;
-  border: none;
-  border-bottom: 2px solid rgb(0 0 0 / 0.12);
-  background: transparent;
-  padding: 0.2rem 0;
-  color: var(--app-color-text-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-color-text-muted);
+}
+
+/* Specificity override for App.css's input[type="text"] dark rule */
+input.project-compact-name-input {
+  font-size: 1rem;
+  font-weight: 700;
+  background: var(--ui-color-surface-raised);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  color: var(--ui-color-text);
   outline: none;
   width: 100%;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
-.project-compact-name-input:focus {
-  border-bottom-color: var(--app-color-accent, #e05);
+input.project-compact-name-input:focus {
+  border-color: var(--ui-color-accent);
+  box-shadow: 0 0 0 2.5px rgb(200 40 40 / 0.12);
+}
+
+.project-compact-stats {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ui-color-text-muted);
+  letter-spacing: 0.01em;
+}
+
+.project-compact-divider {
+  height: 1px;
+  background: var(--ui-color-border);
+  opacity: 0.6;
 }
 
 .project-compact-grid {
@@ -572,6 +596,10 @@
 
 .project-compact-btn-wide {
   grid-column: span 1;
+}
+
+.project-compact-btn-full {
+  grid-column: span 2;
 }
 
 .project-export-section {
@@ -611,27 +639,56 @@
 .project-export-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   justify-content: center;
-  padding: 0.65rem 1rem;
-  border-radius: 10px;
-  border: 1px solid rgb(0 0 0 / 0.12);
-  background: #fff;
-  font-size: 0.82rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--ui-radius-sm);
+  border: 1px solid var(--ui-color-border);
+  background: var(--ui-btn-bg);
+  box-shadow: var(--ui-btn-shadow);
+  font-size: 0.8rem;
   font-weight: 600;
-  color: var(--app-color-text-strong);
+  color: var(--ui-color-text);
   cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.project-export-btn svg {
+  flex-shrink: 0;
+  opacity: 0.65;
+}
+
+.project-export-btn:hover:not(:disabled) {
+  background: var(--ui-btn-active-bg);
 }
 
 .project-export-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.38;
   cursor: default;
 }
 
-.project-export-btn-primary {
-  background: var(--app-color-text-strong);
+.project-export-btn-play {
+  background: var(--ui-color-text, #303030);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+}
+
+.project-export-btn-play svg {
+  opacity: 0.85;
+}
+
+.project-export-btn-primary {
+  background: var(--ui-color-surface-inset);
+  border-color: var(--ui-color-border-strong);
+  color: var(--ui-color-text);
+}
+
+.project-export-btn-reset {
+  background: transparent;
+  border-color: var(--ui-color-border);
+  color: var(--ui-color-text-muted);
+  box-shadow: none;
 }
 
 .app-surface-status {

@@ -7515,9 +7515,92 @@ la carga y scheduling de esos buffers en el contexto offline.
 - Lógica espejada con `playSamplerMixes.ts` para consistencia de timing y calibración
 - Export JSON sigue guardando mixes completos (sin cambio)
 
-### Nota adicional — pad sounds incompletos
+### Nota adicional — pad sounds incompletos → completados con filtros y sweeps
 
 Al implementar el soporte de mixes, se descubrió que `scheduleOfflineSmcPadEvent` solo
-tenía casos para 4 sonidos (kick, snare, hat, clap) de los 16 disponibles en `playSmcPadHit`.
-Se implementaron los 12 restantes como aproximaciones de síntesis sin filtros ni sweeps:
-tom, cowbell, rimshot, shaker, open-hat, crash, ride, floor-tom, hi-tom, conga, woodblock, sub.
+tenía casos para 4 sonidos (kick, snare, hat, clap) de los 16 disponibles en `playSmcPadHit`,
+y además los existentes carecían de filtros y sweeps (sonaban "raros" en el WAV exportado).
+
+**Segunda iteración — síntesis offline completa:**
+
+1. **`scheduleOfflineNoiseBurst`**: se le agregó `filter?: { type, frequency, Q }`.
+   Cuando se especifica, inserta un `BiquadFilterNode` entre el gain y el pan.
+   Sin filtro, el noise es ruido blanco crudo que suena a estática.
+
+2. **`scheduleOfflineFrequencyBurst`**: se le agregó `sweep?: { from, duration }`.
+   Cuando se especifica, anima la frecuencia del oscilador con `linearRampToValueAtTime`,
+   replicando el barrido de frecuencia que da "punch" al kick y forma a los toms.
+
+3. **Todos los 16 pad sounds** actualizados con filtros y sweeps apropiados:
+   - Hat / open-hat → highpass 7000 Hz (elimina graves del noise, solo shimmer)
+   - Snare → highpass 4200 Hz + bandpass 260 Hz + sweep tonal (200→180 Hz)
+   - Kick → sweep 200 Hz → 42 Hz + bandpass 1400 Hz de ataque
+   - Tom / floor-tom / hi-tom → sweep tonal proporcional + bandpass de membrana
+   - Rimshot → bandpass 2200 Hz + sweep 1200→920 Hz
+   - Crash → highpass 4500 Hz (evita que ahogue el mix con graves)
+   - Shaker → bandpass 5000 Hz + highpass 7500 Hz en dos capas
+   - Ride → sweep 2700→2500 Hz + highpass 7500 Hz
+   - Sub → sweep 105→35 Hz + bandpass de transiente
+   - Conga, woodblock, cowbell → parámetros proporcionales al real-time
+
+## Movimiento — Rediseño de la vista de proyecto (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+La vista "Proyecto" dentro del modo app (`/?view=project`) usaba clases visuales
+del laboratorio interno y destonaba con el resto de vistas del app shell. El
+usuario detectó el contraste visual e indicó que la vista debía ser coherente con
+el sistema de diseño existente.
+
+### Causa raíz
+
+La vista de proyecto era un bloque de botones planos con estilos ad-hoc del
+laboratorio. Las clases CSS usaban variables locales del `audio-lab` en lugar de
+los tokens compartidos de `ui-library.css` (`--ui-color-*`, `--ui-btn-bg`, etc.).
+Además, el input de nombre tenía un bug de especificidad: la regla `input[type="text"]`
+de `App.css` (especificidad 0,1,1) sobreescribía `.project-compact-name-input`
+(especificidad 0,1,0), forzando el fondo oscuro del lab sobre el input en contexto claro.
+
+### Solución técnica
+
+**`src/features/lab/LabApp.tsx` — JSX del `projectWorkspace`:**
+
+- Input de nombre envuelto en fila `project-compact-name-row` con label semántico
+  (`<label htmlFor="project-view-name">`) y clase `project-compact-label`.
+- Se añadió párrafo de estadísticas (`project-compact-stats`): cantidad de pistas
+  MIDI, cantidad de mixes de sampler y total de notas grabadas.
+- Separador visual (`project-compact-divider`) antes de la grilla de botones.
+- Botones organizados en grid (`project-compact-grid`) de dos columnas.
+- Condición de deshabilitado del export WAV corregida para incluir pistas del
+  sampler: `(allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0) || isExportingAudio`.
+
+**`src/app/styles/appModeCatalog.css` — clases de proyecto:**
+
+- Fix de especificidad: `input.project-compact-name-input` (0,2,0) supera la regla
+  global. Fondo, borde y color vinculados a tokens del sistema (`--ui-color-surface-raised`,
+  `--ui-color-border`, `--ui-color-text`). Focus ring con `--ui-color-accent`.
+- `.project-compact-label`: etiqueta uppercase, muted, 0.68rem — mismo patrón
+  que los labels de settings.
+- `.project-compact-stats`: texto secundario muted, 0.72rem — contexto del proyecto.
+- `.project-compact-divider`: separador 1px con `--ui-color-border`.
+- `.project-export-btn`: botón base con `--ui-btn-bg`, `--ui-btn-shadow`, radius
+  y tipografía del sistema — coherente con la paleta del app shell.
+- `.project-export-btn-play`: fondo oscuro (`--ui-color-text`) con texto blanco
+  — acción primaria de reproducción.
+- `.project-export-btn-primary`: acción WAV con superficie elevada y borde fuerte.
+- `.project-export-btn-reset`: botón destructivo sin relleno, color muted.
+- `.project-compact-btn-full`: span 2 columnas para el botón "Nuevo proyecto".
+
+### Archivos modificados
+
+| Archivo | Tipo |
+|---|---|
+| `src/features/lab/LabApp.tsx` | Modificado — JSX projectWorkspace, condición WAV, label/stats |
+| `src/app/styles/appModeCatalog.css` | Modificado — especificidad input, nuevas clases proyecto |
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- Vista coherente con tokens del sistema en modo claro y oscuro

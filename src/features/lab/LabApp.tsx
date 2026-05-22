@@ -93,7 +93,7 @@ import {
   getMidiTrackNotes,
   getActiveClip,
 } from "../../engine/project/projectModel"
-import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, Check, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Play, Square, Trash2, Undo2, Redo2, Copy, RotateCcw, Check, Upload, Folder, VolumeX, Minus, Plus, Lock, Unlock, ChevronLeft, ChevronRight, X, Download } from "lucide-react"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSamplerMixes } from "../../application/use-cases/playSamplerMixes"
 import {
@@ -2146,19 +2146,29 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       </header>
       <div className="project-compact-body">
         <div className="project-compact-name-row">
-          <span className="perform-instrument-dialog-title">Nombre</span>
+          <label className="project-compact-label" htmlFor="project-view-name">Nombre</label>
           <input
             className="project-compact-name-input"
+            id="project-view-name"
             onChange={(e) => updateProjectName(e.target.value)}
             placeholder="Nombre del proyecto"
             type="text"
             value={project.name}
           />
+          <p className="project-compact-stats">
+            {getMidiTracks(project.timeline).length} pista{getMidiTracks(project.timeline).length !== 1 ? "s" : ""}
+            {" · "}
+            {getSamplerTracks(project.timeline).length} mix{getSamplerTracks(project.timeline).length !== 1 ? "es" : ""}
+            {" · "}
+            {allRecordedNotes.length} nota{allRecordedNotes.length !== 1 ? "s" : ""}
+          </p>
         </div>
+
+        <div className="project-compact-divider" />
 
         <div className="project-compact-grid">
           <button
-            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
+            className="project-export-btn project-export-btn-play project-compact-btn-wide"
             disabled={allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0 && !playbackTransport.isPlaying && !isMixOnlyPlaying}
             onClick={() => (playbackTransport.isPlaying || isMixOnlyPlaying) ? stopAll() : playAll(project, true)}
             type="button"
@@ -2167,32 +2177,33 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           </button>
           <button
             className="project-export-btn project-export-btn-primary project-compact-btn-wide"
-            disabled={allRecordedNotes.length === 0 || isExportingAudio}
+            disabled={(allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0) || isExportingAudio}
             onClick={exportProjectAudio}
             type="button"
           >
-            {isExportingAudio ? "Exportando..." : <><Play size={13} /> Exportar WAV</>}
-          </button>
-          <button
-            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
-            onClick={exportBundle}
-            type="button"
-          >
-            Exportar
-          </button>
-          <button
-            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
-            onClick={() => importBundleRef.current?.click()}
-            type="button"
-          >
-            Importar
+            <Download size={13} />
+            {isExportingAudio ? "Exportando..." : "Exportar WAV"}
           </button>
           <button
             className="project-export-btn project-compact-btn-wide"
+            onClick={exportBundle}
+            type="button"
+          >
+            <Folder size={13} /> Exportar
+          </button>
+          <button
+            className="project-export-btn project-compact-btn-wide"
+            onClick={() => importBundleRef.current?.click()}
+            type="button"
+          >
+            <Upload size={13} /> Importar
+          </button>
+          <button
+            className="project-export-btn project-export-btn-reset project-compact-btn-wide project-compact-btn-full"
             onClick={() => setIsNewProjectConfirmOpen(true)}
             type="button"
           >
-            Nuevo proyecto
+            <Plus size={13} /> Nuevo proyecto
           </button>
         </div>
       </div>
