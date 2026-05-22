@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react"
 import { useCallback, useEffect, useState } from "react"
 import "../../App.css"
+import { resolveAppMessages, tpl, type AppLanguage } from "../../app/appI18n"
 import {
   updatePadSoundSetting,
   compactTrackNotesStart,
@@ -84,12 +85,14 @@ function getPerformanceTimestamp() {
 }
 
 type LabAppProps = {
+  language?: AppLanguage
   mode?: LabAppMode
   settingsOpen?: boolean
   onSettingsClose?: () => void
 }
 
-function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabAppProps) {
+function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettingsClose }: LabAppProps) {
+  const t = resolveAppMessages(language).lab
   // ── Simple local UI state ────────────────────────────────────────────────────
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
@@ -238,6 +241,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   // ── Bridge functions (span multiple hooks) ───────────────────────────────────
   function selectTrackLane(trackId: string) {
     switchActiveTrack(trackId)
+    setSelectedMixId(null)
     setIsTrackLaneFocused(true)
   }
 
@@ -302,32 +306,32 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   // ── edit-only workspace ──────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
   const editWorkspace = (
-    <section className="timeline-workspace" aria-label="Workspace de timeline">
+    <section className="timeline-workspace" aria-label={t.toolbar.timelineWorkspace}>
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-controls">
           {!isNoteEditMode && (
-            <div className="edit-view-switch" role="group" aria-label="Vista del timeline">
+            <div className="edit-view-switch" role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}>
               <button
                 aria-pressed={timelineView === "notes"}
                 disabled={lab.hasNoTracks}
                 onClick={() => setTimelineView("notes")}
-                title={lab.hasNoTracks ? "Agrega una pista MIDI para editar notas" : undefined}
+                title={lab.hasNoTracks ? t.toolbar.addMidiTrackDisabled : undefined}
                 type="button"
               >
-                NOTAS
+                {t.toolbar.viewNotes}
               </button>
               <button
                 aria-pressed={timelineView === "tracks"}
                 onClick={() => setTimelineView("tracks")}
                 type="button"
               >
-                TRACKS
+                {t.toolbar.viewTracks}
               </button>
             </div>
           )}
           {timelineView === "notes" && !isNoteEditMode && (
             <select
-              aria-label="Seleccionar pista"
+              aria-label={t.toolbar.selectTrack}
               className="ui-select"
               value={lab.primaryTrack.id}
               onChange={(e) => switchActiveTrack(e.target.value)}
@@ -346,7 +350,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 : null
               return activeMix ? (
                 <input
-                  aria-label="Nombre del mix"
+                  aria-label={t.toolbar.mixName}
                   className="edit-note-input edit-track-name-input"
                   defaultValue={activeMix.name}
                   key={activeMix.id}
@@ -364,14 +368,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                   className="ui-icon-btn"
                   onClick={lab.addTrack}
                   style={{ fontSize: "0.8rem", padding: "0.25rem 0.75rem", borderRadius: "999px" }}
-                  title="Agregar pista MIDI"
+                  title={t.toolbar.addMidiTrackTitle}
                   type="button"
                 >
-                  + Pista MIDI
+                  {t.toolbar.addMidiTrack}
                 </button>
               ) : (
                 <input
-                  aria-label="Nombre de la pista activa"
+                  aria-label={t.toolbar.activeTrackName}
                   className="edit-note-input edit-track-name-input"
                   defaultValue={lab.primaryTrack.name}
                   key={lab.primaryTrack.id}
@@ -387,7 +391,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             <>
               <span className="edit-note-chip">{lab.selectedRecordedNote.note}</span>
               <input
-                aria-label="Inicio (s)"
+                aria-label={t.toolbar.noteStart}
                 className="edit-note-input"
                 min="0"
                 step="0.01"
@@ -396,7 +400,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 onChange={(e) => lab.updateSelectedNoteStartTime(Number(e.target.value))}
               />
               <input
-                aria-label="Duracion (s)"
+                aria-label={t.toolbar.noteDuration}
                 className="edit-note-input"
                 disabled={isSmcPadRecordedNote(lab.selectedRecordedNote)}
                 min="0.01"
@@ -408,7 +412,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <button
                 className="ui-icon-btn"
                 onClick={lab.duplicateSelectedRecordedNote}
-                title="Duplicar nota"
+                title={t.toolbar.duplicateNote}
                 type="button"
               >
                 <Copy size={15} />
@@ -416,16 +420,16 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <button
                 className="ui-icon-btn"
                 onClick={lab.revertSelectedNoteToLastCommit}
-                title="Revertir nota"
+                title={t.toolbar.revertNote}
                 type="button"
               >
                 <RotateCcw size={15} />
               </button>
               <button
-                aria-label="Confirmar edición"
+                aria-label={t.toolbar.confirmEdit}
                 className="ui-icon-btn"
                 onClick={() => lab.setSelectedRecordedNoteId(null)}
-                title="Listo"
+                title={t.common.done}
                 type="button"
               >
                 <Check size={16} />
@@ -435,7 +439,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           {!isNoteEditMode && (
             <button
               aria-label={
-                labPlayback.playbackTransport.isPlaying ? "Detener reproduccion" : "Reproducir"
+                labPlayback.playbackTransport.isPlaying ? t.common.stopPlayback : t.common.play
               }
               className="ui-icon-btn"
               disabled={
@@ -449,7 +453,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                   ? labPlayback.stopAll()
                   : labPlayback.playAll(editNotesToPlay, timelineView === "tracks")
               }
-              title={labPlayback.playbackTransport.isPlaying ? "Detener" : "Reproducir"}
+              title={labPlayback.playbackTransport.isPlaying ? t.common.stop : t.common.play}
               type="button"
             >
               {labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying ? (
@@ -461,18 +465,18 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           )}
           <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-          <label className="perform-mode-arp-toggle" aria-label="Snap al paso">
+          <label className="perform-mode-arp-toggle" aria-label={t.toolbar.snapToStep}>
             <input
               checked={timelineSnapEnabled}
               className="ui-checkbox"
               onChange={(e) => setTimelineSnapEnabled(e.target.checked)}
               type="checkbox"
             />
-            <span>SNAP</span>
+            <span>{t.toolbar.snap}</span>
           </label>
           {timelineSnapEnabled && (
             <select
-              aria-label="Paso de snap"
+              aria-label={t.toolbar.snapStep}
               className="ui-select"
               value={timelineSnapStep}
               onChange={(e) => setTimelineSnapStep(Number(e.target.value))}
@@ -490,7 +494,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <>
                 <span aria-hidden="true" className="perform-mode-transport-divider" />
                 <button
-                  aria-label="Reducir duración"
+                  aria-label={t.toolbar.reduceDuration}
                   className="ui-icon-btn"
                   onClick={() => {
                     const next = Math.max(1, Number((editSettingsDuration - 0.1).toFixed(2)))
@@ -498,14 +502,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                       lab.updatePrimaryTrackNoteTimelineDurationValue(next)
                     else lab.updateProjectTrackTimelineDurationValue(next)
                   }}
-                  title="Reducir duración −0.1s"
+                  title={t.toolbar.reduceDurationStep}
                   type="button"
                 >
                   <Minus size={18} />
                 </button>
                 <span className="edit-duration-label">{editSettingsDuration.toFixed(1)}s</span>
                 <button
-                  aria-label="Aumentar duración"
+                  aria-label={t.toolbar.increaseDuration}
                   className="ui-icon-btn"
                   onClick={() => {
                     const next = Number((editSettingsDuration + 0.1).toFixed(2))
@@ -513,7 +517,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                       lab.updatePrimaryTrackNoteTimelineDurationValue(next)
                     else lab.updateProjectTrackTimelineDurationValue(next)
                   }}
-                  title="Aumentar duración +0.1s"
+                  title={t.toolbar.increaseDurationStep}
                   type="button"
                 >
                   <Plus size={18} />
@@ -523,21 +527,21 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           {!(timelineView === "tracks" && isTrackLaneFocused) && (
             <>
               <button
-                aria-label="Deshacer"
+                aria-label={t.common.undo}
                 className="ui-icon-btn"
                 disabled={!lab.canUndo}
                 onClick={lab.undoProjectEdit}
-                title="Deshacer"
+                title={t.common.undo}
                 type="button"
               >
                 <Undo2 size={18} />
               </button>
               <button
-                aria-label="Rehacer"
+                aria-label={t.common.redo}
                 className="ui-icon-btn"
                 disabled={!lab.canRedo}
                 onClick={lab.redoProjectEdit}
-                title="Rehacer"
+                title={t.common.redo}
                 type="button"
               >
                 <Redo2 size={18} />
@@ -546,13 +550,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           )}
           {timelineView === "notes" && (
             <button
-              aria-label="Eliminar nota seleccionada"
+              aria-label={t.toolbar.deleteSelectedNote}
               className="ui-icon-btn"
               disabled={!lab.selectedRecordedNote}
               onClick={() =>
                 lab.selectedRecordedNote && lab.removeRecordedNote(lab.selectedRecordedNote.id)
               }
-              title="Eliminar nota"
+              title={t.toolbar.deleteNote}
               type="button"
             >
               <Trash2 size={18} />
@@ -571,7 +575,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               return (
                 <>
                   <button
-                    aria-label={isMuted ? "Activar audio" : "Silenciar"}
+                    aria-label={isMuted ? t.common.unmute : t.common.mute}
                     className={`ui-icon-btn edit-mute-solo-btn${isMuted ? " edit-mute-solo-btn-active" : ""}`}
                     onClick={() => {
                       if (activeMix) {
@@ -580,13 +584,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                         lab.togglePrimaryTrackMuted()
                       }
                     }}
-                    title={isMuted ? "Activar audio" : "Silenciar"}
+                    title={isMuted ? t.common.unmute : t.common.mute}
                     type="button"
                   >
                     <VolumeX size={18} />
                   </button>
                   <button
-                    aria-label="Solo"
+                    aria-label={t.common.solo}
                     className={`ui-icon-btn edit-mute-solo-btn${isSolo ? " edit-mute-solo-btn-active" : ""}`}
                     onClick={() => {
                       if (activeMix) {
@@ -595,13 +599,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                         lab.togglePrimaryTrackSolo()
                       }
                     }}
-                    title="Solo"
+                    title={t.common.solo}
                     type="button"
                   >
-                    Solo
+                    {t.common.solo}
                   </button>
                   <button
-                    aria-label="Duplicar último clip"
+                    aria-label={t.toolbar.duplicateClip}
                     className="ui-icon-btn"
                     disabled={dupDisabled}
                     onClick={() => {
@@ -613,29 +617,29 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     }}
                     title={
                       activeMix
-                        ? `Duplicar clip de ${activeMix.name}`
-                        : `Duplicar clip de ${lab.primaryTrack.name}`
+                        ? tpl(t.toolbar.duplicateClipFrom, { name: activeMix.name })
+                        : tpl(t.toolbar.duplicateClipFrom, { name: lab.primaryTrack.name })
                     }
                     type="button"
                   >
                     <Copy size={18} />
                   </button>
                   <button
-                    aria-label="Eliminar clip seleccionado"
+                    aria-label={t.toolbar.deleteClipSelected}
                     className="ui-icon-btn"
                     disabled={!canDeleteSelectedClip}
                     onClick={() => setIsClipDeleteConfirmOpen(true)}
                     title={
                       selectedClipId
-                        ? "Eliminar clip seleccionado"
-                        : "Selecciona un clip para eliminar"
+                        ? t.toolbar.deleteClipSelected
+                        : t.toolbar.deleteClipHint
                     }
                     type="button"
                   >
                     <X size={18} />
                   </button>
                   <button
-                    aria-label={activeMix ? "Eliminar mix" : "Eliminar pista"}
+                    aria-label={activeMix ? t.toolbar.deleteMix : t.toolbar.deleteTrack}
                     className="ui-icon-btn"
                     onClick={() => {
                       if (activeMix) {
@@ -646,18 +650,18 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     }}
                     title={
                       activeMix
-                        ? `Eliminar ${activeMix.name} del timeline`
-                        : `Eliminar ${lab.primaryTrack.name}`
+                        ? tpl(t.toolbar.deleteMixFromTimeline, { name: activeMix.name })
+                        : tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })
                     }
                     type="button"
                   >
                     <Trash2 size={18} />
                   </button>
                   <button
-                    aria-label="Terminar edición de tracks"
+                    aria-label={t.toolbar.finishEditingTracks}
                     className="ui-icon-btn"
                     onClick={exitTrackLaneFocus}
-                    title="Listo"
+                    title={t.common.done}
                     type="button"
                   >
                     <Check size={18} />
@@ -671,6 +675,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       {timelineView === "tracks" ? (
         <TrackTimelinePreview
           activeTrackId={lab.primaryTrack.id}
+          language={language}
           onDragStateChange={setIsTimelineDragging}
           onRenameMix={(mixId, name) =>
             lab.applyUpdate((p) => renameSamplerMix(p, mixId, name))
@@ -725,13 +730,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       <>
         {editWorkspace}
         <AppDialog
-          description="Ajusta la duracion del timeline y las opciones de visualizacion."
+          description={t.dialogs.editorOptionsDesc}
           onClose={onSettingsClose ?? (() => {})}
           open={settingsOpen}
-          title="Opciones — Editor"
+          title={t.dialogs.editorOptions}
         >
           <div className="control-group">
-            <label>Duracion ({timelineView === "notes" ? "notas" : "tracks"}) (s)</label>
+            <label>{timelineView === "notes" ? t.project.noteTimelineDurationShort : t.project.trackTimelineDurationShort} (s)</label>
             <input
               min="1"
               step="0.1"
@@ -750,24 +755,24 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               }}
               type="button"
             >
-              Ajustar al contenido
+              {timelineView === "notes" ? t.project.fitNotesToContent : t.project.fitToContent}
             </button>
           </div>
           {timelineView === "notes" && (
             <div className="control-group">
               <button onClick={lab.compactPrimaryTrackNoteTimelineStart} type="button">
-                Compactar inicio
+                {t.toolbar.compactNoteStart}
               </button>
             </div>
           )}
 
           <div className="edit-settings-track-section">
             <span className="perform-instrument-dialog-title">
-              Pista activa — {lab.primaryTrack.name}
+              {t.toolbar.activeTrack} — {lab.primaryTrack.name}
             </span>
             <div className="edit-settings-track-row">
               <label className="edit-settings-track-label" htmlFor="edit-track-volume">
-                Volumen
+                {t.common.volume}
               </label>
               <input
                 id="edit-track-volume"
@@ -845,28 +850,28 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           actions={
             <>
               <button onClick={lab.cancelRemoveActiveTrack} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="app-dialog-confirm"
                 onClick={lab.acceptRemoveActiveTrack}
                 type="button"
               >
-                {lab.midiTracks.length === 1 ? "Reiniciar pistas" : "Eliminar"}
+                {lab.midiTracks.length === 1 ? t.common.reset : t.common.delete}
               </button>
             </>
           }
           description={
             lab.midiTracks.length === 1
-              ? "Se eliminaran todas las notas y quedara una pista vacia. Los mixes del timeline no se borran."
-              : "La pista activa y sus notas se eliminaran de esta toma."
+              ? t.dialogs.resetTracksMsg
+              : t.dialogs.deleteTrackMsg
           }
           onClose={lab.cancelRemoveActiveTrack}
           open={lab.isTrackRemovalConfirmOpen}
           title={
             lab.midiTracks.length === 1
-              ? "Reiniciar pistas MIDI?"
-              : `Eliminar ${lab.primaryTrack.name}?`
+              ? t.dialogs.resetTracksTitle
+              : tpl(t.dialogs.deleteTrackTitle, { name: lab.primaryTrack.name })
           }
         />
 
@@ -874,7 +879,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           actions={
             <>
               <button onClick={() => setIsMixDeleteConfirmOpen(false)} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="app-dialog-confirm"
@@ -886,21 +891,21 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }}
                 type="button"
               >
-                Eliminar
+                {t.common.delete}
               </button>
             </>
           }
-          description="El mix se eliminara del timeline. Los slots y patrones del sampler no se borran."
+          description={t.dialogs.deleteMixMsg}
           onClose={() => setIsMixDeleteConfirmOpen(false)}
           open={isMixDeleteConfirmOpen}
-          title="Eliminar mix del timeline?"
+          title={t.dialogs.deleteMixTitle}
         />
 
         <AppDialog
           actions={
             <>
               <button onClick={() => lab.setIsRestartConfirmOpen(false)} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="ui-btn-danger"
@@ -910,35 +915,35 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }}
                 type="button"
               >
-                Reiniciar
+                {t.common.reset}
               </button>
             </>
           }
-          description="Al eliminar esta pista solo quedara una. El proyecto se reiniciara y se perderan todas las notas grabadas."
+          description={t.dialogs.resetProjectMsg}
           onClose={() => lab.setIsRestartConfirmOpen(false)}
           open={lab.isRestartConfirmOpen}
-          title="Reiniciar proyecto?"
+          title={t.dialogs.resetProjectTitle}
         />
 
         <AppDialog
           actions={
             <>
               <button onClick={() => setIsClipDeleteConfirmOpen(false)} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="app-dialog-confirm"
                 onClick={confirmDeleteSelectedClip}
                 type="button"
               >
-                Eliminar clip
+                {t.common.delete}
               </button>
             </>
           }
-          description="El clip y sus notas se eliminaran del timeline. Esta accion se puede deshacer con Ctrl+Z."
+          description={t.dialogs.deleteClipMsg}
           onClose={() => setIsClipDeleteConfirmOpen(false)}
           open={isClipDeleteConfirmOpen}
-          title="Eliminar clip?"
+          title={t.dialogs.deleteClipTitle}
         />
       </>
     )
@@ -948,7 +953,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   // ── project workspace ────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
   const projectWorkspace = (
-    <section className="app-mock-screen" aria-label="Proyecto actual">
+    <section className="app-mock-screen" aria-label={t.project.currentProject}>
       <input
         accept=".json,application/json"
         hidden
@@ -963,34 +968,26 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         ref={lab.importBundleRef}
         type="file"
       />
-      <header className="app-mock-toolbar">
-        <div className="app-mock-toolbar-copy">
-          <strong>{lab.project.name || "Proyecto"}</strong>
-          {lab.projectMessage && <span>{lab.projectMessage}</span>}
-        </div>
-      </header>
       <div className="project-compact-body">
         <div className="project-compact-name-row">
           <label className="project-compact-label" htmlFor="project-view-name">
-            Nombre
+            {t.project.projectLabel}
           </label>
           <input
             className="project-compact-name-input"
             id="project-view-name"
             onChange={(e) => lab.updateProjectName(e.target.value)}
-            placeholder="Nombre del proyecto"
+            placeholder={t.project.projectName}
             type="text"
             value={lab.project.name}
           />
           <p className="project-compact-stats">
-            {getMidiTracks(lab.project.timeline).length} pista
-            {getMidiTracks(lab.project.timeline).length !== 1 ? "s" : ""}
+            {getMidiTracks(lab.project.timeline).length} {t.project.tracksLabel}
             {" · "}
             {getSamplerTracks(lab.project.timeline).length} mix
             {getSamplerTracks(lab.project.timeline).length !== 1 ? "es" : ""}
             {" · "}
-            {lab.allRecordedNotes.length} nota
-            {lab.allRecordedNotes.length !== 1 ? "s" : ""}
+            {lab.allRecordedNotes.length} {t.project.notesLabel}
           </p>
         </div>
 
@@ -1014,11 +1011,11 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           >
             {labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying ? (
               <>
-                <Square size={13} /> Detener
+                <Square size={13} /> {t.common.stop}
               </>
             ) : (
               <>
-                <Play size={13} /> Reproducir
+                <Play size={13} /> {t.common.play}
               </>
             )}
           </button>
@@ -1033,28 +1030,28 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             type="button"
           >
             <Download size={13} />
-            {lab.isExportingAudio ? "Exportando..." : "Exportar WAV"}
+            {lab.isExportingAudio ? t.common.exporting : t.common.exportWav}
           </button>
           <button
             className="project-export-btn project-compact-btn-wide"
             onClick={() => void lab.exportBundle()}
             type="button"
           >
-            <Folder size={13} /> Exportar
+            <Folder size={13} /> {t.common.export}
           </button>
           <button
             className="project-export-btn project-compact-btn-wide"
             onClick={() => lab.importBundleRef.current?.click()}
             type="button"
           >
-            <Upload size={13} /> Importar
+            <Upload size={13} /> {t.common.import}
           </button>
           <button
             className="project-export-btn project-export-btn-reset project-compact-btn-wide project-compact-btn-full"
             onClick={() => lab.setIsNewProjectConfirmOpen(true)}
             type="button"
           >
-            <Plus size={13} /> Nuevo proyecto
+            {t.project.newProject}
           </button>
         </div>
       </div>
@@ -1069,7 +1066,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           actions={
             <>
               <button onClick={() => lab.setIsNewProjectConfirmOpen(false)} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 onClick={() => {
@@ -1078,7 +1075,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }}
                 type="button"
               >
-                Continuar sin guardar
+                {t.dialogs.continueWithout}
               </button>
               <button
                 className="app-dialog-confirm"
@@ -1089,14 +1086,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }}
                 type="button"
               >
-                Guardar y continuar
+                {t.dialogs.saveAndContinue}
               </button>
             </>
           }
-          description="El proyecto actual se perderá si no lo guardas primero."
+          description={t.dialogs.newProjectMsg}
           onClose={() => lab.setIsNewProjectConfirmOpen(false)}
           open={lab.isNewProjectConfirmOpen}
-          title="¿Empezar un nuevo proyecto?"
+          title={t.dialogs.newProjectTitle}
         />
       </>
     )
@@ -1107,7 +1104,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   // ────────────────────────────────────────────────────────────────────────────
   if (mode === "plugins-only") {
     return (
-      <section className="app-mock-screen" aria-label="Plugins">
+      <section className="app-mock-screen" aria-label={t.project.pluginsSection}>
         <header className="app-mock-toolbar">
           <div className="app-mock-toolbar-actions">
             <button className="ui-pill-btn" type="button">
@@ -1120,7 +1117,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             </button>
           </div>
         </header>
-        <div className="app-plugin-list" aria-label="Lista de plugins">
+        <div className="app-plugin-list" aria-label={t.project.pluginList}>
           {lab.registeredPlugins.map((plugin) => {
             const words = plugin.name.trim().split(/\s+/)
             const shortLabel =
@@ -1144,7 +1141,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 </div>
                 <label
                   className="ui-toggle"
-                  aria-label={`${plugin.enabled ? "Desactivar" : "Activar"} ${plugin.name}`}
+                  aria-label={tpl(plugin.enabled ? t.project.disablePlugin : t.project.enablePlugin, { name: plugin.name })}
                 >
                   <input
                     checked={plugin.enabled}
@@ -1176,14 +1173,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
     return (
       <>
-        <section className="app-mock-screen" aria-label="Workspace SMC Pad">
+        <section className="app-mock-screen" aria-label={t.pad.workspace}>
           <header className="app-mock-toolbar">
-            <div className="perform-mode-transport" aria-label="Controles de grabación">
+            <div className="perform-mode-transport" aria-label={t.pad.recordingControls}>
               <button
                 aria-label={
                   labRecording.recordingState === "recording"
-                    ? "Detener grabación"
-                    : "Iniciar grabación"
+                    ? t.common.stopRecording
+                    : t.common.startRecording
                 }
                 className={`perform-mode-transport-button${labRecording.recordingState === "recording" ? " perform-mode-transport-button-active" : ""}`}
                 onClick={
@@ -1204,8 +1201,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <button
                 aria-label={
                   labPlayback.playbackTransport.isPlaying
-                    ? "Detener reproducción"
-                    : "Reproducir"
+                    ? t.common.stopPlayback
+                    : t.common.play
                 }
                 className={`perform-mode-transport-button${labPlayback.playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
                 disabled={labRecording.recordingState === "recording"}
@@ -1234,7 +1231,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
             <div className="ui-pad-pager">
               <button
-                aria-label="Página anterior"
+                aria-label={t.pad.prevPage}
                 className="ui-icon-btn"
                 disabled={padPage === 0}
                 onClick={() => setPadPage((p) => Math.max(0, p - 1))}
@@ -1246,7 +1243,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 {padPage + 1} / {Math.ceil(smcPadSounds.length / 8)}
               </span>
               <button
-                aria-label="Página siguiente"
+                aria-label={t.pad.nextPage}
                 className="ui-icon-btn"
                 disabled={padPage >= Math.ceil(smcPadSounds.length / 8) - 1}
                 onClick={() =>
@@ -1262,7 +1259,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
             <div className="app-mock-toolbar-controls">
               <select
-                aria-label="Pista activa"
+                aria-label={t.toolbar.activeTrack}
                 className="ui-select"
                 value={lab.primaryTrack.id}
                 onChange={(e) => switchActiveTrack(e.target.value)}
@@ -1274,13 +1271,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 ))}
               </select>
               <button className="ui-pill-btn" onClick={lab.addPadTrack} type="button">
-                + Track
+                {t.toolbar.addPadTrack}
               </button>
               <button
                 aria-label={
                   lab.project.padSettingsLocked
-                    ? "Desbloquear configuración"
-                    : "Bloquear configuración"
+                    ? t.toolbar.unlockConfig
+                    : t.toolbar.lockConfig
                 }
                 className="ui-icon-btn"
                 onClick={() =>
@@ -1291,18 +1288,18 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }
                 title={
                   lab.project.padSettingsLocked
-                    ? "Desbloquear configuración"
-                    : "Bloquear configuración"
+                    ? t.toolbar.unlockConfig
+                    : t.toolbar.lockConfig
                 }
                 type="button"
               >
                 {lab.project.padSettingsLocked ? <Lock size={16} /> : <Unlock size={16} />}
               </button>
               <button
-                aria-label={`Eliminar ${lab.primaryTrack.name}`}
+                aria-label={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
                 className="ui-icon-btn"
                 onClick={lab.confirmRemoveActiveTrack}
-                title={`Eliminar ${lab.primaryTrack.name}`}
+                title={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
                 type="button"
               >
                 <Trash2 size={18} />
@@ -1314,7 +1311,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             {smcPadSounds.slice(padPage * 8, padPage * 8 + 8).map((pad, i) => (
               <div key={pad.id} className="ui-smc-cell">
                 <button
-                  aria-label={`${pad.label} — pulsar pad`}
+                  aria-label={`${pad.label} — ${t.pad.pressPad}`}
                   className={[
                     "ui-smc-btn",
                     getPadBtnClass(pad.id),
@@ -1334,14 +1331,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 >
                   <span className="ui-smc-btn-num">{padPage * 8 + i + 1}</span>
                   <span className="ui-smc-btn-label">{pad.label}</span>
-                  <span className="ui-smc-btn-desc">{pad.description}</span>
+                  <span className="ui-smc-btn-desc">{t.pad.descriptions[pad.id] ?? pad.description}</span>
                 </button>
                 {!lab.project.padSettingsLocked && (
                   <button
-                    aria-label={`Configurar ${pad.label}`}
+                    aria-label={tpl(t.pad.configurePad, { label: pad.label })}
                     className="ui-smc-config-btn"
                     onClick={() => setConfigSoundId(pad.id)}
-                    title={`Configurar ${pad.label}`}
+                    title={tpl(t.pad.configurePad, { label: pad.label })}
                     type="button"
                   >
                     ⚙
@@ -1356,28 +1353,28 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           actions={
             <>
               <button onClick={lab.cancelRemoveActiveTrack} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="app-dialog-confirm"
                 onClick={lab.acceptRemoveActiveTrack}
                 type="button"
               >
-                Eliminar
+                {t.common.delete}
               </button>
             </>
           }
-          description="La pista activa y sus notas se eliminaran de esta toma."
+          description={t.dialogs.deleteTrackMsg}
           onClose={lab.cancelRemoveActiveTrack}
           open={lab.isTrackRemovalConfirmOpen}
-          title={`Eliminar ${lab.primaryTrack.name}?`}
+          title={tpl(t.dialogs.deleteTrackTitle, { name: lab.primaryTrack.name })}
         />
 
         <AppDialog
           actions={
             <>
               <button onClick={() => lab.setIsRestartConfirmOpen(false)} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="ui-btn-danger"
@@ -1387,15 +1384,77 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }}
                 type="button"
               >
-                Reiniciar
+                {t.common.reset}
               </button>
             </>
           }
-          description="Al eliminar esta pista solo quedara una. El proyecto se reiniciara y se perderan todas las notas grabadas."
+          description={t.dialogs.resetProjectMsg}
           onClose={() => lab.setIsRestartConfirmOpen(false)}
           open={lab.isRestartConfirmOpen}
-          title="Reiniciar proyecto?"
+          title={t.dialogs.resetProjectTitle}
         />
+
+        <AppDialog
+          actions={
+            <button
+              onClick={() => {
+                lab.updatePrimaryTrackVolume(1)
+                lab.updatePrimaryTrackPan(0)
+              }}
+              type="button"
+            >
+              {t.common.resetDefaults}
+            </button>
+          }
+          description={t.project.muteSoloDesc}
+          onClose={onSettingsClose ?? (() => {})}
+          open={settingsOpen}
+          title={t.project.perTrackMix}
+        >
+          <div className="edit-settings-track-section">
+            <span className="perform-instrument-dialog-title">
+              {t.toolbar.activeTrack} — {lab.primaryTrack.name}
+            </span>
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="pad-track-volume">
+                {t.common.volume}
+              </label>
+              <input
+                id="pad-track-volume"
+                max={1.5}
+                min={0}
+                onChange={(e) => lab.updatePrimaryTrackVolume(parseFloat(e.target.value))}
+                step={0.01}
+                type="range"
+                value={lab.primaryTrack.volume}
+              />
+              <span className="edit-settings-track-value">
+                {Math.round(lab.primaryTrack.volume * 100)}%
+              </span>
+            </div>
+            <div className="edit-settings-track-row">
+              <label className="edit-settings-track-label" htmlFor="pad-track-pan">
+                Pan
+              </label>
+              <input
+                id="pad-track-pan"
+                max={1}
+                min={-1}
+                onChange={(e) => lab.updatePrimaryTrackPan(parseFloat(e.target.value))}
+                step={0.01}
+                type="range"
+                value={lab.primaryTrack.pan}
+              />
+              <span className="edit-settings-track-value">
+                {lab.primaryTrack.pan === 0
+                  ? "C"
+                  : lab.primaryTrack.pan > 0
+                    ? `R${Math.round(lab.primaryTrack.pan * 100)}`
+                    : `L${Math.round(Math.abs(lab.primaryTrack.pan) * 100)}`}
+              </span>
+            </div>
+          </div>
+        </AppDialog>
 
         {configSoundId &&
           (() => {
@@ -1411,16 +1470,24 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               lab.applyUpdate((proj) => updatePadSoundSetting(proj, configSoundId, p))
             return (
               <AppDialog
-                description={`Síntesis y comportamiento de ${snd.label}.`}
+                actions={
+                  <button
+                    onClick={() => patch(PAD_SOUND_DEFAULTS[configSoundId])}
+                    type="button"
+                  >
+                    {t.common.resetDefaults}
+                  </button>
+                }
+                description={tpl(t.pad.synthDesc, { label: snd.label })}
                 onClose={() => setConfigSoundId(null)}
                 open
-                title={`Config — ${snd.label}`}
+                title={tpl(t.pad.configTitle, { label: snd.label })}
               >
                 <div className="audio-sampler-settings">
                   <section className="ui-list-section">
                     <div className="edit-settings-track-row">
                       <label className="edit-settings-track-label" htmlFor="ps-volume">
-                        Volumen
+                        {t.common.volume}
                       </label>
                       <input
                         id="ps-volume"
@@ -1454,7 +1521,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     </div>
                     <div className="edit-settings-track-row">
                       <label className="edit-settings-track-label" htmlFor="ps-dist">
-                        Distorsión
+                        {t.pad.distortion}
                       </label>
                       <input
                         id="ps-dist"
@@ -1472,7 +1539,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     {hasTune && (
                       <div className="edit-settings-track-row">
                         <label className="edit-settings-track-label" htmlFor="ps-tune">
-                          Tono
+                          {t.pad.pitch}
                         </label>
                         <input
                           id="ps-tune"
@@ -1489,7 +1556,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     {hasLength && (
                       <div className="edit-settings-track-row">
                         <label className="edit-settings-track-label" htmlFor="ps-len">
-                          Longitud
+                          {t.pad.length}
                         </label>
                         <input
                           id="ps-len"
@@ -1507,8 +1574,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     )}
                     {hasFlicker && (
                       <div className="ui-list-row ui-list-row-static">
-                        <span className="ui-list-label">Flicker (LFO)</span>
-                        <label className="ui-toggle" aria-label="Flicker LFO">
+                        <span className="ui-list-label">{t.pad.flicker}</span>
+                        <label className="ui-toggle" aria-label={t.pad.flicker}>
                           <input
                             checked={resolved.flicker ?? false}
                             onChange={(e) => patch({ flicker: e.target.checked })}
@@ -1622,7 +1689,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   if (mode === "perform-only") {
     return (
       <>
-        <section className="perform-workspace-primary" aria-label="Panel principal Perform">
+        <section className="perform-workspace-primary" aria-label={t.perform.mainPanel}>
           <header className="app-mock-toolbar">
             <PerformResponsiveToolbar
               activeInstrumentCategory={instrumentDialogCategory}
@@ -1631,6 +1698,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               isInstrumentDialogOpen={isInstrumentDialogOpen}
               isPlaying={labPlayback.playbackTransport.isPlaying}
               isRecording={labRecording.recordingState === "recording"}
+              language={language}
               octave={labPerform.previewOctave}
               isArpEnabled={labPerform.arpeggiatorSettings.enabled}
               onAddTrack={lab.addTrack}
@@ -1679,28 +1747,28 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
           actions={
             <>
               <button onClick={lab.cancelRemoveActiveTrack} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="app-dialog-confirm"
                 onClick={lab.acceptRemoveActiveTrack}
                 type="button"
               >
-                Eliminar
+                {t.common.delete}
               </button>
             </>
           }
-          description="La pista activa y sus notas se eliminaran de esta toma."
+          description={t.dialogs.deleteTrackMsg}
           onClose={lab.cancelRemoveActiveTrack}
           open={lab.isTrackRemovalConfirmOpen}
-          title={`Eliminar ${lab.primaryTrack.name}?`}
+          title={tpl(t.dialogs.deleteTrackTitle, { name: lab.primaryTrack.name })}
         />
 
         <AppDialog
           actions={
             <>
               <button onClick={() => lab.setIsRestartConfirmOpen(false)} type="button">
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 className="ui-btn-danger"
@@ -1710,25 +1778,25 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 }}
                 type="button"
               >
-                Reiniciar
+                {t.common.reset}
               </button>
             </>
           }
-          description="Al eliminar esta pista solo quedara una. El proyecto se reiniciara y se perderan todas las notas grabadas."
+          description={t.dialogs.resetProjectMsg}
           onClose={() => lab.setIsRestartConfirmOpen(false)}
           open={lab.isRestartConfirmOpen}
-          title="Reiniciar proyecto?"
+          title={t.dialogs.resetProjectTitle}
         />
 
         <AppDialog
-          description="Configura el modo de acorde y el arpegiador."
+          description={t.dialogs.pianoOptionsDesc}
           onClose={onSettingsClose ?? (() => {})}
           open={settingsOpen}
-          title="Opciones — Piano"
+          title={t.dialogs.pianoOptions}
         >
           <div className="perform-settings-dialog-v">
             <div className="perform-settings-dialog-section">
-              <span className="perform-instrument-dialog-title">Tipo de acorde</span>
+              <span className="perform-instrument-dialog-title">{t.perform.chordType}</span>
               <div className="perform-instrument-dialog-tabs">
                 {(["major", "minor", "power"] as const).map((type) => (
                   <button
@@ -1737,13 +1805,13 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     onClick={() => labPerform.setSelectedChordType(type)}
                     type="button"
                   >
-                    {type === "major" ? "Mayor" : type === "minor" ? "Menor" : "Power"}
+                    {type === "major" ? t.perform.chordMajor : type === "minor" ? t.perform.chordMinor : t.perform.chordPower}
                   </button>
                 ))}
               </div>
             </div>
             <div className="perform-settings-dialog-section">
-              <span className="perform-instrument-dialog-title">ARP — Modo</span>
+              <span className="perform-instrument-dialog-title">{t.perform.arpMode}</span>
               <div className="perform-instrument-dialog-tabs">
                 {(["up", "down", "up-down", "random", "chord"] as const).map((m) => (
                   <button
@@ -1753,20 +1821,20 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                     type="button"
                   >
                     {m === "up"
-                      ? "↑ Up"
+                      ? t.perform.arpUp
                       : m === "down"
-                        ? "↓ Down"
+                        ? t.perform.arpDown
                         : m === "up-down"
-                          ? "↕ Up-Down"
+                          ? t.perform.arpUpDown
                           : m === "random"
-                            ? "? Random"
-                            : "≡ Chord"}
+                            ? t.perform.arpRandom
+                            : t.perform.arpChord}
                   </button>
                 ))}
               </div>
             </div>
             <div className="perform-settings-dialog-section">
-              <span className="perform-instrument-dialog-title">ARP — Rate</span>
+              <span className="perform-instrument-dialog-title">{t.perform.arpRate}</span>
               <div className="perform-instrument-dialog-tabs">
                 {(["1/4", "1/8", "1/16", "1/8T"] as const).map((r) => (
                   <button
@@ -1782,7 +1850,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             </div>
             <div className="perform-settings-dialog-row">
               <div className="perform-settings-dialog-section">
-                <span className="perform-instrument-dialog-title">ARP — Gate</span>
+                <span className="perform-instrument-dialog-title">{t.perform.arpGate}</span>
                 <div className="perform-settings-gate-row">
                   <input
                     className="perform-settings-gate-input"
@@ -1804,7 +1872,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 </div>
               </div>
               <div className="perform-settings-dialog-section">
-                <span className="perform-instrument-dialog-title">ARP — Octavas</span>
+                <span className="perform-instrument-dialog-title">{t.perform.arpOctaves}</span>
                 <div className="perform-instrument-dialog-tabs">
                   {([1, 2, 3] as const).map((oct) => (
                     <button
@@ -1830,7 +1898,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 type="checkbox"
               />
               <span className="perform-instrument-dialog-title" style={{ marginBottom: 0 }}>
-                ARP Latch
+                {t.perform.arpLatch}
               </span>
             </label>
           </div>
@@ -1845,14 +1913,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               </div>
             </div>
             <p className="app-surface-note">
-              {lab.projectMessage || "Listo para tocar y grabar."}
+              {lab.projectMessage || t.status.readyToPlay}
             </p>
           </section>
           <section className="perform-workspace-card">
             <div className="app-surface-title-row">
               <div>
                 <span className="app-surface-eyebrow">SMC Pad</span>
-                <h3>Percusion rapida</h3>
+                <h3>{t.shortcuts.quickPercussion}</h3>
               </div>
             </div>
             {performPad}
@@ -1861,7 +1929,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             <div className="app-surface-title-row">
               <div>
                 <span className="app-surface-eyebrow">Acciones</span>
-                <h3>Transporte y toma</h3>
+                <h3>{t.shortcuts.transportAndTake}</h3>
               </div>
             </div>
             {performActions}
@@ -1870,7 +1938,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
             <div className="app-surface-title-row">
               <div>
                 <span className="app-surface-eyebrow">MIDI</span>
-                <h3>Actividad reciente</h3>
+                <h3>{t.shortcuts.recentActivity}</h3>
               </div>
             </div>
             {performMidiLog}
@@ -1886,7 +1954,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
   const projectPanel = (
     <LabProjectPanel
       activeInstrumentCategory={activeInstrumentCategory}
-      envelopeHelpText="Ajusta ADSR de la pista activa. Los cambios afectan las notas nuevas y quedan guardados con la grabacion."
+      envelopeHelpText={t.project.envelopeDesc}
       envelope={lab.primaryTrack.envelope}
       historyCount={lab.undoStack.length}
       instrumentCategoryDescription={getInstrumentCategoryDescription(activeInstrumentCategory)}

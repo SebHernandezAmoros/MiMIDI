@@ -777,6 +777,100 @@ input.project-compact-name-input:focus {
   border: 0;
 }
 
+/* --------------------------------------------------------
+   MODO OSCURO
+   Los tokens --app-color-* son inyectados por JS (appTheme.ts)
+   y siempre tienen valores claros. Los redefinimos aquí para que
+   los descendientes del elemento oscuro los reciban correctos.
+   -------------------------------------------------------- */
+
+[data-ui-theme="dark"] {
+  --app-color-text-strong:       var(--ui-color-text);
+  --app-color-text-muted:        var(--ui-color-text-muted);
+  --app-color-border-soft:       var(--ui-color-border);
+  --app-color-surface-paper:     var(--ui-color-surface-raised);
+  --app-color-surface-paper-alt: var(--ui-color-surface-inset);
+  --app-color-accent:            var(--ui-color-accent);
+}
+
+/* Ventana principal — el atributo data-ui-theme está en este elemento */
+[data-ui-theme="dark"].app-mode-window {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+[data-ui-theme="dark"] .app-mode-window-header {
+  border-bottom-color: var(--ui-color-border);
+  background: var(--ui-color-surface-inset);
+  color: var(--ui-color-text);
+}
+
+[data-ui-theme="dark"] .app-mode-window-brand {
+  color: var(--ui-color-text);
+}
+
+[data-ui-theme="dark"] .app-mock-toolbar {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+[data-ui-theme="dark"] .app-surface-status {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text-muted);
+}
+
+/* Controles de edición */
+[data-ui-theme="dark"] .edit-view-switch > button[aria-pressed="true"],
+[data-ui-theme="dark"] .app-theme-classic .edit-view-switch > button[aria-pressed="true"] {
+  background: var(--ui-color-surface-raised);
+  color: var(--ui-color-text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.32);
+}
+
+[data-ui-theme="dark"] .edit-note-input {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-inset);
+  color: var(--ui-color-text);
+}
+
+[data-ui-theme="dark"] .edit-settings-track-section {
+  border-top-color: var(--ui-color-border);
+}
+
+[data-ui-theme="dark"] .edit-mute-solo-btn-active,
+[data-ui-theme="dark"] .app-theme-classic .edit-mute-solo-btn-active {
+  background: #e0e0e0;
+  color: #1a1a1a;
+  border-color: #e0e0e0;
+}
+
+/* Dialogs */
+[data-ui-theme="dark"] .app-dialog {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 0.8rem 1.8rem rgb(0 0 0 / 0.4);
+}
+
+[data-ui-theme="dark"] .app-dialog .ui-pill-btn-active {
+  background: #e0e0e0;
+  color: #1a1a1a;
+}
+
+[data-ui-theme="dark"] .app-dialog-confirm {
+  color: #ff8080;
+}
+
+/* Pantalla de bloqueo en portrait */
+[data-ui-theme="dark"] .app-shell-portrait-blocker {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+  box-shadow: none;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     width: min(100%, 100%);

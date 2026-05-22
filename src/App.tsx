@@ -33,7 +33,7 @@ function App() {
   }, [])
 
   if (activeRoute === APP_LAB_ROUTE) {
-    return <LabApp />
+    return <LabApp language={activeLanguage} />
   }
 
   if (activeRoute === APP_CATALOG_ROUTE) {

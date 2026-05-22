@@ -1,7 +1,6 @@
 import { AppDialog } from "../../../app/components/AppDialog"
+import { resolveAppMessages, type AppLanguage } from "../../../app/appI18n"
 import {
-  getInstrumentCategoryDescription,
-  getInstrumentCategoryLabel,
   type MathematicalInstrument,
   type MathematicalInstrumentId,
 } from "../../../engine/audio/mathematicalInstruments"
@@ -12,6 +11,7 @@ type PerformInstrumentDialogProps = {
   activeCategory: MathematicalInstrument["category"]
   instrumentCategories: MathematicalInstrument["category"][]
   instruments: InstrumentDialogItem[]
+  language?: AppLanguage
   open: boolean
   selectedInstrumentId: MathematicalInstrumentId
   onCategoryChange: (category: MathematicalInstrument["category"]) => void
@@ -23,22 +23,33 @@ export function PerformInstrumentDialog({
   activeCategory,
   instrumentCategories,
   instruments,
+  language,
   open,
   selectedInstrumentId,
   onCategoryChange,
   onClose,
   onInstrumentSelect,
 }: PerformInstrumentDialogProps) {
+  const tp = resolveAppMessages(language ?? "es").lab.perform
+
+  function getCategoryLabel(category: MathematicalInstrument["category"]) {
+    return category === "advanced" ? tp.categoryAdvanced : tp.categoryBase
+  }
+
+  function getCategoryDescription(category: MathematicalInstrument["category"]) {
+    return category === "advanced" ? tp.categoryAdvancedDesc : tp.categoryBaseDesc
+  }
+
   return (
     <AppDialog
-      description="Selecciona el tipo y el instrumento."
+      description={tp.instrumentDialogDesc}
       onClose={onClose}
       open={open}
-      title="Instrumentos"
+      title={tp.instrumentDialogTitle}
     >
       <div className="perform-instrument-dialog-v">
         <div className="perform-instrument-dialog-section">
-          <span className="perform-instrument-dialog-title">Tipo</span>
+          <span className="perform-instrument-dialog-title">{tp.instrumentType}</span>
           <div className="perform-instrument-dialog-tabs">
             {instrumentCategories.map((category) => (
               <button
@@ -47,17 +58,17 @@ export function PerformInstrumentDialog({
                 onClick={() => onCategoryChange(category)}
                 type="button"
               >
-                {getInstrumentCategoryLabel(category)}
+                {getCategoryLabel(category)}
               </button>
             ))}
           </div>
           <p className="perform-instrument-dialog-note">
-            {getInstrumentCategoryDescription(activeCategory)}
+            {getCategoryDescription(activeCategory)}
           </p>
         </div>
 
         <div className="perform-instrument-dialog-section">
-          <span className="perform-instrument-dialog-title">Instrumentos</span>
+          <span className="perform-instrument-dialog-title">{tp.instrumentList}</span>
           <div className="perform-instrument-dialog-list perform-instrument-dialog-list-scroll">
             {instruments.map((instrument) => (
               <button

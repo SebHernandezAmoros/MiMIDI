@@ -58,16 +58,15 @@ function resolveScreen(
 
   switch (activeView) {
     case "piano":
-      return <PerformScreen copy={viewCopy} {...viewSettings} />
+      return <PerformScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
     case "project":
-      return <ProjectScreen copy={viewCopy} />
+      return <ProjectScreen copy={viewCopy} language={activeLanguage} />
     case "plugins":
-      return <PluginsScreen copy={viewCopy} {...viewSettings} />
+      return <PluginsScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
     case "settings":
       return (
         <SettingsScreen
           activeLanguage={activeLanguage}
-          copy={viewCopy}
           darkMode={darkMode}
           masterVolume={masterVolume}
           onDarkModeChange={onDarkModeChange}
@@ -80,12 +79,12 @@ function resolveScreen(
         />
       )
     case "pad":
-      return <SamplerScreen copy={viewCopy} {...viewSettings} />
+      return <SamplerScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
     case "sampler":
-      return <AudioSamplerScreen copy={viewCopy} {...viewSettings} />
+      return <AudioSamplerScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
     case "edit":
     default:
-      return <EditScreen copy={viewCopy} {...viewSettings} />
+      return <EditScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
   }
 }
 
@@ -115,10 +114,28 @@ export function AppMode({
   activeView = defaultAppView,
 }: AppModeProps) {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mimidi-dark-mode") === "true")
   const [isViewSettingsOpen, setIsViewSettingsOpen] = useState(false)
-  const [showKeyLabels, setShowKeyLabels] = useState(true)
-  const [masterVolume, setMasterVolumeState] = useState(0.8)
+  const [showKeyLabels, setShowKeyLabels] = useState(() => {
+    const stored = localStorage.getItem("mimidi-show-key-labels")
+    return stored === null ? true : stored === "true"
+  })
+  const [masterVolume, setMasterVolumeState] = useState(() => {
+    const stored = localStorage.getItem("mimidi-master-volume")
+    return stored !== null ? parseFloat(stored) : 0.8
+  })
+
+  useEffect(() => {
+    setMasterVolume(masterVolume)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => { localStorage.setItem("mimidi-dark-mode", String(darkMode)) }, [darkMode])
+  useEffect(() => { localStorage.setItem("mimidi-show-key-labels", String(showKeyLabels)) }, [showKeyLabels])
+  useEffect(() => { localStorage.setItem("mimidi-master-volume", String(masterVolume)) }, [masterVolume])
+
+  function handleDarkModeChange(v: boolean) { setDarkMode(v) }
+  function handleShowKeyLabelsChange(v: boolean) { setShowKeyLabels(v) }
 
   function handleMasterVolumeChange(v: number) {
     setMasterVolumeState(v)
@@ -190,20 +207,20 @@ export function AppMode({
             </nav>
 
             <button
-              aria-label={isFullscreenActive ? "Salir de pantalla completa" : "Pantalla completa"}
+              aria-label={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
               className="app-mode-fullscreen-toggle"
               onClick={toggleFullscreen}
-              title={isFullscreenActive ? "Salir de pantalla completa" : "Pantalla completa"}
+              title={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
               type="button"
             >
               {isFullscreenActive ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
 
             <button
-              aria-label="Opciones de la vista"
+              aria-label={messages.appMode.viewOptions}
               className="app-mode-fullscreen-toggle"
               onClick={() => setIsViewSettingsOpen(true)}
-              title="Opciones de la vista"
+              title={messages.appMode.viewOptions}
               type="button"
             >
               <MoreVertical size={18} />
@@ -212,7 +229,7 @@ export function AppMode({
         </header>
 
         <div className="app-mode-window-content">
-          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, setDarkMode, viewSettings, showKeyLabels, setShowKeyLabels, masterVolume, handleMasterVolumeChange)}
+          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, handleDarkModeChange, viewSettings, showKeyLabels, handleShowKeyLabelsChange, masterVolume, handleMasterVolumeChange)}
         </div>
       </section>
     </AppShell>

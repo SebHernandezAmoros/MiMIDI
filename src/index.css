@@ -4,6 +4,10 @@
   background: #bcbcbc;
 }
 
+:root:has([data-ui-theme="dark"]) {
+  background: #1a1a1a;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -14,6 +18,11 @@ body {
   min-height: 100vh;
   background: #bcbcbc;
   color: #303030;
+}
+
+body:has([data-ui-theme="dark"]) {
+  background: #1a1a1a;
+  color: #f0f0f0;
 }
 
 button {

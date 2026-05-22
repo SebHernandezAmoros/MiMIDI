@@ -7703,3 +7703,301 @@ Ningún hook del core necesita saber de la existencia del plugin.
 
 - `tsc --noEmit` — sin errores
 - `vite build` — 1813 módulos, 257 ms, sin warnings
+
+---
+
+## Sesión 2026-05-22 — Corrección completa del modo oscuro en appModeCatalog.css
+
+### Intención
+
+El modo oscuro del modo app era incompleto: los tokens `--ui-color-*` de `ui-library.css`
+sí respondían a `[data-ui-theme="dark"]`, pero los elementos contenedores principales
+(`app-mode-window`, `app-mode-window-header`, `app-dialog`, `app-mock-toolbar`) tenían
+fondos hardcodeados en blanco/gris claro que nunca cambiaban. El resultado era una ventana
+principal con fondo blanco y controles de edición ilegibles sobre fondo oscuro.
+
+### Causa raíz
+
+`data-ui-theme="dark"` se aplica directamente sobre el elemento `section.app-mode-window`
+(ver `AppMode.tsx` línea 171). Los backgrounds hardcodeados en ese elemento y sus
+hijos no responden a ningún token — son valores literales como `rgb(248 248 248 / 0.94)`.
+
+Además, los tokens `--app-color-*` (texto, superficie, borde) son inyectados por JS
+(`getClassicAppThemeStyle()` en `AppShell.tsx`) con valores siempre claros. Al heredar
+estos valores, todos los descendientes del nodo oscuro seguían viendo los colores del
+tema claro.
+
+### Solución técnica
+
+Se agregó un bloque de overrides en `appModeCatalog.css` antes de los `@media`:
+
+**1. Redefinición de tokens `--app-color-*` en el contexto oscuro:**
+```css
+[data-ui-theme="dark"] {
+  --app-color-text-strong:       var(--ui-color-text);
+  --app-color-text-muted:        var(--ui-color-text-muted);
+  --app-color-border-soft:       var(--ui-color-border);
+  --app-color-surface-paper:     var(--ui-color-surface-raised);
+  --app-color-surface-paper-alt: var(--ui-color-surface-inset);
+  --app-color-accent:            var(--ui-color-accent);
+}
+```
+CSS custom properties pueden sobrescribir valores heredados en el elemento descendiente,
+aunque el padre inyecte los valores via inline style.
+
+**2. Override de la ventana principal (compound selector, sin espacio):**
+```css
+[data-ui-theme="dark"].app-mode-window { … }
+```
+El compound selector es necesario porque el atributo está en el mismo elemento que la clase.
+
+**3. Overrides de elementos hijo (con espacio):**
+- `app-mode-window-header` — borde + fondo
+- `app-mock-toolbar` — borde + fondo semitransparente
+- `app-surface-status` — borde + fondo + color
+- `edit-view-switch > button[aria-pressed="true"]` — fondo blanco → superficie oscura
+- `edit-note-input` — fondo blanco + borde oscuro
+- `edit-settings-track-section` — borde superior
+- `edit-mute-solo-btn-active` — inversión de contraste
+- `app-dialog` — borde + fondo + sombra
+- `app-dialog .ui-pill-btn-active` — inversión de contraste
+- `app-dialog-confirm` — rojo oscuro → rojo claro legible (`#ff8080`)
+- `app-shell-portrait-blocker` — fondo
+
+### Archivos modificados
+
+- `src/app/styles/appModeCatalog.css` — bloque `MODO OSCURO` antes del primer `@media`
+
+### Validación
+
+- Verificación visual pendiente en navegador
+
+---
+
+## Sesión 2026-05-22 — Implementación completa de multilenguaje español / inglés (i18n)
+
+### Intención
+
+Todas las cadenas de texto visibles al usuario en las 7 vistas del modo app
+(`piano`, `edit`, `project`, `plugins`, `settings`, `sampler`, `pad`) debían
+responder al idioma seleccionado (`es` / `en`). En sesiones anteriores el
+catálogo de mensajes existía pero su cobertura era parcial: la mayoría de
+componentes mostraba texto fijo en español incluso con `lang=en` activo.
+
+El objetivo de esta sesión fue cerrar todos los huecos conocidos y dejar el
+sistema de i18n funcionalmente completo para las vistas de usuario.
+
+---
+
+### Arquitectura del sistema de i18n
+
+| Elemento | Rol |
+|---|---|
+| `src/i18n/es.ts` | Objeto `esMessages` — catálogo completo en español |
+| `src/i18n/en.ts` | Objeto `enMessages` — catálogo completo en inglés |
+| `src/app/appI18n.ts` | `resolveAppMessages(language)` — devuelve el objeto correcto |
+| `AppLanguage` | Tipo `"es" \| "en"` |
+| `tpl(template, vars)` | Helper de interpolación: `tpl("Delete {name}", { name })` |
+| prop `language?: AppLanguage` | Se propaga desde `AppMode` hacia abajo por cada screen y workspace hasta `LabApp` |
+
+El flujo de propagación completo es:
+
+```
+AppMode
+  → resolveScreen()
+    → <XxxScreen language={activeLanguage} />
+      → <XxxWorkspace language={language} />
+        → <LabApp language={language} />
+          → t = resolveAppMessages(language ?? "es").lab
+```
+
+---
+
+### Cambios en el catálogo de mensajes
+
+**`src/i18n/en.ts`** y **`src/i18n/es.ts`** — ampliados en ~294 líneas cada uno.
+
+Claves nuevas añadidas (inglés → español entre paréntesis):
+
+| Sección | Clave | en | es |
+|---|---|---|---|
+| `appMode` | `enterFullscreen` | "Enter fullscreen" | "Pantalla completa" |
+| `appMode` | `exitFullscreen` | "Exit fullscreen" | "Salir de pantalla completa" |
+| `appMode` | `viewOptions` | "View options" | "Opciones de la vista" |
+| `lab.common` | `volume` | "Volume" | "Volumen" |
+| `lab.common` | `options` | "Options" | "Opciones" |
+| `lab.common` | `resetDefaults` | "Reset to defaults" | "Restaurar valores" |
+| `lab.toolbar` | `timelineWorkspace` | "Timeline workspace" | "Workspace de timeline" |
+| `lab.toolbar` | `deleteSelectedNote` | "Delete selected note" | "Eliminar nota seleccionada" |
+| `lab.toolbar` | `deleteNote` | "Delete note" | "Eliminar nota" |
+| `lab.toolbar` | `compactNoteStart` | "Compact start" | "Compactar inicio" |
+| `lab.toolbar` | `addPadTrack` | "+ Pad" | "+ Pad" |
+| `lab.perform` | `instrumentDialogTitle` | "Instruments" | "Instrumentos" |
+| `lab.perform` | `instrumentDialogDesc` | "Select the type and instrument." | "Selecciona el tipo y el instrumento." |
+| `lab.perform` | `instrumentType` | "Type" | "Tipo" |
+| `lab.perform` | `instrumentList` | "Instruments" | "Instrumentos" |
+| `lab.perform` | `modeNote` | "NOTE" | "NOTA" |
+| `lab.perform` | `modeChord` | "CHO" | "ACO" |
+| `lab.perform` | `transportControls` | "Recording controls" | "Controles de grabación" |
+| `lab.perform` | `stopRecording` | "Stop recording" | "Detener grabación" |
+| `lab.perform` | `startRecording` | "Start recording" | "Iniciar grabación" |
+| `lab.perform` | `stopPlayback` | "Stop playback" | "Detener reproducción" |
+| `lab.perform` | `playRecording` | "Play recording" | "Reproducir grabación" |
+| `lab.perform` | `arpLabel` | "Arpeggiator" | "Arpegiador" |
+| `lab.perform` | `pianoMode` | "Piano mode" | "Modo del piano" |
+| `lab.perform` | `previousTrack` | "Previous track" | "Pista anterior" |
+| `lab.perform` | `nextTrack` | "Next track" | "Pista siguiente" |
+| `lab.perform` | `removeActiveTrack` | "Delete active track" | "Eliminar pista activa" |
+| `lab.perform` | `octaveControl` | "Active visible octave" | "Octava visible activa" |
+| `lab.perform` | `octaveDown` | "Octave down" | "Bajar octava" |
+| `lab.perform` | `octaveUp` | "Octave up" | "Subir octava" |
+| `lab.perform` | `addTrack` | "+ Track" | "+ Pista" |
+| `lab.perform` | `categoryBase` | "Base" | "Base" |
+| `lab.perform` | `categoryAdvanced` | "Advanced" | "Avanzado" |
+| `lab.perform` | `categoryBaseDesc` | "Includes core mathematical instruments…" | "Incluye instrumentos matemáticos base…" |
+| `lab.perform` | `categoryAdvancedDesc` | "Includes modulation or more expressive…" | "Incluye modulación o comportamiento…" |
+| `lab.pad` | `descriptions.*` | 16 IDs de pad | kick→"Golpe grave", snare→"Crack medio", etc. |
+| `lab.project` | `disablePlugin` | "Disable {name}" | "Desactivar {name}" |
+| `lab.project` | `pluginList` | "Plugin list" | "Lista de plugins" |
+| `lab.project` | `pluginsSection` | "Plugins" | "Plugins" |
+| `lab.sampler` | `screenLabel` | "Audio sampler" | "Sampler de audio" |
+| `lab.sampler` | `stepLabel` | "Step" | "Paso" |
+| `views.settings` | `optionsTitle` | "Options — Settings" | "Opciones — Ajustes" |
+| `views.settings` | `optionsDesc` | "Additional configuration options." | "Opciones adicionales de configuración." |
+
+**Traducciones de descripciones de pads** (`lab.pad.descriptions`):
+
+```
+kick → "Bass hit" / "Golpe grave"
+snare → "Mid crack" / "Crack medio"
+hat → "Bright spark" / "Chispa brillante"
+open-hat → "Open hat" / "Hat abierto"
+clap → "Three bursts" / "Tres ráfagas"
+rimshot → "Rim strike" / "Golpe de aro"
+tom → "Mid tonal hit" / "Golpe tonal medio"
+crash → "Long cymbal" / "Platillo largo"
+floor-tom → "Low tom" / "Tom grave"
+hi-tom → "High tom" / "Tom agudo"
+ride → "Cymbal bell" / "Campana de platillo"
+sub → "Deep sub bass" / "Sub bajo profundo"
+conga → "Tonal membrane" / "Membrana tonal"
+cowbell → "Metal resonant" / "Metal resonante"
+shaker → "Granular shake" / "Sacudida granular"
+woodblock → "Wood click" / "Click de madera"
+```
+
+Las descripciones estaban hardcodeadas en el array `smcPadSounds` de
+`playSmcPadHit.ts`. La solución no modifica ese archivo: `LabApp.tsx` usa
+`t.pad.descriptions[pad.id] ?? pad.description` para preferir la traducción
+del catálogo y caer al valor original si no existe.
+
+---
+
+### Componentes reescritos
+
+#### `src/features/perform/components/PerformInstrumentDialog.tsx`
+
+Aceptaba `language?: AppLanguage`. La lógica de categorías usaba funciones
+del engine (`getInstrumentCategoryLabel`, `getInstrumentCategoryDescription`)
+con strings en español. Se eliminó esa dependencia y se reemplazó por
+funciones locales que leen `tp.categoryBase` / `tp.categoryAdvanced` /
+`tp.categoryBaseDesc` / `tp.categoryAdvancedDesc`.
+
+#### `src/features/perform/components/PerformResponsiveToolbar.tsx`
+
+Acepta `language?: AppLanguage`. Todas las cadenas de transport, ARP toggle,
+pills NOTE/CHO, octave control, track nav y add-track usan `tp.*` del catálogo.
+Pasa `language` a `<PerformInstrumentDialog>`.
+
+---
+
+### Componentes actualizados con prop `language`
+
+| Archivo | Cambio |
+|---|---|
+| `src/app/AppMode.tsx` | Pasa `language={activeLanguage}` a `<PluginsScreen>`; botones fullscreen y ⋮ usan `messages.appMode.*` |
+| `src/features/plugins-view/PluginsScreen.tsx` | Acepta `language?: AppLanguage`; dialog title usa `\`${tc.options} — ${copy.label}\`` |
+| `src/features/plugins-view/PluginsWorkspace.tsx` | Acepta y pasa `language` a `<LabApp>` |
+| `src/features/settings-view/SettingsScreen.tsx` | `AppDialog` usa `m.optionsTitle` y `m.optionsDesc` |
+| `src/features/audio-sampler/AudioSamplerScreen.tsx` | `aria-label={t.screenLabel}`, steps con `` `${t.stepLabel} ${stepIdx + 1}` `` |
+
+---
+
+### Cambios en `src/features/lab/LabApp.tsx`
+
+- `<PerformResponsiveToolbar language={language} />` — prop añadida
+- `aria-label={t.toolbar.timelineWorkspace}` — era string literal
+- `aria-label={t.toolbar.deleteSelectedNote}` y `title={t.toolbar.deleteNote}`
+- `{t.toolbar.compactNoteStart}` — era "Compactar inicio"
+- `{t.common.volume}` — en dialog de edición y en dialog de config de pad
+- `aria-label={t.project.pluginsSection}` y `aria-label={t.project.pluginList}`
+- Plugin toggle: `tpl(plugin.enabled ? t.project.disablePlugin : t.project.enablePlugin, { name: plugin.name })`
+- Descripciones de pad: `t.pad.descriptions[pad.id] ?? pad.description`
+- `aria-label={t.pad.flicker}` — era "Flicker LFO"
+- `{t.toolbar.addPadTrack}` — botón "+ Pad" (era `t.toolbar.addTrack`)
+
+---
+
+### Correcciones de bugs incluidas
+
+**Bug: ⋮ no abría nada en la vista pad**
+
+El botón de opciones de vista (`⋮`) en `AppMode` activaba
+`isViewSettingsOpen = true`, que se propagaba como `settingsOpen` a cada
+screen. En el modo sampler-only del `LabApp` no había ningún `AppDialog`
+conectado a ese prop. Se añadió un dialog completo con mezcla por pista
+(volumen y pan) para la vista pad.
+
+---
+
+### Mejoras UX incluidas
+
+- **Reset en opciones de pad**: botón "Restaurar valores" en el dialog de opciones
+  generales del pad que restaura volumen y pan a sus defaults.
+- **Reset en config de pad individual**: botón "Restaurar valores" en el dialog
+  de configuración de cada pad que aplica `PAD_SOUND_DEFAULTS[configSoundId]`.
+- **Etiqueta del botón de añadir pista**: cambiado de "+ Track" a "+ Pad" en la
+  barra de herramientas de la vista pad (usa `t.toolbar.addPadTrack`).
+
+---
+
+### Alcance del sistema de i18n tras esta sesión
+
+**Completamente traducidas:** las 7 vistas del modo app (`piano`, `edit`,
+`project`, `plugins`, `settings`, `sampler`, `pad`) y todos sus modals,
+dialogs, aria-labels y textos visibles al usuario.
+
+**Excluido intencionalmente:** la ruta `/lab` (pantalla de laboratorio de
+desarrollo, inaccesible desde la navegación principal). Sus componentes
+(`LabNoteEditor`, `LabSoundControls`, `LabProjectPanel`, `LabActions`)
+mantienen strings en español porque son herramientas de dev, no producto.
+
+---
+
+### Archivos modificados
+
+```
+src/i18n/en.ts                                        (+~130 líneas)
+src/i18n/es.ts                                        (+~130 líneas)
+src/app/AppMode.tsx
+src/features/perform/components/PerformInstrumentDialog.tsx  (reescritura)
+src/features/perform/components/PerformResponsiveToolbar.tsx (reescritura)
+src/features/lab/LabApp.tsx                           (múltiples puntos)
+src/features/plugins-view/PluginsScreen.tsx
+src/features/plugins-view/PluginsWorkspace.tsx
+src/features/settings-view/SettingsScreen.tsx
+src/features/audio-sampler/AudioSamplerScreen.tsx
+src/features/edit/EditScreen.tsx                      (sesión anterior)
+src/features/edit/EditWorkspace.tsx                   (sesión anterior)
+src/features/perform/PerformScreen.tsx                (sesión anterior)
+src/features/perform/PerformWorkspace.tsx             (sesión anterior)
+src/features/project-view/ProjectScreen.tsx           (sesión anterior)
+src/features/project-view/ProjectWorkspace.tsx        (sesión anterior)
+src/features/sampler/SamplerScreen.tsx                (sesión anterior)
+```
+
+### Validación
+
+- `tsc --noEmit` — sin errores tras cada lote de cambios
+- Verificación visual en navegador con `lang=en` y `lang=es` pendiente de
+  confirmación final por el usuario

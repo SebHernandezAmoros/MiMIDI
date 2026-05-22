@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
+import { resolveAppMessages, type AppLanguage } from "../../../app/appI18n"
 import type {
   MathematicalInstrument,
   MathematicalInstrumentId,
@@ -14,6 +15,7 @@ type PerformResponsiveToolbarProps = {
   isInstrumentDialogOpen: boolean
   isPlaying: boolean
   isRecording: boolean
+  language?: AppLanguage
   onAddTrack: () => void
   onArpToggle: () => void
   onCloseInstrumentDialog: () => void
@@ -47,6 +49,7 @@ export function PerformResponsiveToolbar({
   isInstrumentDialogOpen,
   isPlaying,
   isRecording,
+  language,
   onAddTrack,
   onArpToggle,
   onCloseInstrumentDialog,
@@ -71,12 +74,14 @@ export function PerformResponsiveToolbar({
   trackPreviousDisabled,
   visibleInstruments,
 }: PerformResponsiveToolbarProps) {
+  const tp = resolveAppMessages(language ?? "es").lab.perform
+
   return (
     <>
       {/* Record + Play */}
-      <div className="perform-mode-transport" aria-label="Controles de grabacion">
+      <div className="perform-mode-transport" aria-label={tp.transportControls}>
         <button
-          aria-label={isRecording ? "Detener grabacion" : "Iniciar grabacion"}
+          aria-label={isRecording ? tp.stopRecording : tp.startRecording}
           className={`perform-mode-transport-button ${
             isRecording ? "perform-mode-transport-button-active" : "perform-mode-transport-record"
           }`}
@@ -97,7 +102,7 @@ export function PerformResponsiveToolbar({
         </button>
 
         <button
-          aria-label={isPlaying ? "Detener reproduccion" : "Reproducir grabacion"}
+          aria-label={isPlaying ? tp.stopPlayback : tp.playRecording}
           className={`perform-mode-transport-button ${
             isPlaying ? "perform-mode-transport-button-active" : "perform-mode-transport-play"
           }`}
@@ -122,7 +127,7 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* ARP toggle */}
-      <label className="perform-mode-arp-toggle" aria-label="Arpegiador">
+      <label className="perform-mode-arp-toggle" aria-label={tp.arpLabel}>
         <input
           checked={isArpEnabled}
           className="ui-checkbox"
@@ -134,21 +139,21 @@ export function PerformResponsiveToolbar({
 
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-      {/* NOTA / ACO mode */}
-      <div className="edit-view-switch" role="group" aria-label="Modo del piano">
+      {/* NOTE / CHORD mode */}
+      <div className="edit-view-switch" role="group" aria-label={tp.pianoMode}>
         <button
           aria-pressed={pianoMode === "note"}
           onClick={() => onPianoModeChange("note")}
           type="button"
         >
-          NOTA
+          {tp.modeNote}
         </button>
         <button
           aria-pressed={pianoMode === "chord"}
           onClick={() => onPianoModeChange("chord")}
           type="button"
         >
-          ACO
+          {tp.modeChord}
         </button>
       </div>
 
@@ -157,7 +162,7 @@ export function PerformResponsiveToolbar({
       {/* Track navigation */}
       <div className="ui-pad-pager">
         <button
-          aria-label="Pista anterior"
+          aria-label={tp.previousTrack}
           className="ui-icon-btn"
           disabled={trackPreviousDisabled}
           onClick={onSelectPreviousTrack}
@@ -169,7 +174,7 @@ export function PerformResponsiveToolbar({
           {primaryTrackName.toUpperCase()}
         </span>
         <button
-          aria-label="Pista siguiente"
+          aria-label={tp.nextTrack}
           className="ui-icon-btn"
           disabled={trackNextDisabled}
           onClick={onSelectNextTrack}
@@ -194,12 +199,12 @@ export function PerformResponsiveToolbar({
 
       {/* Add track */}
       <button className="ui-pill-btn" onClick={onAddTrack} type="button">
-        + Track
+        {tp.addTrack}
       </button>
 
       {/* Remove track */}
       <button
-        aria-label="Eliminar pista activa"
+        aria-label={tp.removeActiveTrack}
         className="ui-icon-btn"
         disabled={removeTrackDisabled}
         onClick={onConfirmRemoveTrack}
@@ -211,9 +216,9 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* Octave counter */}
-      <div className="ui-counter" aria-label="Octava visible activa">
+      <div className="ui-counter" aria-label={tp.octaveControl}>
         <button
-          aria-label="Bajar octava"
+          aria-label={tp.octaveDown}
           className="ui-counter-btn"
           onClick={onOctaveDown}
           type="button"
@@ -222,7 +227,7 @@ export function PerformResponsiveToolbar({
         </button>
         <span className="ui-counter-value">{octave}</span>
         <button
-          aria-label="Subir octava"
+          aria-label={tp.octaveUp}
           className="ui-counter-btn"
           onClick={onOctaveUp}
           type="button"
@@ -235,6 +240,7 @@ export function PerformResponsiveToolbar({
         activeCategory={activeInstrumentCategory}
         instrumentCategories={instrumentCategories}
         instruments={visibleInstruments}
+        language={language}
         onCategoryChange={onInstrumentCategoryChange}
         onClose={onCloseInstrumentDialog}
         onInstrumentSelect={onInstrumentSelect}

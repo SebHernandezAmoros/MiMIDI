@@ -220,12 +220,12 @@ p {
 
 .project-label {
   font-size: 0.8rem;
-  color: #a8a8a8;
+  color: var(--ui-color-text-muted);
 }
 
 .project-message {
   margin: 0;
-  color: #cfcfcf;
+  color: var(--ui-color-text-muted);
 }
 
 .project-editors {

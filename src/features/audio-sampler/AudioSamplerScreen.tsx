@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import "./AudioSamplerScreen.css"
 import { Download, Eraser, Gauge, ListPlus, Mic, Play, RotateCcw, Square, Trash2, Upload } from "lucide-react"
 import { AppDialog } from "../../app/components/AppDialog"
-import type { AppViewMessages } from "../../app/appI18n"
+import { resolveAppMessages, tpl, type AppViewMessages, type AppLanguage } from "../../app/appI18n"
 import { type AudioCalibration, getAudioCurrentTime } from "../../engine/audio/audioEngine"
 import { NUM_SLOTS, DEFAULT_CALIBRATION, type SampleSlotMeta, loadSlotMetas, saveSlotMetas } from "../../engine/audio/sampleModel"
 import { SEQ_DEFAULT_BPM, type SequencerPattern, syncPatternLanes, resizePatternSteps, saveSeqPattern, loadSeqPattern } from "../../engine/audio/sequencerModel"
@@ -42,14 +42,11 @@ function drawWaveformWithTrim(
   const data = audioBuffer.getChannelData(0)
   const step = Math.max(1, Math.floor(data.length / W))
 
+  // Lee el color del canvas para respetar el tema oscuro/claro correctamente
   const accent =
-    getComputedStyle(document.documentElement).getPropertyValue("--ui-color-accent").trim() || "#c95d54"
+    getComputedStyle(canvas).getPropertyValue("--ui-color-accent").trim() || "#c82828"
 
   ctx.clearRect(0, 0, W, H)
-
-  // Background
-  ctx.fillStyle = accent + "22"
-  ctx.fillRect(0, 0, W, H)
 
   // Waveform bars
   for (let x = 0; x < W; x++) {
@@ -63,16 +60,16 @@ function drawWaveformWithTrim(
     const mid = H / 2
     const frac = x / W
     const inTrim = frac >= trimStart && frac <= trimEnd
-    ctx.fillStyle = inTrim ? accent + "99" : accent + "33"
+    ctx.fillStyle = inTrim ? accent + "cc" : accent + "55"
     ctx.fillRect(x, mid - max * mid, 1, Math.max(1, (max - min) * mid))
   }
 
   // Center line
-  ctx.fillStyle = accent + "44"
+  ctx.fillStyle = accent + "55"
   ctx.fillRect(0, H / 2, W, 1)
 
   // Dimmed overlay outside trim region
-  ctx.fillStyle = "rgba(0,0,0,0.35)"
+  ctx.fillStyle = "rgba(0,0,0,0.45)"
   const startX = trimStart * W
   const endX = trimEnd * W
   if (startX > 0) ctx.fillRect(0, 0, startX, H)
@@ -98,14 +95,17 @@ function drawWaveformWithTrim(
 
 type AudioSamplerScreenProps = {
   copy: AppViewMessages
+  language?: AppLanguage
   settingsOpen: boolean
   onSettingsClose: () => void
 }
 
 type DragTrim = { handle: "start" | "end" }
 
-export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: AudioSamplerScreenProps) {
+export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClose }: AudioSamplerScreenProps) {
   void copy
+  const t = resolveAppMessages(language ?? "es").lab.sampler
+  const tc = resolveAppMessages(language ?? "es").lab.common
 
   type SamplerView = "editor" | "muestras" | "secuenciador"
   const [samplerView, setSamplerView] = useState<SamplerView>("editor")
@@ -558,17 +558,17 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
   return (
     <>
-      <section className="app-mock-screen audio-sampler-screen" aria-label="Sampler de audio">
+      <section className="app-mock-screen audio-sampler-screen" aria-label={t.screenLabel}>
 
         {/* ── Toolbar ─────────────────────────────────────────────── */}
         <header className="app-mock-toolbar">
           <div className="app-mock-toolbar-controls">
 
             {/* Switch de vista */}
-            <div className="edit-view-switch" role="group" aria-label="Vista del sampler">
-              <button aria-pressed={samplerView === "muestras"} onClick={() => setSamplerView("muestras")} type="button">MUESTRAS</button>
-              <button aria-pressed={samplerView === "editor"} onClick={() => setSamplerView("editor")} type="button">EDITOR</button>
-              <button aria-pressed={samplerView === "secuenciador"} onClick={() => setSamplerView("secuenciador")} type="button">SECUENCIADOR</button>
+            <div className="edit-view-switch" role="group" aria-label={t.viewLabel}>
+              <button aria-pressed={samplerView === "muestras"} onClick={() => setSamplerView("muestras")} type="button">{t.tabSamples}</button>
+              <button aria-pressed={samplerView === "editor"} onClick={() => setSamplerView("editor")} type="button">{t.tabEditor}</button>
+              <button aria-pressed={samplerView === "secuenciador"} onClick={() => setSamplerView("secuenciador")} type="button">{t.tabSequencer}</button>
             </div>
 
             {/* TRIM — solo visible en Editor con audio */}
@@ -579,10 +579,10 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                     aria-pressed={activeTrimHandle === "start"}
                     className={`audio-sampler-trim-btn${activeTrimHandle === "start" ? " active" : ""}`}
                     onClick={() => setActiveTrimHandle(activeTrimHandle === "start" ? null : "start")}
-                    title="Toca el canvas para fijar el inicio del recorte"
+                    title={t.cropStartHint}
                     type="button"
                   >
-                    Inicio
+                    {t.cropStart}
                   </button>
                 )}
                 {activeTrimHandle !== null && (
@@ -597,10 +597,10 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                     aria-pressed={activeTrimHandle === "end"}
                     className={`audio-sampler-trim-btn${activeTrimHandle === "end" ? " active" : ""}`}
                     onClick={() => setActiveTrimHandle(activeTrimHandle === "end" ? null : "end")}
-                    title="Toca el canvas para fijar el fin del recorte"
+                    title={t.cropEndHint}
                     type="button"
                   >
-                    Fin
+                    {t.cropEnd}
                   </button>
                 )}
               </span>
@@ -610,11 +610,11 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
             {samplerView !== "secuenciador" && (
               <button
-                aria-label={isPlaying ? "Detener" : "Reproducir"}
+                aria-label={isPlaying ? tc.stop : tc.play}
                 className="ui-icon-btn"
                 disabled={!decodedBuffer || isLoading}
                 onClick={handlePlay}
-                title={isPlaying ? "Detener" : "Reproducir"}
+                title={isPlaying ? tc.stop : tc.play}
                 type="button"
               >
                 {isPlaying ? <Square size={18} /> : <Play size={18} />}
@@ -623,11 +623,11 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
             {samplerView === "secuenciador" && (
               <>
                 <button
-                  aria-label={seqIsPlaying ? "Detener secuencia" : "Reproducir secuencia"}
+                  aria-label={seqIsPlaying ? t.stopSeq : t.playSeq}
                   className="ui-icon-btn"
                   disabled={seqPattern.lanes.length === 0}
                   onClick={seqIsPlaying ? stopSeq : startSeq}
-                  title={seqIsPlaying ? "Detener secuencia" : "Reproducir secuencia"}
+                  title={seqIsPlaying ? t.stopSeq : t.playSeq}
                   type="button"
                 >
                   {seqIsPlaying ? <Square size={18} /> : <Play size={18} />}
@@ -636,7 +636,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   className="ui-icon-btn"
                   disabled={seqPattern.lanes.length === 0}
                   onClick={clearSeqPattern}
-                  title="Limpiar todos los pasos"
+                  title={t.clearSteps}
                   type="button"
                 >
                   <Eraser size={18} />
@@ -647,7 +647,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   className="ui-icon-btn"
                   disabled={seqPattern.lanes.length === 0 || seqIsPlaying}
                   onClick={() => { setSeqExportName(`mimidi-mix-${seqPattern.bpm}bpm`); setSeqExportOpen(true) }}
-                  title="Descargar mix del secuenciador"
+                  title={t.downloadMix}
                   type="button"
                 >
                   <Download size={18} />
@@ -656,7 +656,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   className="ui-icon-btn"
                   disabled={seqPattern.lanes.length === 0 || seqIsPlaying}
                   onClick={() => { setSeqSendName(""); setSeqSendOpen(true) }}
-                  title="Enviar mix al timeline"
+                  title={t.sendToTimeline}
                   type="button"
                 >
                   <ListPlus size={18} />
@@ -675,7 +675,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
                 {/* Número de pasos */}
                 <div className="audio-sampler-seq-ctrl-group">
-                  <span className="audio-sampler-seq-ctrl-label">PASOS</span>
+                  <span className="audio-sampler-seq-ctrl-label">{t.stepsLabel}</span>
                   <button
                     className={`audio-sampler-seq-small-btn${seqPattern.stepsPerBar === 16 ? " audio-sampler-seq-small-btn-on" : ""}`}
                     onClick={() => updateSeqSteps(16)}
@@ -710,7 +710,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 className="ui-icon-btn"
                 disabled={isLoading}
                 onClick={() => fileInputRef.current?.click()}
-                title="Importar archivo de audio"
+                title={t.importAudio}
                 type="button"
               >
                 <Upload size={18} />
@@ -721,7 +721,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 className="ui-icon-btn"
                 disabled={!decodedBuffer || isLoading}
                 onClick={() => void handleExport()}
-                title="Descargar sample con calibración aplicada"
+                title={t.downloadSample}
                 type="button"
               >
                 <Download size={18} />
@@ -732,7 +732,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 className="ui-icon-btn"
                 disabled={isLoading}
                 onClick={() => resetCalibration(selectedIndex)}
-                title="Restablecer calibración del slot"
+                title={t.resetSlot}
                 type="button"
               >
                 <RotateCcw size={18} />
@@ -756,7 +756,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                     ;(e.target as HTMLInputElement).blur()
                   }
                 }}
-                placeholder="Nombre del slot"
+                placeholder={t.slotName}
                 type="text"
               />
             )}
@@ -769,7 +769,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   disabled={filledCount <= 1}
                   onClick={() => handleSlotNav(-1)}
                   type="button"
-                  aria-label="Slot anterior"
+                  aria-label={t.prevSlot}
                 >◄</button>
                 <span className="audio-sampler-slot-nav-label">
                   <span className="audio-sampler-slot-nav-num">{selectedIndex}</span>
@@ -780,7 +780,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   disabled={filledCount <= 1}
                   onClick={() => handleSlotNav(1)}
                   type="button"
-                  aria-label="Slot siguiente"
+                  aria-label={t.nextSlot}
                 >►</button>
               </div>
             )}
@@ -792,7 +792,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   className="ui-icon-btn"
                   disabled={isLoading}
                   onClick={() => setDeleteConfirmOpen(true)}
-                  title="Eliminar sample"
+                  title={t.deleteSlot}
                   type="button"
                 >
                   <Trash2 size={18} />
@@ -807,7 +807,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
           {/* ── Panel 1: Editor ─────────────────────────────────────── */}
           {samplerView === "editor" && (
             <div className="audio-sampler-panel audio-sampler-panel-editor">
-              <span className="audio-sampler-panel-label">EDITOR</span>
+              <span className="audio-sampler-panel-label">{t.tabEditor}</span>
 
               <div className="audio-sampler-editor-body">
 
@@ -830,10 +830,10 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                   ) : (
                     <div className="audio-sampler-waveform-empty">
                       <Mic size={28} />
-                      <span>{isLoading ? "Cargando…" : "Sin audio"}</span>
+                      <span>{isLoading ? t.loading : t.noAudio}</span>
                       {!isLoading && (
                         <span className="audio-sampler-waveform-hint">
-                          Selecciona un slot e importa un archivo de audio
+                          {t.noAudioHint}
                         </span>
                       )}
                     </div>
@@ -861,7 +861,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                           <button
                             className="audio-sampler-cal-btn audio-sampler-cal-btn-norm"
                             onClick={handleNormalize}
-                            title="Normalizar — ajusta la ganancia al pico máximo"
+                            title={t.normalize}
                             type="button"
                           ><Gauge size={18} /></button>
                         </div>
@@ -927,7 +927,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                     </>
                   ) : (
                     <div className="audio-sampler-cal-empty">
-                      <span>Sin muestra</span>
+                      <span>{t.noSample}</span>
                     </div>
                   )}
                 </div>
@@ -938,7 +938,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
 
           {/* ── Panel 2: Muestras ──────────────────────────────────── */}
           {samplerView === "muestras" && <div className="audio-sampler-panel audio-sampler-panel-slots">
-            <span className="audio-sampler-panel-label">MUESTRAS</span>
+            <span className="audio-sampler-panel-label">{t.tabSamples}</span>
             <div className="audio-sampler-slots">
               {Array.from({ length: NUM_SLOTS }, (_, i) => {
                 const index = i + 1
@@ -971,13 +971,13 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
           {/* ── Panel 3: Secuenciador ──────────────────────────────── */}
           {samplerView === "secuenciador" && (
             <div className="audio-sampler-panel audio-sampler-panel-sequencer">
-              <span className="audio-sampler-panel-label">SECUENCIADOR</span>
+              <span className="audio-sampler-panel-label">{t.tabSequencer}</span>
 
               {/* Contenido: grid de pasos o timeline */}
               {seqPattern.lanes.length === 0 ? (
                 <div className="audio-sampler-step-empty">
-                  <span>Sin muestras cargadas</span>
-                  <span className="audio-sampler-waveform-hint">Importa muestras en la vista MUESTRAS</span>
+                  <span>{t.noSamplesLoaded}</span>
+                  <span className="audio-sampler-waveform-hint">{t.importSamplesHint}</span>
                 </div>
               ) : (
                 <div className="audio-sampler-step-grid">
@@ -1021,7 +1021,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                               {group.map(({ step, stepIdx }) => (
                                 <button
                                   key={stepIdx}
-                                  aria-label={`Paso ${stepIdx + 1}`}
+                                  aria-label={`${t.stepLabel} ${stepIdx + 1}`}
                                   aria-pressed={step.active}
                                   className={[
                                     "audio-sampler-step-btn",
@@ -1047,29 +1047,29 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
       </section>
 
       <AppDialog
-        description="Calibración y detalles de cada slot."
+        description={t.optionsDesc}
         onClose={onSettingsClose}
         open={settingsOpen}
-        title="Opciones — Sampler"
+        title={t.optionsTitle}
       >
         <div className="audio-sampler-settings">
           <section className="ui-list-section">
-            <span className="ui-list-section-title">RESUMEN</span>
+            <span className="ui-list-section-title">{t.summaryTitle}</span>
             <div className="audio-sampler-modal-summary">
               <span className="audio-sampler-modal-summary-slots">
-                Slots <strong>{filledCount} / {NUM_SLOTS}</strong>
+                {tpl(t.slotsLabel, { current: String(filledCount), total: String(NUM_SLOTS) })}
               </span>
               <button
                 className="audio-sampler-cal-btn"
                 disabled={filledCount === 0}
                 onClick={resetAllCalibrations}
-                title="Restablece la calibración de todos los slots al valor por defecto"
+                title={t.resetAllDesc}
                 type="button"
-              >Reset todo</button>
+              >{t.resetAll}</button>
             </div>
           </section>
           <section className="ui-list-section">
-            <span className="ui-list-section-title">SECUENCIADOR</span>
+            <span className="ui-list-section-title">{t.tabSequencer}</span>
 
             {/* BPM */}
             <div className="audio-sampler-modal-seq-card">
@@ -1097,7 +1097,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
                 <button
                   className="audio-sampler-cal-btn"
                   onClick={() => updateSeqBpm(SEQ_DEFAULT_BPM)}
-                  title="Restablecer BPM a 120"
+                  title={t.resetBpm}
                   type="button"
                 >Reset</button>
               </div>
@@ -1106,7 +1106,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
             {/* Pasos */}
             <div className="audio-sampler-modal-seq-card">
               <div className="audio-sampler-modal-seq-card-header">
-                <span className="audio-sampler-modal-seq-card-label">Pasos</span>
+                <span className="audio-sampler-modal-seq-card-label">{t.stepsLabel}</span>
                 <span className="audio-sampler-modal-seq-card-value">{seqPattern.stepsPerBar}</span>
               </div>
               <div className="audio-sampler-modal-steps-ctrl">
@@ -1129,28 +1129,28 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
         actions={
           <>
             <button onClick={() => setDeleteConfirmOpen(false)} type="button">
-              Cancelar
+              {tc.cancel}
             </button>
             <button
               className="app-dialog-confirm"
               onClick={() => { setDeleteConfirmOpen(false); void handleDelete() }}
               type="button"
             >
-              Eliminar
+              {tc.delete}
             </button>
           </>
         }
-        description={`"${selectedSlot?.name}" será eliminado permanentemente.`}
+        description={tpl(t.deleteSlotMsg, { name: selectedSlot?.name ?? "" })}
         onClose={() => setDeleteConfirmOpen(false)}
         open={deleteConfirmOpen}
-        title="¿Eliminar sample?"
+        title={t.deleteSlotTitle}
       />
 
       <AppDialog
         actions={
           <>
             <button onClick={() => setSeqExportOpen(false)} type="button">
-              Cancelar
+              {tc.cancel}
             </button>
             <button
               className="app-dialog-confirm"
@@ -1160,14 +1160,14 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
               }}
               type="button"
             >
-              Descargar
+              {tc.download}
             </button>
           </>
         }
-        description="El mix se exportará como archivo WAV con todos los pasos activos."
+        description={t.exportMixDesc}
         onClose={() => setSeqExportOpen(false)}
         open={seqExportOpen}
-        title="Exportar mix"
+        title={t.exportMixTitle}
       >
         <input
           autoFocus
@@ -1189,18 +1189,18 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
       <AppDialog
         actions={
           <>
-            <button onClick={() => setSeqSendOpen(false)} type="button">Cancelar</button>
+            <button onClick={() => setSeqSendOpen(false)} type="button">{tc.cancel}</button>
             <button
               className="app-dialog-confirm"
               onClick={() => { setSeqSendOpen(false); sendMixToTimeline(seqSendName) }}
               type="button"
-            >Añadir</button>
+            >{tc.add}</button>
           </>
         }
-        description="El patrón actual se añadirá como pista en el timeline del editor."
+        description={t.sendTimelineDesc}
         onClose={() => setSeqSendOpen(false)}
         open={seqSendOpen}
-        title="Enviar al timeline"
+        title={t.sendTimelineTitle}
       >
         <input
           autoFocus
@@ -1210,7 +1210,7 @@ export function AudioSamplerScreen({ copy, settingsOpen, onSettingsClose }: Audi
             if (e.key === "Enter") { setSeqSendOpen(false); sendMixToTimeline(seqSendName) }
             if (e.key === "Escape") setSeqSendOpen(false)
           }}
-          placeholder="Mix 1"
+          placeholder={t.defaultMixName}
           style={{ width: "100%" }}
           type="text"
           value={seqSendName}

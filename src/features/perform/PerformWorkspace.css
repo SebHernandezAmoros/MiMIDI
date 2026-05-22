@@ -634,3 +634,58 @@
     max-height: 40vh;
   }
 }
+
+/* --------------------------------------------------------
+   MODO OSCURO
+   -------------------------------------------------------- */
+
+[data-ui-theme="dark"] .perform-workspace-card {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+[data-ui-theme="dark"] .perform-workspace .control-group {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+[data-ui-theme="dark"] .perform-workspace .track-automation {
+  background: var(--ui-color-surface-inset);
+}
+
+/* Teclas naturales — oscuras en dark mode */
+[data-ui-theme="dark"] .perform-workspace .piano-key-natural {
+  background: linear-gradient(180deg, #2e2e2e, #242424);
+  border-color: rgb(88 83 78 / 0.28);
+  color: #909090;
+}
+
+/* Teclas cromáticas — claras en dark mode (inversión) */
+[data-ui-theme="dark"] .perform-workspace .piano-key-sharp {
+  background: linear-gradient(180deg, #cccccc, #b8b8b8);
+  border-color: rgb(200 200 200 / 0.52);
+  color: #1a1a1a;
+}
+
+/* Al presionar: inversión de los colores en reposo */
+[data-ui-theme="dark"] .perform-workspace .piano-key-natural.piano-key-active,
+[data-ui-theme="dark"] .perform-workspace .piano-key-natural:active {
+  background: #c0c0c0;
+  color: #1a1a1a;
+  border-color: rgb(200 200 200 / 0.34);
+}
+
+[data-ui-theme="dark"] .perform-workspace .piano-key-sharp.piano-key-active,
+[data-ui-theme="dark"] .perform-workspace .piano-key-sharp:active {
+  background: linear-gradient(180deg, #181818, #282828);
+  color: #c0c0c0;
+  border-color: rgb(88 83 78 / 0.48);
+  box-shadow: inset 0 -0.2rem 0 rgb(255 255 255 / 0.06);
+}
+
+[data-ui-theme="dark"] .perform-workspace .smc-pad-button {
+  color: var(--ui-color-text);
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-raised);
+  box-shadow: var(--ui-btn-shadow);
+}

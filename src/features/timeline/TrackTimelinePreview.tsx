@@ -11,12 +11,14 @@ import {
   type TimelineTrack,
 } from "../../engine/project/projectModel"
 import { isSmcPadRecordedNote } from "../../engine/midi/events"
+import { resolveAppMessages, type AppLanguage } from "../../app/appI18n"
 import "./TrackTimelinePreview.css"
 
 type SelectedClipInfo = { trackId: string; clipId: string; type: "midi" | "sampler" }
 
 type TrackTimelinePreviewProps = {
   activeTrackId: string
+  language?: AppLanguage
   onDragStateChange?: (isDragging: boolean) => void
   onRenameMix?: (mixId: string, name: string) => void
   onSelectClip?: (info: SelectedClipInfo | null) => void
@@ -92,6 +94,7 @@ function getRulerTicks(total: number): number[] {
 
 export function TrackTimelinePreview({
   activeTrackId,
+  language,
   onDragStateChange,
   onRenameMix,
   onSelectClip,
@@ -105,6 +108,7 @@ export function TrackTimelinePreview({
   timeline,
   timelineLength,
 }: TrackTimelinePreviewProps) {
+  const tl = resolveAppMessages(language ?? "es").lab.timeline
   const midiTracks = getMidiTracks(timeline).filter((t) =>
     t.clips.some((c) => c.notes.length > 0),
   )
@@ -213,12 +217,12 @@ export function TrackTimelinePreview({
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <section className="track-timeline-preview" aria-label="Timeline por pistas">
+    <section className="track-timeline-preview" aria-label={tl.title}>
       <div className="track-timeline-header">
         <div>
-          <h2>Timeline por pistas</h2>
+          <h2>{tl.title}</h2>
           <p className="project-message">
-            Arrastra los clips para ordenarlos. Usa el botón copiar para duplicar.
+            {tl.subtitle}
           </p>
         </div>
         <div className="timeline-ruler">
@@ -228,7 +232,7 @@ export function TrackTimelinePreview({
       </div>
 
       {midiTracks.length === 0 && samplerTracks.length === 0 ? (
-        <p className="timeline-empty">Graba notas o activa pasos en el secuenciador para ver las pistas aquí.</p>
+        <p className="timeline-empty">{tl.empty}</p>
       ) : (
         <div className="track-timeline-lanes">
           {/* Time ruler */}
@@ -285,12 +289,12 @@ export function TrackTimelinePreview({
                 <div className="track-timeline-meta">
                   <strong>{track.name}</strong>
                   <span className="project-label">
-                    {track.clips.reduce((s, c) => s + c.notes.length, 0)} notas · {filledClips.length} clip{filledClips.length !== 1 ? "s" : ""}
+                    {track.clips.reduce((s, c) => s + c.notes.length, 0)} {tl.notesSuffix} · {filledClips.length} {filledClips.length !== 1 ? tl.clipsSuffix : tl.clipSuffix}
                   </span>
                   {(track.muted || isActive) && (
                     <div className="track-timeline-badges">
-                      {track.muted ? <span className="track-timeline-badge track-timeline-badge-muted">Mute</span> : null}
-                      {isActive ? <span className="track-timeline-badge">Activa</span> : null}
+                      {track.muted ? <span className="track-timeline-badge track-timeline-badge-muted">{tl.mute}</span> : null}
+                      {isActive ? <span className="track-timeline-badge">{tl.active}</span> : null}
                     </div>
                   )}
                 </div>
@@ -387,13 +391,13 @@ export function TrackTimelinePreview({
                         setEditingMixId(mix.id)
                         setEditingMixName(mix.name)
                       }}
-                      title="Doble clic para renombrar"
+                      title={tl.renameDouble}
                     >
                       {mix.name}
                     </strong>
                   )}
                   <span className="project-label">
-                    {mix.pattern.bpm} BPM · {mix.pattern.stepsPerBar} pasos · {mix.clips.length} clip{mix.clips.length !== 1 ? "s" : ""}
+                    {mix.pattern.bpm} BPM · {mix.pattern.stepsPerBar} {tl.stepsSuffix} · {mix.clips.length} {mix.clips.length !== 1 ? tl.clipsSuffix : tl.clipSuffix}
                   </span>
                   {mix.muted && (
                     <span className="track-timeline-badge track-timeline-badge-muted">Mute</span>

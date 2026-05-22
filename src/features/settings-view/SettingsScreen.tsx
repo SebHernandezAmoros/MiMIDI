@@ -1,10 +1,8 @@
 import { AppDialog } from "../../app/components/AppDialog"
-import type { AppLanguage } from "../../app/appI18n"
-import type { AppViewMessages } from "../../app/appI18n"
+import { resolveAppMessages, type AppLanguage } from "../../app/appI18n"
 
 type SettingsScreenProps = {
   activeLanguage: AppLanguage
-  copy: AppViewMessages
   darkMode: boolean
   masterVolume: number
   onDarkModeChange: (v: boolean) => void
@@ -19,7 +17,6 @@ type SettingsScreenProps = {
 
 export function SettingsScreen({
   activeLanguage,
-  copy,
   darkMode,
   masterVolume,
   onDarkModeChange,
@@ -31,31 +28,17 @@ export function SettingsScreen({
   showKeyLabels,
   onShowKeyLabelsChange,
 }: SettingsScreenProps) {
-  void copy
+  const m = resolveAppMessages(activeLanguage).views.settings
 
   return (
     <>
     <section className="app-mock-screen" aria-label="Workspace Settings">
-      <header className="app-mock-toolbar">
-        <label className="app-settings-toolbar-dark-toggle">
-          <span>Modo oscuro</span>
-          <label className="ui-toggle" aria-label="Modo oscuro">
-            <input
-              checked={darkMode}
-              onChange={() => onDarkModeChange(!darkMode)}
-              type="checkbox"
-            />
-            <span />
-          </label>
-        </label>
-      </header>
-
       <div className="app-settings-groups">
-        <section className="ui-list-section" aria-label="Idioma">
-          <span className="ui-list-section-title">IDIOMA</span>
+        <section className="ui-list-section" aria-label={m.sections.language}>
+          <span className="ui-list-section-title">{m.sections.language}</span>
           <label className="ui-list-row" style={{ cursor: "default" }} htmlFor="settings-language">
             <span className="ui-list-icon">L</span>
-            <span className="ui-list-label">Language</span>
+            <span className="ui-list-label">{m.items.language}</span>
             <select
               id="settings-language"
               value={activeLanguage}
@@ -67,12 +50,12 @@ export function SettingsScreen({
           </label>
         </section>
 
-        <section className="ui-list-section" aria-label="Tema">
-          <span className="ui-list-section-title">TEMA</span>
+        <section className="ui-list-section" aria-label={m.sections.theme}>
+          <span className="ui-list-section-title">{m.sections.theme}</span>
           <div className="ui-list-row ui-list-row-static">
             <span className="ui-list-icon">S</span>
-            <span className="ui-list-label">Modo Oscuro</span>
-            <label className="ui-toggle" aria-label="Modo Oscuro">
+            <span className="ui-list-label">{m.items.darkMode}</span>
+            <label className="ui-toggle" aria-label={m.items.darkMode}>
               <input
                 checked={darkMode}
                 onChange={() => onDarkModeChange(!darkMode)}
@@ -83,12 +66,12 @@ export function SettingsScreen({
           </div>
         </section>
 
-        <section className="ui-list-section" aria-label="Piano">
-          <span className="ui-list-section-title">PIANO</span>
+        <section className="ui-list-section" aria-label={m.sections.piano}>
+          <span className="ui-list-section-title">{m.sections.piano}</span>
           <div className="ui-list-row ui-list-row-static">
             <span className="ui-list-icon">K</span>
-            <span className="ui-list-label">Mostrar etiquetas de teclas</span>
-            <label className="ui-toggle" aria-label="Mostrar etiquetas de teclas">
+            <span className="ui-list-label">{m.items.showKeyLabels}</span>
+            <label className="ui-toggle" aria-label={m.items.showKeyLabels}>
               <input
                 checked={showKeyLabels}
                 onChange={() => onShowKeyLabelsChange(!showKeyLabels)}
@@ -99,11 +82,11 @@ export function SettingsScreen({
           </div>
         </section>
 
-        <section className="ui-list-section" aria-label="Audio">
-          <span className="ui-list-section-title">AUDIO</span>
+        <section className="ui-list-section" aria-label={m.sections.audio}>
+          <span className="ui-list-section-title">{m.sections.audio}</span>
           <label className="ui-list-row" style={{ cursor: "default" }} htmlFor="settings-master-volume">
             <span className="ui-list-icon">V</span>
-            <span className="ui-list-label">Volumen maestro</span>
+            <span className="ui-list-label">{m.items.masterVolume}</span>
             <span className="ui-list-value">{Math.round(masterVolume * 100)}%</span>
           </label>
           <div className="app-settings-volume-slider-row">
@@ -118,29 +101,13 @@ export function SettingsScreen({
               value={masterVolume}
             />
           </div>
-          <button className="ui-list-row" type="button">
-            <span className="ui-list-icon">A</span>
-            <span className="ui-list-label">Salida de Audio</span>
-            <span className="ui-list-value">Dispositivo</span>
-            <span className="ui-list-arrow" aria-hidden="true">›</span>
-          </button>
         </section>
 
-        <section className="ui-list-section" aria-label="MIDI">
-          <span className="ui-list-section-title">MIDI</span>
-          <button className="ui-list-row" type="button">
-            <span className="ui-list-icon">M</span>
-            <span className="ui-list-label">MIDI Dispositivo</span>
-            <span className="ui-list-value">No conectado</span>
-            <span className="ui-list-arrow" aria-hidden="true">›</span>
-          </button>
-        </section>
-
-        <section className="ui-list-section" aria-label="Laboratorio">
-          <span className="ui-list-section-title">LAB</span>
+        <section className="ui-list-section" aria-label={m.sections.lab}>
+          <span className="ui-list-section-title">{m.sections.lab}</span>
           <button className="ui-list-row" onClick={onOpenLab} type="button">
             <span className="ui-list-icon">L</span>
-            <span className="ui-list-label">Ir al laboratorio</span>
+            <span className="ui-list-label">{m.items.goToLab}</span>
             <span className="ui-list-arrow" aria-hidden="true">›</span>
           </button>
         </section>
@@ -148,10 +115,10 @@ export function SettingsScreen({
     </section>
 
     <AppDialog
-      description="Opciones adicionales de configuración."
+      description={m.optionsDesc}
       onClose={onSettingsClose}
       open={settingsOpen}
-      title="Opciones — Ajustes"
+      title={m.optionsTitle}
     />
     </>
   )

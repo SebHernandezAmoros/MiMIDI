@@ -1,22 +1,24 @@
 import { AppDialog } from "../../app/components/AppDialog"
-import type { AppViewMessages } from "../../app/appI18n"
+import { resolveAppMessages, type AppViewMessages, type AppLanguage } from "../../app/appI18n"
 import { PluginsWorkspace } from "./PluginsWorkspace"
 
 type PluginsScreenProps = {
   copy: AppViewMessages
+  language?: AppLanguage
   settingsOpen: boolean
   onSettingsClose: () => void
 }
 
-export function PluginsScreen({ copy, settingsOpen, onSettingsClose }: PluginsScreenProps) {
+export function PluginsScreen({ copy, language, settingsOpen, onSettingsClose }: PluginsScreenProps) {
+  const tc = resolveAppMessages(language ?? "es").lab.common
   return (
     <>
-      <PluginsWorkspace body={copy.workspaceBody} title={copy.workspaceTitle} />
+      <PluginsWorkspace body={copy.workspaceBody} language={language} title={copy.workspaceTitle} />
       <AppDialog
-        description="Configuración del gestor de plugins."
+        description={copy.description}
         onClose={onSettingsClose}
         open={settingsOpen}
-        title="Opciones — Plugins"
+        title={`${tc.options} — ${copy.label}`}
       />
     </>
   )

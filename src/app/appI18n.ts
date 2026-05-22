@@ -13,12 +13,23 @@ export function getAppLanguageFromSearch(search: string): AppLanguage {
   const requestedLanguage = searchParams.get("lang")
 
   if (requestedLanguage === "en" || requestedLanguage === "es") {
+    localStorage.setItem("mimidi-language", requestedLanguage)
     return requestedLanguage
   }
+
+  const stored = localStorage.getItem("mimidi-language")
+  if (stored === "en" || stored === "es") return stored
 
   return defaultAppLanguage
 }
 
 export function resolveAppMessages(language: AppLanguage) {
   return appMessagesByLanguage[language] ?? appMessagesByLanguage[defaultAppLanguage]
+}
+
+export function tpl(template: string, vars: Record<string, string | number>): string {
+  return Object.entries(vars).reduce(
+    (str, [key, val]) => str.replace(`{${key}}`, String(val)),
+    template,
+  )
 }
