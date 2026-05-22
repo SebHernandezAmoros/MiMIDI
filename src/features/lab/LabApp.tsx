@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import "../../App.css"
 import {
   updatePadSoundSetting,
@@ -36,7 +36,6 @@ import {
   getInstrumentCategoryDescription,
   getInstrumentCategoryLabel,
   type MathematicalInstrument,
-  type MathematicalInstrumentId,
 } from "../../engine/audio/mathematicalInstruments"
 import { useLabInstrumentCatalog } from "./useLabInstrumentCatalog"
 import {
@@ -113,22 +112,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     MathematicalInstrument["category"]
   >("base")
 
-  // ── Refs for circular dependencies between hooks ──────────────────────────────
-  const stopPlaybackRef = useRef<() => void>(() => {})
-  const stopArpeggiatorRef = useRef<(resetTriggerKey?: boolean) => void>(() => {})
-  const volumeRef = useRef(0.8)
-
   // ── Core hooks ───────────────────────────────────────────────────────────────
-  const lab = useLabProject({
-    mode,
-    timelineSnapEnabled,
-    timelineSnapStep,
-    getVolume: () => volumeRef.current,
-    onStopPlayback: () => stopPlaybackRef.current(),
-    onStopArpeggiator: (r) => stopArpeggiatorRef.current(r),
-    onResetRecordingSession: () => labRecording.resetRecordingSession(),
-    onClearMidiEvents: () => labPerform.clearMidiEvents(),
-  })
+  const lab = useLabProject({ mode, timelineSnapEnabled, timelineSnapStep })
 
   const labPlayback = useLabPlayback({ project: lab.project })
 
@@ -139,11 +124,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
 
   const labRecording = useLabRecordingSession({
     getPerformanceTimestamp,
-    getTrackAutomationVolumeAtTime: (time) =>
-      lab.getTrackAutomationVolumeAtTime(time),
+    getTrackAutomationVolumeAtTime: (time) => lab.getTrackAutomationVolumeAtTime(time),
     onProjectUpdate: lab.applyUpdate,
-    onStopArpeggiator: () => stopArpeggiatorRef.current(),
-    onStopPlayback: () => stopPlaybackRef.current(),
     onStopRecording: useCallback(() => {
       lab.applyUpdate((p) => {
         const track = getMidiTracks(p.timeline).find((t) => t.id === lab.primaryTrack.id)
@@ -169,11 +151,6 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     setProjectMessage: lab.setProjectMessage,
     project: lab.project,
   })
-
-  // ── Update circular dep refs every render ────────────────────────────────────
-  stopPlaybackRef.current = labPlayback.stopAll
-  stopArpeggiatorRef.current = labPerform.stopArpeggiator
-  volumeRef.current = labPerform.volume
 
   // ── Derived from instrument catalog ──────────────────────────────────────────
   const {
@@ -211,14 +188,56 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
     if (timelineView !== "tracks") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsTrackLaneFocused(false)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedClipId(null)
     }
   }, [timelineView])
 
+  // ── Coordinators: sequences that span multiple hooks ─────────────────────────
+  function switchActiveTrack(trackId: string) {
+    labPerform.stopArpeggiator()
+    lab.switchActiveTrack(trackId)
+  }
+
+  function startRecording() {
+    labPlayback.stopAll()
+    labPerform.stopArpeggiator()
+    startRecording()
+  }
+
+  function tearDownSession() {
+    labPlayback.stopAll()
+    labPerform.stopArpeggiator()
+    labRecording.resetRecordingSession()
+    labPerform.clearMidiEvents()
+  }
+
+  function handleClearSession() {
+    tearDownSession()
+    lab.clearSession()
+  }
+
+  async function handleRestartProject() {
+    tearDownSession()
+    await lab.restartProject()
+  }
+
+  async function handleImportProjectFile(e: React.ChangeEvent<HTMLInputElement>) {
+    tearDownSession()
+    await lab.importProjectFile(e)
+  }
+
+  async function handleImportBundle(e: React.ChangeEvent<HTMLInputElement>) {
+    tearDownSession()
+    await lab.importBundle(e)
+  }
+
+  function handleExportProjectAudio() {
+    void lab.exportProjectAudio(labPerform.volume)
+  }
+
   // ── Bridge functions (span multiple hooks) ───────────────────────────────────
   function selectTrackLane(trackId: string) {
-    lab.switchActiveTrack(trackId)
+    switchActiveTrack(trackId)
     setIsTrackLaneFocused(true)
   }
 
@@ -311,7 +330,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               aria-label="Seleccionar pista"
               className="ui-select"
               value={lab.primaryTrack.id}
-              onChange={(e) => lab.switchActiveTrack(e.target.value)}
+              onChange={(e) => switchActiveTrack(e.target.value)}
             >
               {lab.midiTracks.map((track) => (
                 <option key={track.id} value={track.id}>
@@ -887,7 +906,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 className="ui-btn-danger"
                 onClick={() => {
                   lab.setIsRestartConfirmOpen(false)
-                  void lab.restartProject()
+                  void handleRestartProject()
                 }}
                 type="button"
               >
@@ -933,14 +952,14 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       <input
         accept=".json,application/json"
         hidden
-        onChange={(e: ChangeEvent<HTMLInputElement>) => void lab.importProjectFile(e)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportProjectFile(e)}
         ref={lab.importInputRef}
         type="file"
       />
       <input
         accept=".mimidi"
         hidden
-        onChange={(e: ChangeEvent<HTMLInputElement>) => void lab.importBundle(e)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportBundle(e)}
         ref={lab.importBundleRef}
         type="file"
       />
@@ -1010,7 +1029,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 getSamplerTracks(lab.project.timeline).length === 0) ||
               lab.isExportingAudio
             }
-            onClick={() => void lab.exportProjectAudio()}
+            onClick={handleExportProjectAudio}
             type="button"
           >
             <Download size={13} />
@@ -1055,7 +1074,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               <button
                 onClick={() => {
                   lab.setIsNewProjectConfirmOpen(false)
-                  void lab.restartProject()
+                  void handleRestartProject()
                 }}
                 type="button"
               >
@@ -1066,7 +1085,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 onClick={() => {
                   lab.setIsNewProjectConfirmOpen(false)
                   void lab.exportBundle()
-                  void lab.restartProject()
+                  void handleRestartProject()
                 }}
                 type="button"
               >
@@ -1170,7 +1189,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 onClick={
                   labRecording.recordingState === "recording"
                     ? () => labRecording.stopRecording()
-                    : labRecording.startRecording
+                    : startRecording
                 }
                 type="button"
               >
@@ -1246,7 +1265,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 aria-label="Pista activa"
                 className="ui-select"
                 value={lab.primaryTrack.id}
-                onChange={(e) => lab.switchActiveTrack(e.target.value)}
+                onChange={(e) => switchActiveTrack(e.target.value)}
               >
                 {lab.percussionTracks.map((track) => (
                   <option key={track.id} value={track.id}>
@@ -1364,7 +1383,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 className="ui-btn-danger"
                 onClick={() => {
                   lab.setIsRestartConfirmOpen(false)
-                  void lab.restartProject()
+                  void handleRestartProject()
                 }}
                 type="button"
               >
@@ -1571,15 +1590,15 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       isExportingAudio={lab.isExportingAudio}
       isPlaying={labPlayback.playbackTransport.isPlaying}
       isRecording={labRecording.recordingState === "recording"}
-      onClearSession={lab.clearSession}
-      onExportAudio={() => void lab.exportProjectAudio()}
+      onClearSession={handleClearSession}
+      onExportAudio={handleExportProjectAudio}
       onExportProject={lab.exportProject}
       onImportProject={() => lab.importInputRef.current?.click()}
       onPlayRecording={labPlayback.playRecording}
       onPlayTestChord={labPerform.playTestChord}
       onPlayTestNote={labPerform.playTestNote}
       onRestartProject={() => lab.setIsRestartConfirmOpen(true)}
-      onStartRecording={labRecording.startRecording}
+      onStartRecording={startRecording}
       onStopPlayback={labPlayback.playbackTransport.stop}
       onStopRecording={() => labRecording.stopRecording()}
     />
@@ -1635,7 +1654,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
               onRecordToggle={
                 labRecording.recordingState === "recording"
                   ? () => labRecording.stopRecording()
-                  : labRecording.startRecording
+                  : startRecording
               }
               onSelectNextTrack={() => lab.switchTrackByOffset(1)}
               onSelectPreviousTrack={() => lab.switchTrackByOffset(-1)}
@@ -1687,7 +1706,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
                 className="ui-btn-danger"
                 onClick={() => {
                   lab.setIsRestartConfirmOpen(false)
-                  void lab.restartProject()
+                  void handleRestartProject()
                 }}
                 type="button"
               >
@@ -1884,8 +1903,8 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
       onProjectTrackTimelineDurationChange={lab.updateProjectTrackTimelineDurationValue}
       onResetProjectTrackTimelineDuration={lab.resetProjectTrackTimelineDuration}
       onResetTrackNoteTimelineDuration={lab.resetPrimaryTrackNoteTimelineDuration}
-      onRemoveActiveTrack={lab.removeActiveTrack}
-      onSwitchActiveTrack={lab.switchActiveTrack}
+      onRemoveActiveTrack={lab.confirmRemoveActiveTrack}
+      onSwitchActiveTrack={switchActiveTrack}
       onTrackEnvelopeChange={lab.updatePrimaryTrackEnvelope}
       onTrackInstrumentChange={lab.updateTrackInstrumentId}
       onTrackMutedToggle={lab.togglePrimaryTrackMuted}
@@ -1920,7 +1939,7 @@ function LabApp({ mode = "full", settingsOpen = false, onSettingsClose }: LabApp
         <input
           accept=".json,application/json"
           hidden
-          onChange={(e: ChangeEvent<HTMLInputElement>) => void lab.importProjectFile(e)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportProjectFile(e)}
           ref={lab.importInputRef}
           type="file"
         />

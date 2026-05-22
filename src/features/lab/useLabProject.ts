@@ -90,22 +90,12 @@ type UseLabProjectOptions = {
   mode: LabAppMode
   timelineSnapEnabled: boolean
   timelineSnapStep: number
-  getVolume: () => number
-  onStopPlayback: () => void
-  onStopArpeggiator: (resetTriggerKey?: boolean) => void
-  onResetRecordingSession: () => void
-  onClearMidiEvents: () => void
 }
 
 export function useLabProject({
   mode,
   timelineSnapEnabled,
   timelineSnapStep,
-  getVolume,
-  onStopPlayback,
-  onStopArpeggiator,
-  onResetRecordingSession,
-  onClearMidiEvents,
 }: UseLabProjectOptions) {
   const [activeTrackId, setActiveTrackId] = useState(() => {
     const project = getInitialProject()
@@ -246,7 +236,6 @@ export function useLabProject({
 
   // ── Track selection ──────────────────────────────────────────────────────────
   function switchActiveTrack(trackId: string) {
-    onStopArpeggiator()
     setActiveTrackId(trackId)
     setSelectedRecordedNoteId(null)
   }
@@ -643,10 +632,6 @@ export function useLabProject({
 
   // ── Session management ───────────────────────────────────────────────────────
   function clearSession() {
-    onStopPlayback()
-    onStopArpeggiator()
-    onResetRecordingSession()
-    onClearMidiEvents()
     applyUpdate((p) => clearAllTrackNotes(p))
     setSelectedRecordedNoteId(null)
     setProjectMessage("Notas limpiadas. Pistas y nombre conservados.")
@@ -661,10 +646,6 @@ export function useLabProject({
   }
 
   async function restartProject() {
-    onStopPlayback()
-    onStopArpeggiator()
-    onResetRecordingSession()
-    onClearMidiEvents()
     await clearSamplerSlots()
     applyUpdate((p) => resetProject(p))
     setActiveTrackId("track-1")
@@ -685,7 +666,7 @@ export function useLabProject({
     setProjectMessage("Proyecto exportado a JSON.")
   }
 
-  async function exportProjectAudio() {
+  async function exportProjectAudio(masterVolume: number) {
     if (allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0) return
     if (isExportingAudio) return
 
@@ -699,7 +680,7 @@ export function useLabProject({
       const { blob, duration, fileName } = await exportProjectAudioUseCase(project, {
         bitDepth: 32,
         float: true,
-        masterVolume: getVolume(),
+        masterVolume,
       })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
@@ -737,10 +718,6 @@ export function useLabProject({
     try {
       setProjectMessage("Importando proyecto...")
       const importedProject = await importProjectBundle(file)
-      onStopPlayback()
-      onStopArpeggiator()
-      onResetRecordingSession()
-      onClearMidiEvents()
       replaceState(importedProject)
       setActiveTrackId(getMidiTracks(importedProject.timeline)[0]?.id ?? "track-1")
       setSelectedRecordedNoteId(null)
@@ -758,10 +735,6 @@ export function useLabProject({
     try {
       const projectJson = await file.text()
       const importedProject = parseImportedProject(projectJson)
-      onStopPlayback()
-      onStopArpeggiator()
-      onResetRecordingSession()
-      onClearMidiEvents()
       replaceState(importedProject)
       setActiveTrackId(getMidiTracks(importedProject.timeline)[0]?.id ?? "track-1")
       setSelectedRecordedNoteId(null)

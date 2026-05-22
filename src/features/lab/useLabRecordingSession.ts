@@ -29,8 +29,6 @@ type UseLabRecordingSessionOptions = {
   onProjectUpdate: (
     updater: (currentProject: MusicalProject) => MusicalProject,
   ) => void
-  onStopArpeggiator: () => void
-  onStopPlayback: () => void
   onStopRecording?: () => void
   onUpdateMessage: (message: string) => void
   primaryTrack: ProjectTrack
@@ -60,8 +58,6 @@ export function useLabRecordingSession({
   getPerformanceTimestamp,
   getTrackAutomationVolumeAtTime,
   onProjectUpdate,
-  onStopArpeggiator,
-  onStopPlayback,
   onStopRecording,
   onUpdateMessage,
   primaryTrack,
@@ -182,8 +178,6 @@ export function useLabRecordingSession({
   }
 
   function startRecording() {
-    onStopPlayback()
-    onStopArpeggiator()
     activeNoteEventsRef.current = {}
     recordingStartedAtRef.current = getPerformanceTimestamp()
     onProjectUpdate((p) => createRecordingClip(p, primaryTrack.id))

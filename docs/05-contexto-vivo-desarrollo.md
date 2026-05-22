@@ -7655,3 +7655,51 @@ Mismo patrón para `volumeRef`: el export WAV necesita el volumen real del slide
 
 - `tsc --noEmit` — sin errores
 - `vite build` — 1813 módulos, 532 ms, sin warnings
+
+## Movimiento — Eliminación de refs circulares: LabApp como host explícito (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+Tras el refactor anterior los hooks quedaban acoplados implícitamente a través de tres refs
+(`stopPlaybackRef`, `stopArpeggiatorRef`, `volumeRef`) que vivían en LabApp como parche.
+Este movimiento elimina esos refs y hace que LabApp sea el coordinador **explícito** de
+secuencias que cruzan hooks — la base para que plugins futuros puedan integrarse de la
+misma manera.
+
+### Cambios
+
+**`useLabProject`** — eliminadas de la firma: `onStopPlayback`, `onStopArpeggiator`,
+`onResetRecordingSession`, `onClearMidiEvents`, `getVolume`.
+- `switchActiveTrack` ya no llama `stopArpeggiator` internamente.
+- `clearSession` y `restartProject` ya no llaman callbacks de otros hooks.
+- `importBundle` e `importProjectFile` ídem.
+- `exportProjectAudio(masterVolume: number)` recibe el volumen como parámetro explícito.
+
+**`useLabRecordingSession`** — eliminadas de la firma: `onStopPlayback`, `onStopArpeggiator`.
+- `startRecording` ya no frena la reproducción ni el arpegiador — esa coordinación sube a LabApp.
+
+**`LabApp.tsx`** — sin refs de dependencias circulares. Coordinadores explícitos:
+
+| Coordinador | Secuencia |
+|---|---|
+| `switchActiveTrack(id)` | stopArpeggiator → lab.switchActiveTrack |
+| `startRecording()` | stopAll → stopArpeggiator → labRecording.startRecording |
+| `tearDownSession()` | stopAll → stopArpeggiator → resetRecordingSession → clearMidiEvents |
+| `handleClearSession()` | tearDownSession → lab.clearSession |
+| `handleRestartProject()` | tearDownSession → lab.restartProject |
+| `handleImportProjectFile(e)` | tearDownSession → lab.importProjectFile |
+| `handleImportBundle(e)` | tearDownSession → lab.importBundle |
+| `handleExportProjectAudio()` | lab.exportProjectAudio(labPerform.volume) |
+
+### Por qué esto hace el proyecto más resiliente para plugins
+
+Agregar un plugin nuevo ahora es predecible: se declara el hook del plugin, se llama en
+LabApp (junto a los demás), y LabApp conecta sus inputs/outputs como coordinador.
+Ningún hook del core necesita saber de la existencia del plugin.
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- `vite build` — 1813 módulos, 257 ms, sin warnings
