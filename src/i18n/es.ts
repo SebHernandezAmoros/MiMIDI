@@ -213,7 +213,7 @@ export const esMessages = {
       octaveControl: "Octava visible activa",
       octaveDown: "Bajar octava",
       octaveUp: "Subir octava",
-      addTrack: "+ Pista",
+      addTrack: "+ Track",
       categoryBase: "Base",
       categoryAdvanced: "Avanzado",
       categoryBaseDesc: "Incluye instrumentos matemáticos base para pruebas limpias, grabación y referencia.",
