@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import App from "./App"
 import { PROJECT_STORAGE_KEY } from "./engine/project/projectStorage"
 
@@ -186,20 +186,32 @@ describe("App integration: timeline history", () => {
     expect(within(projectSummary).getByText("Track 2")).toBeTruthy()
   })
 
-  it("does not record test notes unless recording is active", () => {
+  it("does not record test notes unless recording is active", async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole("button", { name: "Reiniciar proyecto" }))
+    fireEvent.click(screen.getByRole("button", { name: "Reiniciar", hidden: true }))
+
+    await waitFor(() => {
+      within(screen.getByLabelText("Proyecto actual")).getByText("0")
+    })
+
     fireEvent.click(screen.getByRole("button", { name: "Tocar nota" }))
 
     const projectSummary = screen.getByLabelText("Proyecto actual")
     expect(within(projectSummary).getByText("0")).toBeTruthy()
   })
 
-  it("starts each new recording take at its own zero point", () => {
+  it("starts each new recording take at its own zero point", async () => {
     const { container } = render(<App />)
 
     fireEvent.click(screen.getByRole("button", { name: "Reiniciar proyecto" }))
+    fireEvent.click(screen.getByRole("button", { name: "Reiniciar", hidden: true }))
+
+    await waitFor(() => {
+      within(screen.getByLabelText("Proyecto actual")).getByText("0")
+    })
+
     fireEvent.click(screen.getByRole("button", { name: "Iniciar grabacion" }))
     fireEvent.click(screen.getByRole("button", { name: "Tocar nota" }))
     fireEvent.click(screen.getByRole("button", { name: "Detener grabacion" }))
@@ -246,17 +258,18 @@ describe("App integration: timeline history", () => {
       toJSON: () => ({}),
     } as DOMRect)
 
-    const startBeforeDrag = within(activeTrackLane).getByText("Inicio: 0.00s")
+    const getClipStart = () => clip.style.getPropertyValue("--track-clip-start")
+    const startBeforeDrag = getClipStart()
 
     fireEvent.pointerDown(clip, { clientX: 40 })
     fireEvent.pointerMove(window, { clientX: 200 })
     fireEvent.pointerUp(window)
 
-    expect(startBeforeDrag.textContent).not.toBe("Inicio: 0.00s")
+    expect(getClipStart()).not.toBe(startBeforeDrag)
 
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }))
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true })
 
-    expect(within(activeTrackLane).getByText("Inicio: 0.00s")).toBeTruthy()
+    expect(getClipStart()).toBe(startBeforeDrag)
   })
 
   it("allows defining a manual duration for the track timeline", () => {
@@ -298,16 +311,17 @@ describe("App integration: timeline history", () => {
   })
 
   it("can compact the empty space before the first note in the note timeline", () => {
+    window.history.pushState({}, "", "/?view=edit")
     const { container } = render(<App />)
 
-    fireEvent.click(screen.getByRole("button", { name: "TRACKS" }))
-    fireEvent.click(screen.getByRole("button", { name: /track 2/i }))
-    fireEvent.click(screen.getByRole("button", { name: "NOTAS" }))
+    const trackSelect = screen.getByLabelText("Seleccionar pista")
+    fireEvent.change(trackSelect, { target: { value: "track-2" } })
 
     let block = getFirstTimelineBlock(container)
     expect(Number(getNoteStartValue(block))).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole("button", { name: "Compactar inicio" }))
+    fireEvent.click(screen.getByRole("button", { name: "Opciones de la vista" }))
+    fireEvent.click(screen.getByRole("button", { name: "Compactar inicio", hidden: true }))
 
     block = getFirstTimelineBlock(container)
     expect(Number(getNoteStartValue(block))).toBe(0)
@@ -357,7 +371,7 @@ describe("App integration: timeline history", () => {
     expect(screen.getByRole("button", { name: "Piano" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Edit")).toBeTruthy()
-    expect(screen.getByLabelText("Vista del timeline")).toBeTruthy()
+    expect(screen.getByLabelText("Workspace de timeline")).toBeTruthy()
   })
 
   it("shows the replicated project view on the root route", () => {
@@ -368,7 +382,7 @@ describe("App integration: timeline history", () => {
     expect(screen.getByRole("button", { name: "Project" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Project")).toBeTruthy()
     expect(screen.getByLabelText("Proyecto actual")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Exportar JSON" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Exportar" })).toBeTruthy()
   })
 
   it("shows the replicated piano view on the root route", () => {
@@ -379,7 +393,7 @@ describe("App integration: timeline history", () => {
     expect(screen.getByRole("button", { name: "Piano" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Perform")).toBeTruthy()
     expect(screen.getByLabelText("Modo del piano")).toBeTruthy()
-    expect(screen.getByLabelText("Controles de grabacion")).toBeTruthy()
+    expect(screen.getByLabelText("Controles de grabación")).toBeTruthy()
     expect(screen.getByLabelText("Octava visible activa")).toBeTruthy()
   })
 })

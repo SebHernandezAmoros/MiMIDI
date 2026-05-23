@@ -2014,22 +2014,48 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   )
 
   return (
-    <main>
-      <h1>MiMIDI</h1>
-      <p>Core musical experimental basado en instrumentos matematicos.</p>
-      <section className="audio-lab" aria-label="Core de audio">
-        <input
-          accept=".json,application/json"
-          hidden
-          onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportProjectFile(e)}
-          ref={lab.importInputRef}
-          type="file"
-        />
-        {projectPanel}
-        {performWorkspace}
-        {editWorkspace}
-      </section>
-    </main>
+    <>
+      <main>
+        <h1>MiMIDI</h1>
+        <p>Core musical experimental basado en instrumentos matematicos.</p>
+        <section className="audio-lab" aria-label="Core de audio">
+          <input
+            accept=".json,application/json"
+            hidden
+            onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportProjectFile(e)}
+            ref={lab.importInputRef}
+            type="file"
+          />
+          {projectPanel}
+          {performWorkspace}
+          {editWorkspace}
+        </section>
+      </main>
+
+      <AppDialog
+        actions={
+          <>
+            <button onClick={() => lab.setIsRestartConfirmOpen(false)} type="button">
+              {t.common.cancel}
+            </button>
+            <button
+              className="ui-btn-danger"
+              onClick={() => {
+                lab.setIsRestartConfirmOpen(false)
+                void handleRestartProject()
+              }}
+              type="button"
+            >
+              {t.common.reset}
+            </button>
+          </>
+        }
+        description={t.dialogs.resetProjectMsg}
+        onClose={() => lab.setIsRestartConfirmOpen(false)}
+        open={lab.isRestartConfirmOpen}
+        title={t.dialogs.resetProjectTitle}
+      />
+    </>
   )
 }
 
