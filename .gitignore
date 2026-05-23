@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Documentación interna (no se sube al repo público)
+docs/
+
+# Configuración local de Claude
+.claude/
