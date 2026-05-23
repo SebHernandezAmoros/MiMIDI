@@ -78,7 +78,7 @@ export function PerformResponsiveToolbar({
 
   return (
     <>
-      {/* Record + Play */}
+      {/* Grupo 1: Transporte (grabar / reproducir) */}
       <div className="perform-mode-transport" aria-label={tp.transportControls}>
         <button
           aria-label={isRecording ? tp.stopRecording : tp.startRecording}
@@ -126,40 +126,7 @@ export function PerformResponsiveToolbar({
 
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-      {/* ARP toggle */}
-      <label className="perform-mode-arp-toggle" aria-label={tp.arpLabel}>
-        <input
-          checked={isArpEnabled}
-          className="ui-checkbox"
-          onChange={onArpToggle}
-          type="checkbox"
-        />
-        <span>ARP</span>
-      </label>
-
-      <span aria-hidden="true" className="perform-mode-transport-divider" />
-
-      {/* NOTE / CHORD mode */}
-      <div className="ui-toggle-group" role="group" aria-label={tp.pianoMode}>
-        <button
-          aria-pressed={pianoMode === "note"}
-          onClick={() => onPianoModeChange("note")}
-          type="button"
-        >
-          {tp.modeNote}
-        </button>
-        <button
-          aria-pressed={pianoMode === "chord"}
-          onClick={() => onPianoModeChange("chord")}
-          type="button"
-        >
-          {tp.modeChord}
-        </button>
-      </div>
-
-      <span aria-hidden="true" className="perform-mode-transport-divider" />
-
-      {/* Track navigation */}
+      {/* Grupo 2: Qué tocas — pista, instrumento y octava */}
       <div className="ui-pad-pager">
         <button
           aria-label={tp.previousTrack}
@@ -184,9 +151,6 @@ export function PerformResponsiveToolbar({
         </button>
       </div>
 
-      <span aria-hidden="true" className="perform-mode-transport-divider" />
-
-      {/* Instrument selector */}
       <button
         className="ui-pill-btn"
         onClick={onInstrumentDialogOpen}
@@ -197,25 +161,6 @@ export function PerformResponsiveToolbar({
         {selectedInstrumentName.toUpperCase()}
       </button>
 
-      {/* Add track */}
-      <button className="ui-pill-btn" onClick={onAddTrack} type="button">
-        {tp.addTrack}
-      </button>
-
-      {/* Remove track */}
-      <button
-        aria-label={tp.removeActiveTrack}
-        className="ui-icon-btn"
-        disabled={removeTrackDisabled}
-        onClick={onConfirmRemoveTrack}
-        type="button"
-      >
-        <Trash2 size={18} />
-      </button>
-
-      <span aria-hidden="true" className="perform-mode-transport-divider" />
-
-      {/* Octave counter */}
       <div className="ui-counter" aria-label={tp.octaveControl}>
         <button
           aria-label={tp.octaveDown}
@@ -235,6 +180,53 @@ export function PerformResponsiveToolbar({
           +
         </button>
       </div>
+
+      <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+      {/* Grupo 3: Cómo tocas — modo de nota y arpegiador */}
+      <div className="ui-toggle-group" role="group" aria-label={tp.pianoMode}>
+        <button
+          aria-pressed={pianoMode === "note"}
+          onClick={() => onPianoModeChange("note")}
+          type="button"
+        >
+          {tp.modeNote}
+        </button>
+        <button
+          aria-pressed={pianoMode === "chord"}
+          onClick={() => onPianoModeChange("chord")}
+          type="button"
+        >
+          {tp.modeChord}
+        </button>
+      </div>
+
+      <label className="perform-mode-arp-toggle" aria-label={tp.arpLabel}>
+        <input
+          checked={isArpEnabled}
+          className="ui-checkbox"
+          onChange={onArpToggle}
+          type="checkbox"
+        />
+        <span>ARP</span>
+      </label>
+
+      <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+      {/* Grupo 4: Estructural — añadir y eliminar pistas */}
+      <button className="ui-pill-btn" onClick={onAddTrack} type="button">
+        {tp.addTrack}
+      </button>
+
+      <button
+        aria-label={tp.removeActiveTrack}
+        className="ui-icon-btn"
+        disabled={removeTrackDisabled}
+        onClick={onConfirmRemoveTrack}
+        type="button"
+      >
+        <Trash2 size={18} />
+      </button>
 
       <PerformInstrumentDialog
         activeCategory={activeInstrumentCategory}

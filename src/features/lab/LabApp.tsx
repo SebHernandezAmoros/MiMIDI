@@ -66,6 +66,7 @@ import { useLabProject } from "./useLabProject"
 import { useLabPlayback } from "./useLabPlayback"
 import { useLabPerform } from "./useLabPerform"
 import { previewOctaveOptions } from "../../engine/midi/notes"
+import { ensureAudioReady } from "../../engine/audio/audioEngine"
 
 const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
   kick: "ui-smc-btn-kick",
@@ -204,7 +205,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   function startRecording() {
     labPlayback.stopAll()
     labPerform.stopArpeggiator()
-    startRecording()
+    labRecording.startRecording()
   }
 
   function tearDownSession() {
@@ -1229,6 +1230,20 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
 
             <span aria-hidden="true" className="perform-mode-transport-divider" />
 
+            {/* Grupo 2: Qué tocas — pista, página y añadir */}
+            <select
+              aria-label={t.toolbar.activeTrack}
+              className="ui-select"
+              value={lab.primaryTrack.id}
+              onChange={(e) => switchActiveTrack(e.target.value)}
+            >
+              {lab.percussionTracks.map((track) => (
+                <option key={track.id} value={track.id}>
+                  {track.name}
+                </option>
+              ))}
+            </select>
+
             <div className="ui-pad-pager">
               <button
                 aria-label={t.pad.prevPage}
@@ -1255,56 +1270,44 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               </button>
             </div>
 
+            <button className="ui-pill-btn" onClick={lab.addPadTrack} type="button">
+              {t.toolbar.addPadTrack}
+            </button>
+
             <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-            <div className="app-mock-toolbar-controls">
-              <select
-                aria-label={t.toolbar.activeTrack}
-                className="ui-select"
-                value={lab.primaryTrack.id}
-                onChange={(e) => switchActiveTrack(e.target.value)}
-              >
-                {lab.percussionTracks.map((track) => (
-                  <option key={track.id} value={track.id}>
-                    {track.name}
-                  </option>
-                ))}
-              </select>
-              <button className="ui-pill-btn" onClick={lab.addPadTrack} type="button">
-                {t.toolbar.addPadTrack}
-              </button>
-              <button
-                aria-label={
-                  lab.project.padSettingsLocked
-                    ? t.toolbar.unlockConfig
-                    : t.toolbar.lockConfig
-                }
-                className="ui-icon-btn"
-                onClick={() =>
-                  lab.applyUpdate((p) => ({
-                    ...p,
-                    padSettingsLocked: !p.padSettingsLocked,
-                  }))
-                }
-                title={
-                  lab.project.padSettingsLocked
-                    ? t.toolbar.unlockConfig
-                    : t.toolbar.lockConfig
-                }
-                type="button"
-              >
-                {lab.project.padSettingsLocked ? <Lock size={16} /> : <Unlock size={16} />}
-              </button>
-              <button
-                aria-label={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
-                className="ui-icon-btn"
-                onClick={lab.confirmRemoveActiveTrack}
-                title={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
-                type="button"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
+            {/* Grupo 3: Configuración y acciones estructurales */}
+            <button
+              aria-label={
+                lab.project.padSettingsLocked
+                  ? t.toolbar.unlockConfig
+                  : t.toolbar.lockConfig
+              }
+              className="ui-icon-btn"
+              onClick={() =>
+                lab.applyUpdate((p) => ({
+                  ...p,
+                  padSettingsLocked: !p.padSettingsLocked,
+                }))
+              }
+              title={
+                lab.project.padSettingsLocked
+                  ? t.toolbar.unlockConfig
+                  : t.toolbar.lockConfig
+              }
+              type="button"
+            >
+              {lab.project.padSettingsLocked ? <Lock size={16} /> : <Unlock size={16} />}
+            </button>
+            <button
+              aria-label={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
+              className="ui-icon-btn"
+              onClick={lab.confirmRemoveActiveTrack}
+              title={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
+              type="button"
+            >
+              <Trash2 size={18} />
+            </button>
           </header>
 
           <div className="ui-smc-grid">
@@ -1325,7 +1328,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                       0.35,
                       1 - ((e.clientY - rect.top) / rect.height) * 0.65,
                     )
-                    handleSamplerPad(pad.id, velocity)
+                    void ensureAudioReady().then(() => handleSamplerPad(pad.id, velocity))
                   }}
                   type="button"
                 >
@@ -1717,7 +1720,11 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               onPlayToggle={
                 labPlayback.playbackTransport.isPlaying
                   ? labPlayback.playbackTransport.stop
-                  : labPlayback.playRecording
+                  : () =>
+                      labPlayback.playbackTransport.play({
+                        ...lab.project,
+                        timeline: [lab.primaryTrack],
+                      })
               }
               onRecordToggle={
                 labRecording.recordingState === "recording"
@@ -1730,8 +1737,8 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               removeTrackDisabled={false}
               selectedInstrumentId={selectedInstrument.id}
               selectedInstrumentName={selectedInstrument.name}
-              trackNextDisabled={lab.midiTracks.at(-1)?.id === lab.primaryTrack.id}
-              trackPreviousDisabled={lab.midiTracks[0]?.id === lab.primaryTrack.id}
+              trackNextDisabled={lab.melodicTracks.at(-1)?.id === lab.primaryTrack.id}
+              trackPreviousDisabled={lab.melodicTracks[0]?.id === lab.primaryTrack.id}
               visibleInstruments={dialogVisibleInstruments}
             />
           </header>

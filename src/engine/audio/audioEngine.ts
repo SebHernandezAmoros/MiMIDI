@@ -63,6 +63,7 @@ let audioContext: AudioContext | null = null
 let masterGainNode: GainNode | null = null
 let whiteNoiseBuffer: AudioBuffer | null = null
 let voiceCounter = 0
+let resumePromise: Promise<void> | null = null
 
 const activeVoices = new Map<VoiceId, ActiveVoice>()
 
@@ -86,11 +87,37 @@ function getAudioContext() {
     audioContext = new AudioContext()
   }
 
-  if (audioContext.state === "suspended") {
-    void audioContext.resume()
+  if (audioContext.state === "suspended" && !resumePromise) {
+    resumePromise = audioContext.resume().then(() => {
+      resumePromise = null
+    })
   }
 
   return audioContext
+}
+
+/**
+ * Llama desde un handler de gesto de usuario (pointerdown, click) antes de
+ * disparar audio. En iOS Safari el AudioContext no se desbloquea solo con
+ * resume() — también necesita un source.start() dentro del gesto síncrono.
+ * Jugamos un buffer silencioso de 1 muestra para hacer ese unlock y luego
+ * esperamos a que resume() complete antes de devolver.
+ */
+export async function ensureAudioReady(): Promise<void> {
+  const ctx = getAudioContext()
+
+  if (ctx.state === "suspended") {
+    // iOS unlock: source.start() debe ocurrir sincrónicamente en el gesto
+    try {
+      const buf = ctx.createBuffer(1, 1, ctx.sampleRate)
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(ctx.destination)
+      src.start(0)
+    } catch (_) {}
+  }
+
+  if (resumePromise) await resumePromise
 }
 
 function getMasterGainNode(ctx: AudioContext) {

@@ -8131,4 +8131,91 @@ src/features/settings-view/SettingsScreen.tsx       (clase renombrada)
 
 - `tsc --noEmit` — sin errores
 - Bug de especificidad del toggle-group verificado y corregido
-- Verificación visual en `/catalog` pendiente de confirmación en navegador
+
+---
+
+## Movimiento — Reorden de controles en la toolbar del piano (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+La barra de herramientas de la vista Piano mezclaba controles de naturaleza diferente
+sin una agrupación clara: el arpegiador y el modo nota/acorde aparecían antes de la
+navegación de pista y el instrumento, y el contador de octava quedaba al final separado
+del resto de controles de interpretación.
+
+### Cambio
+
+Se reordenaron los bloques en `PerformResponsiveToolbar.tsx` en cuatro grupos semánticos:
+
+| Grupo | Controles | Razón |
+|---|---|---|
+| Transporte | Grabar · Reproducir | Acción crítica, siempre accesible al inicio |
+| Qué tocas | < Pista > · Instrumento · − Octava + | Los tres definen el sonido activo |
+| Cómo tocas | NOTA/ACO · ARP | Configuraciones de interpretación, van juntas |
+| Estructural | + Track · Eliminar | Acciones raras, separadas al final |
+
+La octava se movió junto al instrumento porque ambos definen «qué sonido y en qué rango»,
+no separado del flujo de performance como estaba antes.
+
+### Archivos modificados
+
+```
+src/features/perform/components/PerformResponsiveToolbar.tsx   (reorden JSX, sin cambios de lógica)
+```
+
+### Validación
+
+- Sin cambios de lógica ni props — solo reorden del JSX de retorno
+- Todos los controles siguen presentes con los mismos handlers
+- `tsc --noEmit` — sin errores
+
+---
+
+## Movimiento — Reorden toolbar Pad + fix audio en móvil (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+Dos problemas en la vista Pad (`?view=pad`):
+
+1. **Toolbar desordenada:** la navegación de página (`< 1/2 >`) aparecía entre el transporte y los controles de pista, sin agrupación semántica clara.
+2. **Sin audio en móvil:** el pad no sonaba en el primer toque. El AudioContext arranca en estado `"suspended"` en móviles por política del navegador. El código anterior llamaba `void audioContext.resume()` ignorando la Promise, por lo que el contexto seguía suspendido cuando se intentaba reproducir el primer golpe.
+
+### Cambios
+
+**`src/engine/audio/audioEngine.ts`**
+- `getAudioContext()` ahora guarda la Promise de `resume()` en `resumePromise` en lugar de descartarla con `void`.
+- Nueva exportación `ensureAudioReady(): Promise<void>` — espera a que el contexto esté en estado `"running"` antes de devolver. Debe llamarse desde el handler de gesto del usuario (pointerdown/click) justo antes de disparar audio.
+
+**`src/features/lab/LabApp.tsx`** (modo `sampler-only`)
+- `onPointerDown` de los botones pad es ahora `async` y hace `await ensureAudioReady()` antes de calcular velocidad y disparar el sonido.
+- Toolbar reordenada en tres grupos:
+
+| Grupo | Controles | Razón |
+|---|---|---|
+| Transporte | ● Grabar · ▶ Reproducir | Siempre accesible al inicio |
+| Qué tocas | Pista ▼ · < 1/2 > · + Pad | Track activo, página actual y añadir |
+| Estructural | 🔒 · 🗑 | Config y acciones raras, al final |
+
+**`src/app/styles/ui-library.css`**
+- Añadido `touch-action: manipulation` a `.ui-smc-btn` — elimina el delay de 300ms que algunos navegadores móviles aplican a `onPointerDown` cuando no está declarado explícitamente.
+
+### Por qué `ensureAudioReady` en lugar de solo await en getAudioContext
+
+`getAudioContext()` se llama desde funciones síncronas del motor de audio que no pueden ser refactorizadas a async sin cascada de cambios. `ensureAudioReady` permite que solo el punto de entrada del gesto (el handler del pad) espere, sin tocar el motor de audio interno.
+
+### Archivos modificados
+
+```
+src/engine/audio/audioEngine.ts          (nuevo export ensureAudioReady)
+src/features/lab/LabApp.tsx              (toolbar reordenada + onPointerDown async)
+src/app/styles/ui-library.css            (touch-action en .ui-smc-btn)
+```
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- El import de `ensureAudioReady` en LabApp.tsx resuelve el warning TS6133 al usarse en onPointerDown

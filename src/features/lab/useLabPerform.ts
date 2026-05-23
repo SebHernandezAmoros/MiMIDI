@@ -306,7 +306,7 @@ export function useLabPerform({
 
     playSmcPadHit(
       soundId,
-      isPrimaryTrackAudible ? liveState.volume : 0,
+      liveState.volume,
       liveState.pan,
       { ...PAD_SOUND_DEFAULTS[soundId], ...project.padSoundSettings[soundId], volume: velocity } as PadSoundParams,
     )

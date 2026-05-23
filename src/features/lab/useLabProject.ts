@@ -146,6 +146,13 @@ export function useLabProject({
         EMPTY_MIDI_TRACK
       )
     }
+    if (mode === "perform-only") {
+      return (
+        melodicTracks.find((t) => t.id === activeTrackId) ??
+        melodicTracks[0] ??
+        EMPTY_MIDI_TRACK
+      )
+    }
     return (
       midiTracks.find((t) => t.id === activeTrackId) ??
       melodicTracks[0] ??
@@ -241,9 +248,13 @@ export function useLabProject({
   }
 
   function switchTrackByOffset(offset: -1 | 1) {
-    const currentIndex = midiTracks.findIndex((track) => track.id === primaryTrack.id)
-    if (currentIndex < 0) return
-    const nextTrack = midiTracks[currentIndex + offset]
+    const tracks = mode === "perform-only" ? melodicTracks : midiTracks
+    const currentIndex = tracks.findIndex((track) => track.id === primaryTrack.id)
+    if (currentIndex < 0) {
+      if (tracks[0]) switchActiveTrack(tracks[0].id)
+      return
+    }
+    const nextTrack = tracks[currentIndex + offset]
     if (!nextTrack) return
     switchActiveTrack(nextTrack.id)
   }
