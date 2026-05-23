@@ -75,21 +75,35 @@ function drawWaveformWithTrim(
   if (startX > 0) ctx.fillRect(0, 0, startX, H)
   if (endX < W) ctx.fillRect(endX, 0, W - endX, H)
 
-  // Trim handles (vertical lines + grip)
-  const HANDLE_W = 3
+  // Trim handles — barra + triángulo + grip pill (zona táctil visible)
+  const HANDLE_W = 4
   ctx.fillStyle = accent
-  ctx.fillRect(startX - 1, 0, HANDLE_W, H)
-  ctx.fillRect(endX - 1, 0, HANDLE_W, H)
+  ctx.fillRect(startX - HANDLE_W / 2, 0, HANDLE_W, H)
+  ctx.fillRect(endX - HANDLE_W / 2, 0, HANDLE_W, H)
 
-  // Small triangle markers at top
-  ctx.fillStyle = accent
+  // Triangles at top (más grandes para mobile)
   for (const [hx, dir] of [[startX, 1], [endX, -1]] as [number, number][]) {
     ctx.beginPath()
     ctx.moveTo(hx, 0)
-    ctx.lineTo(hx + dir * 10, 0)
-    ctx.lineTo(hx, 10)
+    ctx.lineTo(hx + dir * 18, 0)
+    ctx.lineTo(hx, 18)
     ctx.closePath()
     ctx.fill()
+  }
+
+  // Grip pill centrado en cada handle
+  const PILL_W = 10
+  const PILL_H = 28
+  const pillY = H / 2 - PILL_H / 2
+  ctx.fillStyle = "#ffffff"
+  for (const hx of [startX, endX]) {
+    ctx.fillRect(hx - PILL_W / 2, pillY, PILL_W, PILL_H)
+    // tres líneas de grip internas
+    ctx.fillStyle = accent
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(hx - 3, pillY + 7 + i * 7, 6, 1.5)
+    }
+    ctx.fillStyle = "#ffffff"
   }
 }
 
@@ -355,7 +369,10 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
 
   function handleCanvasPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!decodedBuffer) return
+    e.preventDefault()
     const frac = getCanvasFraction(e)
+
+    // Modo de tap-para-fijar punto de trim (activado desde toolbar)
     if (activeTrimHandle !== null) {
       if (activeTrimHandle === "start") {
         updateCalibration({ trimStart: Math.min(frac, calibration.trimEnd - 0.01) })
@@ -364,11 +381,17 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
       }
       return
     }
-    e.currentTarget.setPointerCapture(e.pointerId)
+
+    // Zona de agarre: 28px en cada lado del handle (evita mover trim con taps accidentales)
+    const rect = e.currentTarget.getBoundingClientRect()
+    const GRAB_FRAC = 28 / rect.width
     const distStart = Math.abs(frac - calibration.trimStart)
     const distEnd = Math.abs(frac - calibration.trimEnd)
+    const nearestDist = Math.min(distStart, distEnd)
+    if (nearestDist > GRAB_FRAC) return
+
+    e.currentTarget.setPointerCapture(e.pointerId)
     dragTrimRef.current = { handle: distStart < distEnd ? "start" : "end" }
-    e.preventDefault()
   }
 
   function handleCanvasPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {

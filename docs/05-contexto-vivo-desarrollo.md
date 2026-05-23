@@ -8219,3 +8219,81 @@ src/app/styles/ui-library.css            (touch-action en .ui-smc-btn)
 
 - `tsc --noEmit` — sin errores
 - El import de `ensureAudioReady` en LabApp.tsx resuelve el warning TS6133 al usarse en onPointerDown
+
+---
+
+## Movimiento — Bugs críticos en perform-only, pad y grabación (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+Corrección de cuatro bugs encontrados durante pruebas en las vistas Piano y Pad.
+
+### Cambios
+
+**`src/features/lab/LabApp.tsx`**
+- `startRecording()` llamaba a sí misma recursivamente (bucle infinito) en lugar de llamar a `labRecording.startRecording()`. El botón de grabación no funcionaba en ninguna vista.
+- Vista `perform-only`: play button ahora reproduce solo `[lab.primaryTrack]` en lugar de todo el proyecto — antes sonaban pistas de pad al reproducir desde la vista Piano.
+- Vista `perform-only`: disabled conditions del toolbar usan `lab.melodicTracks` en lugar de `lab.midiTracks`.
+
+**`src/features/lab/useLabProject.ts`**
+- `primaryTrack` en modo `perform-only` ahora solo resuelve a pistas melódicas. Antes podía apuntar a una pista de percusión (PAD 2) si `activeTrackId` la tenía activa, mostrando controles de pad en la vista Piano.
+- `switchTrackByOffset` usa `melodicTracks` en modo `perform-only` para que la navegación < > del piano no cruce a pistas de percusión.
+
+**`src/features/lab/useLabPerform.ts`**
+- `triggerSmcPad` ya no silencia el golpe en vivo cuando la pista está muteada. El mute del timeline solo debe afectar la reproducción de clips grabados, no la performance en vivo.
+
+### Archivos modificados
+
+```
+src/features/lab/LabApp.tsx
+src/features/lab/useLabProject.ts
+src/features/lab/useLabPerform.ts
+```
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- Grabación funciona en vista Piano y Pad
+- Vista Piano no muestra ni reproduce pistas de pad
+- Pad suena en vivo aunque la pista esté muteada en el timeline
+
+---
+
+## Movimiento — Arrastre de handles del sampler en móvil (2026-05-22)
+
+Fecha: 2026-05-22
+
+### Intención
+
+El arrastre de los handles de trim en la vista Sampler causaba mucha fricción en móvil. Los usuarios no podían agarrar los handles con precisión y el gesto competía con el scroll del navegador.
+
+### Causa raíz
+
+Tres problemas acumulados:
+1. Sin `touch-action: none` en el canvas — el navegador interceptaba el gesto para evaluar scroll antes de cederlo a JavaScript.
+2. Zona de agarre de 3px — imposible de tocar con precisión en mobile.
+3. Cualquier tap en el canvas movía el trim más cercano — taps accidentales en el centro del waveform desplazaban handles sin querer.
+
+### Cambios
+
+**`src/features/audio-sampler/AudioSamplerScreen.css`**
+- `touch-action: none` en `.audio-sampler-canvas` — el gesto va directo a JavaScript sin competencia de scroll.
+
+**`src/features/audio-sampler/AudioSamplerScreen.tsx`**
+- `handleCanvasPointerDown`: `e.preventDefault()` siempre al inicio (no solo al iniciar drag).
+- Zona de agarre expandida a 28px físicos: solo se inicia drag si el toque está dentro de ±28px del handle más cercano. Taps en el centro del waveform ya no mueven el trim.
+- `drawWaveformWithTrim`: handles más prominentes — barra de 4px (centrada), triángulos de 18px, pill de grip con tres líneas internas (affordance visual de "agarrá acá").
+
+### Archivos modificados
+
+```
+src/features/audio-sampler/AudioSamplerScreen.css   (touch-action)
+src/features/audio-sampler/AudioSamplerScreen.tsx   (handles + lógica de agarre)
+```
+
+### Validación
+
+- `tsc --noEmit` — sin errores
+- Arrastre validado por usuario como "super mejor" en móvil
