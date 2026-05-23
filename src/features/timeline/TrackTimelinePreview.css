@@ -265,8 +265,8 @@
   width: 2px;
   transform: translateX(-50%);
   pointer-events: none;
-  background: rgb(255 255 255 / 0.9);
-  box-shadow: 0 0 6px 1px rgb(255 255 255 / 0.25);
+  background: rgb(20 20 20 / 0.55);
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.12);
 }
 
 .track-timeline-mix-name-input {
