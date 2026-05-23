@@ -35,6 +35,7 @@ export type MidiRecordedNote = {
   playbackSource?: "note" | "smc-pad"
   smcPadSoundId?: SmcPadSoundId
   playbackEnvelope?: Partial<ADSREnvelope>
+  playbackPadSoundParams?: Partial<PadSoundParams>
   playbackPan?: number
   playbackTrackId?: string
   playbackVolume?: number
@@ -67,6 +68,7 @@ export function createMidiRecordedNote(
     Pick<
       MidiRecordedNote,
       | "playbackEnvelope"
+      | "playbackPadSoundParams"
       | "playbackPan"
       | "playbackSource"
       | "playbackTrackId"
@@ -83,6 +85,7 @@ export function createMidiRecordedNote(
     velocity: noteOnEvent.velocity,
     instrumentId,
     playbackEnvelope: options.playbackEnvelope,
+    playbackPadSoundParams: options.playbackPadSoundParams,
     playbackPan: options.playbackPan,
     playbackTrackId: options.playbackTrackId,
     playbackVolume: options.playbackVolume,

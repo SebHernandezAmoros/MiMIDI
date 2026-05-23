@@ -73,7 +73,8 @@ export function playRecordedNotes(
 
       if (recordedNote.playbackSource === "smc-pad" && recordedNote.smcPadSoundId) {
         const soundId = recordedNote.smcPadSoundId
-        const soundParams = { ...PAD_SOUND_DEFAULTS[soundId], ...options.padSoundSettings?.[soundId] }
+        const soundParams = recordedNote.playbackPadSoundParams
+          ?? { ...PAD_SOUND_DEFAULTS[soundId], ...options.padSoundSettings?.[soundId] }
         playSmcPadHit(soundId, playbackVolume, playbackPan, soundParams)
         return
       }

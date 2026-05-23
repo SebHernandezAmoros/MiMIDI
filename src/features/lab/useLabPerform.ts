@@ -312,6 +312,7 @@ export function useLabPerform({
     )
 
     if (recordingState === "recording") {
+      const padSoundParams = { ...PAD_SOUND_DEFAULTS[soundId], ...project.padSoundSettings[soundId] }
       applyUpdate((currentProject) =>
         appendNoteToTrack(
           currentProject,
@@ -322,6 +323,7 @@ export function useLabPerform({
             primaryTrack.instrumentId,
             {
               playbackEnvelope: primaryTrack.envelope,
+              playbackPadSoundParams: padSoundParams,
               playbackPan: primaryTrack.pan,
               playbackVolume: primaryTrack.volume,
               playbackSource: "smc-pad",

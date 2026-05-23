@@ -136,29 +136,28 @@ export function playSmcPadHit(
       return
 
     case "clap":
-      // 4 ráfagas estilo TR-808: 0, 8, 22, 44ms con gaps progresivos
-      ;[0, 8, 22, 44].forEach((delayMs, burstIndex) => {
+      // 2 ráfagas muy cercanas (0ms y 8ms) — se perciben como un solo golpe
+      ;[0, 8].forEach((delayMs, burstIndex) => {
         window.setTimeout(() => {
-          // Cuerpo: bandpass más alto y brillante (1800Hz) — el espectro real del clap
+          // Cuerpo: bandpass limpio sin distorsión
           playNoise(0.05 * ds, {
-            pan, volume: (burstIndex === 0 ? 0.45 : 0.28) * v,
-            envelope: { attack: 0.0001, decay: 0.016 * ds, sustain: 0.018, release: 0.034 * ds },
-            filter: { type: "bandpass", frequency: 1800, Q: 0.65 },
-            distortion: dist,
+            pan, volume: (burstIndex === 0 ? 0.75 : 0.48) * v,
+            envelope: { attack: 0.0001, decay: 0.018 * ds, sustain: 0, release: 0.03 * ds },
+            filter: { type: "bandpass", frequency: 1700, Q: 0.6 },
           })
-          // Snap agudo por encima
-          playNoise(0.028 * ds, {
-            pan, volume: (burstIndex === 0 ? 0.52 : 0.32) * v,
-            envelope: { attack: 0.0001, decay: 0.011 * ds, sustain: 0.008, release: 0.02 * ds },
+          // Snap agudo
+          playNoise(0.026 * ds, {
+            pan, volume: (burstIndex === 0 ? 0.68 : 0.38) * v,
+            envelope: { attack: 0.0001, decay: 0.011 * ds, sustain: 0, release: 0.018 * ds },
             filter: { type: "highpass", frequency: 4200, Q: 0.5 },
           })
         }, delayMs)
       })
-      // Cola larga que da el "reverb" natural del clap
-      playNoise(0.22 * ds, {
-        pan, volume: 0.18 * v,
-        envelope: { attack: 0.008, decay: 0.08 * ds, sustain: 0.025, release: 0.14 * ds },
-        filter: { type: "bandpass", frequency: 2400, Q: 0.5 },
+      // Cola: cuerpo y ambiance — más presente al haber menos ráfagas
+      playNoise(0.26 * ds, {
+        pan, volume: 0.34 * v,
+        envelope: { attack: 0.005, decay: 0.1 * ds, sustain: 0, release: 0.18 * ds },
+        filter: { type: "bandpass", frequency: 2200, Q: 0.5 },
       })
       return
 
@@ -224,24 +223,27 @@ export function playSmcPadHit(
       return
 
     case "shaker":
-      // Dos sacudidas: 0ms y 45ms — ataque casi instantáneo, volúmenes altos
-      ;[0, 45].forEach((delayMs, i) => {
-        window.setTimeout(() => {
-          // Cuerpo: bandpass más ancho (Q 0.8), volumen alto
-          playNoise(0.06 * ds, {
-            pan, volume: (i === 0 ? 0.55 : 0.42) * v,
-            envelope: { attack: 0.0005, decay: 0.028 * ds, sustain: 0.012, release: 0.032 * ds },
-            filter: { type: "bandpass", frequency: 5000, Q: 0.8 },
-            distortion: dist ? dist * 0.12 : undefined,
-          })
-          // Capa brillante de ataque
-          playNoise(0.022 * ds, {
-            pan, volume: (i === 0 ? 0.35 : 0.25) * v,
-            envelope: { attack: 0.0001, decay: 0.01 * ds, sustain: 0.006, release: 0.014 * ds },
-            filter: { type: "highpass", frequency: 7500, Q: 0.6 },
-          })
-        }, delayMs)
+      // Golpe principal: bandpass 5500Hz, decay limpio sin sustain
+      playNoise(0.075 * ds, {
+        pan, volume: 0.82 * v,
+        envelope: { attack: 0.001, decay: 0.03 * ds, sustain: 0, release: 0.045 * ds },
+        filter: { type: "bandpass", frequency: 5500, Q: 0.75 },
+        distortion: dist ? dist * 0.08 : undefined,
       })
+      // Shimmer agudo
+      playNoise(0.04 * ds, {
+        pan, volume: 0.52 * v,
+        envelope: { attack: 0.0001, decay: 0.016 * ds, sustain: 0, release: 0.022 * ds },
+        filter: { type: "highpass", frequency: 8000, Q: 0.55 },
+      })
+      // Ligero retorno de las bolitas (más suave, más corto)
+      window.setTimeout(() => {
+        playNoise(0.045 * ds, {
+          pan, volume: 0.28 * v,
+          envelope: { attack: 0.001, decay: 0.018 * ds, sustain: 0, release: 0.024 * ds },
+          filter: { type: "bandpass", frequency: 5500, Q: 0.75 },
+        })
+      }, 22)
       return
 
     case "open-hat":
