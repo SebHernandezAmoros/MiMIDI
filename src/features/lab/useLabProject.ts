@@ -2,6 +2,7 @@ import type { ChangeEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { exportProjectAudio as exportProjectAudioUseCase } from "../../application/use-cases/exportProjectAudio"
 import { exportProjectBundle } from "../../application/use-cases/exportProjectBundle"
+import { saveFile } from "../../application/use-cases/saveFile"
 import { importProjectBundle } from "../../application/use-cases/importProjectBundle"
 import type { ADSREnvelope } from "../../engine/audio/audioEngine"
 import type { MathematicalInstrument, MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
@@ -665,15 +666,13 @@ export function useLabProject({
   }
 
   // ── Import / Export ──────────────────────────────────────────────────────────
-  function exportProject() {
+  async function exportProject() {
     const projectJson = JSON.stringify(project, null, 2)
     const blob = new Blob([projectJson], { type: "application/json" })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `${project.name.replace(/\s+/g, "-").toLowerCase()}.json`
-    link.click()
-    window.URL.revokeObjectURL(url)
+    const suggestedName = `${project.name.replace(/\s+/g, "-").toLowerCase()}.json`
+    await saveFile(blob, suggestedName, [
+      { description: "Proyecto MiMIDI", accept: { "application/json": [".json"] } },
+    ])
     setProjectMessage("Proyecto exportado a JSON.")
   }
 
@@ -693,12 +692,9 @@ export function useLabProject({
         float: true,
         masterVolume,
       })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = fileName
-      link.click()
-      window.URL.revokeObjectURL(url)
+      await saveFile(blob, fileName, [
+        { description: "Audio WAV", accept: { "audio/wav": [".wav"] } },
+      ])
       setProjectMessage(`Audio exportado a WAV (${duration.toFixed(2)}s).`)
     } catch {
       setProjectMessage("No se pudo exportar el audio del proyecto.")
@@ -711,12 +707,10 @@ export function useLabProject({
     try {
       setProjectMessage("Empaquetando proyecto...")
       const blob = await exportProjectBundle(project)
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${project.name.replace(/\s+/g, "-").toLowerCase()}.mimidi`
-      link.click()
-      window.URL.revokeObjectURL(url)
+      const suggestedName = `${project.name.replace(/\s+/g, "-").toLowerCase()}.mimidi`
+      await saveFile(blob, suggestedName, [
+        { description: "Bundle MiMIDI", accept: { "application/octet-stream": [".mimidi"] } },
+      ])
       setProjectMessage("Proyecto guardado como .mimidi (incluye muestras).")
     } catch {
       setProjectMessage("No se pudo exportar el bundle.")
