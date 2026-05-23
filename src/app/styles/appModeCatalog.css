@@ -468,6 +468,12 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.14);
 }
 
+.app-theme-classic [data-ui-theme="dark"] .ui-toggle-group > button[aria-pressed="true"] {
+  background: var(--ui-color-surface-raised);
+  color: var(--ui-color-text);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.32);
+}
+
 .app-theme-classic button:active,
 .app-theme-classic .mode-switch-active {
   background:
