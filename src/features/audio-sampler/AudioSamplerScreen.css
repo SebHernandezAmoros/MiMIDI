@@ -660,17 +660,20 @@
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--ui-color-text);
-  background: var(--ui-color-surface-inset);
+  background: transparent;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-md);
   padding: 0.2rem 0.6rem;
   outline: none;
-  width: 9rem;
+  flex: 1 1 0;
+  min-width: 5rem;
+  max-width: 12rem;
   line-height: 1.2;
-  transition: border-color 80ms ease;
+  transition: border-color 80ms ease, background 80ms ease;
 }
 
 .audio-sampler-toolbar-rename:focus {
+  background: var(--ui-color-surface-inset);
   border-color: var(--ui-color-accent);
 }
 

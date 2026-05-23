@@ -594,42 +594,70 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
               <button aria-pressed={samplerView === "secuenciador"} onClick={() => setSamplerView("secuenciador")} type="button">{t.tabSequencer}</button>
             </div>
 
-            {/* TRIM — solo visible en Editor con audio */}
-            {samplerView === "editor" && decodedBuffer && selectedSlot && (
-              <span className="audio-sampler-toolbar-trim">
-                {activeTrimHandle !== "end" && (
+            {/* Slot navigator — qué estás editando (editor + muestras) */}
+            {samplerView !== "secuenciador" && filledCount > 0 && selectedSlot && activeTrimHandle === null && (
+              <>
+                <div className="audio-sampler-slot-nav">
                   <button
-                    aria-pressed={activeTrimHandle === "start"}
-                    className={`audio-sampler-trim-btn${activeTrimHandle === "start" ? " active" : ""}`}
-                    onClick={() => setActiveTrimHandle(activeTrimHandle === "start" ? null : "start")}
-                    title={t.cropStartHint}
+                    className="audio-sampler-slot-nav-btn"
+                    disabled={filledCount <= 1}
+                    onClick={() => handleSlotNav(-1)}
                     type="button"
-                  >
-                    {t.cropStart}
-                  </button>
-                )}
-                {activeTrimHandle !== null && (
-                  <span className="audio-sampler-toolbar-trim-val">
-                    {activeTrimHandle === "start"
-                      ? `${(calibration.trimStart * selectedSlot.duration).toFixed(2)}s`
-                      : `${(calibration.trimEnd * selectedSlot.duration).toFixed(2)}s`}
+                    aria-label={t.prevSlot}
+                  >◄</button>
+                  <span className="audio-sampler-slot-nav-label">
+                    <span className="audio-sampler-slot-nav-num">{selectedIndex}</span>
+                    <span className="audio-sampler-slot-nav-name">{selectedSlot.name}</span>
                   </span>
-                )}
-                {activeTrimHandle !== "start" && (
                   <button
-                    aria-pressed={activeTrimHandle === "end"}
-                    className={`audio-sampler-trim-btn${activeTrimHandle === "end" ? " active" : ""}`}
-                    onClick={() => setActiveTrimHandle(activeTrimHandle === "end" ? null : "end")}
-                    title={t.cropEndHint}
+                    className="audio-sampler-slot-nav-btn"
+                    disabled={filledCount <= 1}
+                    onClick={() => handleSlotNav(1)}
                     type="button"
-                  >
-                    {t.cropEnd}
-                  </button>
-                )}
-              </span>
+                    aria-label={t.nextSlot}
+                  >►</button>
+                </div>
+                <span aria-hidden="true" className="perform-mode-transport-divider" />
+              </>
             )}
 
-            <span aria-hidden="true" className="perform-mode-transport-divider" />
+            {/* TRIM — solo visible en Editor con audio */}
+            {samplerView === "editor" && decodedBuffer && selectedSlot && (
+              <>
+                <span className="audio-sampler-toolbar-trim">
+                  {activeTrimHandle !== "end" && (
+                    <button
+                      aria-pressed={activeTrimHandle === "start"}
+                      className={`audio-sampler-trim-btn${activeTrimHandle === "start" ? " active" : ""}`}
+                      onClick={() => setActiveTrimHandle(activeTrimHandle === "start" ? null : "start")}
+                      title={t.cropStartHint}
+                      type="button"
+                    >
+                      {t.cropStart}
+                    </button>
+                  )}
+                  {activeTrimHandle !== null && (
+                    <span className="audio-sampler-toolbar-trim-val">
+                      {activeTrimHandle === "start"
+                        ? `${(calibration.trimStart * selectedSlot.duration).toFixed(2)}s`
+                        : `${(calibration.trimEnd * selectedSlot.duration).toFixed(2)}s`}
+                    </span>
+                  )}
+                  {activeTrimHandle !== "start" && (
+                    <button
+                      aria-pressed={activeTrimHandle === "end"}
+                      className={`audio-sampler-trim-btn${activeTrimHandle === "end" ? " active" : ""}`}
+                      onClick={() => setActiveTrimHandle(activeTrimHandle === "end" ? null : "end")}
+                      title={t.cropEndHint}
+                      type="button"
+                    >
+                      {t.cropEnd}
+                    </button>
+                  )}
+                </span>
+                <span aria-hidden="true" className="perform-mode-transport-divider" />
+              </>
+            )}
 
             {samplerView !== "secuenciador" && (
               <button
@@ -761,10 +789,6 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 <RotateCcw size={18} />
               </button>
             )}
-            {samplerView !== "secuenciador" && activeTrimHandle === null && (
-              <span aria-hidden="true" className="perform-mode-transport-divider" />
-            )}
-
             {/* En MUESTRAS: input de renombrar el slot seleccionado */}
             {samplerView === "muestras" && selectedSlot && (
               <input
@@ -782,30 +806,6 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 placeholder={t.slotName}
                 type="text"
               />
-            )}
-
-            {/* En EDITOR: navegador de slots */}
-            {samplerView === "editor" && filledCount > 0 && selectedSlot && activeTrimHandle === null && (
-              <div className="audio-sampler-slot-nav">
-                <button
-                  className="audio-sampler-slot-nav-btn"
-                  disabled={filledCount <= 1}
-                  onClick={() => handleSlotNav(-1)}
-                  type="button"
-                  aria-label={t.prevSlot}
-                >◄</button>
-                <span className="audio-sampler-slot-nav-label">
-                  <span className="audio-sampler-slot-nav-num">{selectedIndex}</span>
-                  <span className="audio-sampler-slot-nav-name">{selectedSlot.name}</span>
-                </span>
-                <button
-                  className="audio-sampler-slot-nav-btn"
-                  disabled={filledCount <= 1}
-                  onClick={() => handleSlotNav(1)}
-                  type="button"
-                  aria-label={t.nextSlot}
-                >►</button>
-              </div>
             )}
 
             {samplerView !== "secuenciador" && selectedSlot && activeTrimHandle === null && (

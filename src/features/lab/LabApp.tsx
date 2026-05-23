@@ -311,24 +311,27 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-controls">
           {!isNoteEditMode && (
-            <div className="ui-toggle-group" role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}>
-              <button
-                aria-pressed={timelineView === "notes"}
-                disabled={lab.hasNoTracks}
-                onClick={() => setTimelineView("notes")}
-                title={lab.hasNoTracks ? t.toolbar.addMidiTrackDisabled : undefined}
-                type="button"
-              >
-                {t.toolbar.viewNotes}
-              </button>
-              <button
-                aria-pressed={timelineView === "tracks"}
-                onClick={() => setTimelineView("tracks")}
-                type="button"
-              >
-                {t.toolbar.viewTracks}
-              </button>
-            </div>
+            <>
+              <div className="ui-toggle-group" role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}>
+                <button
+                  aria-pressed={timelineView === "notes"}
+                  disabled={lab.hasNoTracks}
+                  onClick={() => setTimelineView("notes")}
+                  title={lab.hasNoTracks ? t.toolbar.addMidiTrackDisabled : undefined}
+                  type="button"
+                >
+                  {t.toolbar.viewNotes}
+                </button>
+                <button
+                  aria-pressed={timelineView === "tracks"}
+                  onClick={() => setTimelineView("tracks")}
+                  type="button"
+                >
+                  {t.toolbar.viewTracks}
+                </button>
+              </div>
+              <span aria-hidden="true" className="perform-mode-transport-divider" />
+            </>
           )}
           {timelineView === "notes" && !isNoteEditMode && (
             <select
@@ -438,31 +441,34 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
             </>
           )}
           {!isNoteEditMode && (
-            <button
-              aria-label={
-                labPlayback.playbackTransport.isPlaying ? t.common.stopPlayback : t.common.play
-              }
-              className="ui-icon-btn"
-              disabled={
-                lab.allRecordedNotes.length === 0 &&
-                getSamplerTracks(lab.project.timeline).length === 0 &&
-                !labPlayback.playbackTransport.isPlaying &&
-                !labPlayback.isMixOnlyPlaying
-              }
-              onClick={() =>
-                labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying
-                  ? labPlayback.stopAll()
-                  : labPlayback.playAll(editNotesToPlay, timelineView === "tracks")
-              }
-              title={labPlayback.playbackTransport.isPlaying ? t.common.stop : t.common.play}
-              type="button"
-            >
-              {labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying ? (
-                <Square size={18} />
-              ) : (
-                <Play size={18} />
-              )}
-            </button>
+            <>
+              <span aria-hidden="true" className="perform-mode-transport-divider" />
+              <button
+                aria-label={
+                  labPlayback.playbackTransport.isPlaying ? t.common.stopPlayback : t.common.play
+                }
+                className="ui-icon-btn"
+                disabled={
+                  lab.allRecordedNotes.length === 0 &&
+                  getSamplerTracks(lab.project.timeline).length === 0 &&
+                  !labPlayback.playbackTransport.isPlaying &&
+                  !labPlayback.isMixOnlyPlaying
+                }
+                onClick={() =>
+                  labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying
+                    ? labPlayback.stopAll()
+                    : labPlayback.playAll(editNotesToPlay, timelineView === "tracks")
+                }
+                title={labPlayback.playbackTransport.isPlaying ? t.common.stop : t.common.play}
+                type="button"
+              >
+                {labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying ? (
+                  <Square size={18} />
+                ) : (
+                  <Play size={18} />
+                )}
+              </button>
+            </>
           )}
           <span aria-hidden="true" className="perform-mode-transport-divider" />
 
@@ -493,7 +499,6 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
             !isNoteEditMode &&
             !(timelineView === "tracks" && isTrackLaneFocused) && (
               <>
-                <span aria-hidden="true" className="perform-mode-transport-divider" />
                 <button
                   aria-label={t.toolbar.reduceDuration}
                   className="ui-icon-btn"
@@ -527,6 +532,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
             )}
           {!(timelineView === "tracks" && isTrackLaneFocused) && (
             <>
+              <span aria-hidden="true" className="perform-mode-transport-divider" />
               <button
                 aria-label={t.common.undo}
                 className="ui-icon-btn"
@@ -575,6 +581,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               const isSolo = activeMix ? (activeMix.solo ?? false) : lab.primaryTrack.solo
               return (
                 <>
+                  <span aria-hidden="true" className="perform-mode-transport-divider" />
                   <button
                     aria-label={isMuted ? t.common.unmute : t.common.mute}
                     className={`ui-icon-btn edit-mute-solo-btn${isMuted ? " edit-mute-solo-btn-active" : ""}`}
