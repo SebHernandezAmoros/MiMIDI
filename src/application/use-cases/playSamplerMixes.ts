@@ -35,8 +35,11 @@ export function playSamplerMixes(
             const audioNow = getAudioCurrentTime()
             const performanceNow = performance.now() / 1000
             const when = audioNow + (absoluteWhen - performanceNow)
-            if (when < audioNow) continue
-            const node = playAudioBufferCalibratedAt(buf, slot.calibration, when)
+            // Si el momento ya pasó por más de 500ms (realmente perdido), ignorar.
+            // Si pasó hace menos (race con el await de carga), tocar lo antes posible.
+            if (when < audioNow - 0.5) continue
+            const scheduledWhen = Math.max(when, audioNow + 0.01)
+            const node = playAudioBufferCalibratedAt(buf, slot.calibration, scheduledWhen)
             scheduledSources.push(node)
           }
         }

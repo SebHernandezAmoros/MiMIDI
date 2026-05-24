@@ -9,7 +9,8 @@ import { SEQ_DEFAULT_BPM, type SequencerPattern, syncPatternLanes, resizePattern
 import { addSamplerMix, getSamplerTracks } from "../../engine/project/projectModel"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSampleBuffer, type SamplePlayback } from "../../application/use-cases/playSampleBuffer"
-import { importSampleFile } from "../../application/use-cases/importSampleFile"
+import { importSampleFile, type ImportedSampleData } from "../../application/use-cases/importSampleFile"
+import { RecordMicModal } from "./RecordMicModal"
 import { loadSampleAudioBuffer } from "../../application/use-cases/loadSampleAudioBuffer"
 import { deleteSampleSlot } from "../../application/use-cases/deleteSampleSlot"
 import { exportSampleSlot } from "../../application/use-cases/exportSampleSlot"
@@ -129,6 +130,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [recordMicOpen, setRecordMicOpen] = useState(false)
   const [seqExportOpen, setSeqExportOpen] = useState(false)
   const [seqExportName, setSeqExportName] = useState("")
   const [seqSendOpen, setSeqSendOpen] = useState(false)
@@ -338,6 +340,32 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     }
   }
 
+  async function handleMicSave(data: ImportedSampleData) {
+    setIsLoading(true)
+    try {
+      const meta: SampleSlotMeta = {
+        index: selectedIndex,
+        name: data.name,
+        duration: data.duration,
+        dbId: data.dbId,
+        sampleRate: data.sampleRate,
+        channels: data.channels,
+        calibration: { ...DEFAULT_CALIBRATION },
+      }
+      if (selectedSlot?.dbId) {
+        bufferCacheRef.current.delete(selectedSlot.dbId)
+        await deleteSampleSlot(selectedSlot.dbId)
+      }
+      bufferCacheRef.current.set(data.dbId, data.audioBuffer)
+      const next = [...slots]
+      next[selectedIndex - 1] = meta
+      updateSlots(next)
+      setDecodedBuffer(data.audioBuffer)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   function handlePlay() {
     if (isPlaying) { stopCurrent(); return }
     if (decodedBuffer) triggerBuffer(decodedBuffer)
@@ -507,7 +535,14 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     }
   })
 
-  function startSeq() {
+  async function startSeq() {
+    // Pre-cargar buffers que falten en caché antes de iniciar el tick
+    for (const lane of seqPatternRef.current.lanes) {
+      if (!bufferCacheRef.current.has(lane.slotDbId)) {
+        const buf = await loadSampleAudioBuffer(lane.slotDbId)
+        if (buf) bufferCacheRef.current.set(lane.slotDbId, buf)
+      }
+    }
     seqCurrentStepRef.current = 0
     seqNextStepTimeRef.current = getAudioCurrentTime()
     seqIsPlayingRef.current = true
@@ -757,15 +792,26 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
               type="file"
             />
             {samplerView === "muestras" && (
-              <button
-                className="ui-icon-btn"
-                disabled={isLoading}
-                onClick={() => fileInputRef.current?.click()}
-                title={t.importAudio}
-                type="button"
-              >
-                <Upload size={18} />
-              </button>
+              <>
+                <button
+                  className="ui-icon-btn"
+                  disabled={isLoading}
+                  onClick={() => fileInputRef.current?.click()}
+                  title={t.importAudio}
+                  type="button"
+                >
+                  <Upload size={18} />
+                </button>
+                <button
+                  className="ui-icon-btn"
+                  disabled={isLoading}
+                  onClick={() => setRecordMicOpen(true)}
+                  title={t.recordMic}
+                  type="button"
+                >
+                  <Mic size={18} />
+                </button>
+              </>
             )}
             {samplerView === "editor" && activeTrimHandle === null && (
               <button
@@ -1147,6 +1193,14 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
 
         </div>
       </AppDialog>
+
+      <RecordMicModal
+        language={language}
+        onClose={() => setRecordMicOpen(false)}
+        onSave={(data) => void handleMicSave(data)}
+        open={recordMicOpen}
+        slotIndex={selectedIndex}
+      />
 
       <AppDialog
         actions={
