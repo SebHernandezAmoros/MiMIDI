@@ -85,6 +85,7 @@ export function PerformResponsiveToolbar({
           className={`perform-mode-transport-button ${
             isRecording ? "perform-mode-transport-button-active" : "perform-mode-transport-record"
           }`}
+          data-tutorial="record-button"
           onClick={onRecordToggle}
           type="button"
         >
@@ -106,6 +107,7 @@ export function PerformResponsiveToolbar({
           className={`perform-mode-transport-button ${
             isPlaying ? "perform-mode-transport-button-active" : "perform-mode-transport-play"
           }`}
+          data-tutorial="play-button"
           disabled={isRecording || (!allRecordedNotesCount && !isPlaying)}
           onClick={onPlayToggle}
           type="button"
@@ -153,6 +155,7 @@ export function PerformResponsiveToolbar({
 
       <button
         className="ui-pill-btn"
+        data-tutorial="instrument-button"
         onClick={onInstrumentDialogOpen}
         style={{ maxWidth: "8.5rem", overflow: "hidden", textOverflow: "ellipsis" }}
         title={selectedInstrumentName}
@@ -214,7 +217,7 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* Grupo 4: Estructural — añadir y eliminar pistas */}
-      <button className="ui-pill-btn" onClick={onAddTrack} type="button">
+      <button className="ui-pill-btn" data-tutorial="add-track-button" onClick={onAddTrack} type="button">
         {tp.addTrack}
       </button>
 

@@ -62,6 +62,7 @@ export const enMessages = {
         piano: "PIANO",
         audio: "AUDIO",
         lab: "LAB",
+        tutorial: "TUTORIAL",
       },
       items: {
         language: "Language",
@@ -69,6 +70,8 @@ export const enMessages = {
         showKeyLabels: "Show key labels",
         masterVolume: "Master volume",
         goToLab: "Go to lab",
+        basicTutorial: "Basic tutorial",
+        basicTutorialDesc: "Your first song",
       },
       optionsTitle: "Options — Settings",
       optionsDesc: "Additional configuration options.",

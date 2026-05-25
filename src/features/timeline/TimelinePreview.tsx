@@ -147,7 +147,7 @@ export function TimelinePreview({
   }
 
   return (
-    <section className="timeline-preview" aria-label="Timeline MIDI">
+    <section className="timeline-preview" aria-label="Timeline MIDI" data-tutorial="note-timeline">
       <h2>Timeline</h2>
 
       <div className="timeline-ruler" aria-hidden="true">

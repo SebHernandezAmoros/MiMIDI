@@ -190,6 +190,7 @@ export function PianoPreview({
       className="piano-preview"
       style={{ "--natural-key-count": naturalNotes.length } as PianoStyle}
       aria-label="Piano de prueba"
+      data-tutorial="piano-keys"
     >
       <div className="piano-natural-keys">
         {naturalNotes.map((note) => renderPianoKey(note, "piano-key-natural"))}

@@ -97,7 +97,10 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   // ── Simple local UI state ────────────────────────────────────────────────────
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
-  const [timelineView, setTimelineView] = useState<"notes" | "tracks">("notes")
+  const [timelineView, setTimelineView] = useState<"notes" | "tracks">(() => {
+    const v = new URLSearchParams(window.location.search).get("timelineView")
+    return v === "tracks" ? "tracks" : "notes"
+  })
   const [, setIsTimelineDragging] = useState(false)
   const [isTrackLaneFocused, setIsTrackLaneFocused] = useState(false)
   const [selectedMixId, setSelectedMixId] = useState<string | null>(null)
@@ -187,6 +190,15 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
       setTimelineView("tracks")
     }
   }, [lab.hasNoTracks, timelineView])
+
+  useEffect(() => {
+    function syncTimelineView() {
+      const v = new URLSearchParams(window.location.search).get("timelineView")
+      if (v === "tracks" || v === "notes") setTimelineView(v)
+    }
+    window.addEventListener("popstate", syncTimelineView)
+    return () => window.removeEventListener("popstate", syncTimelineView)
+  }, [])
 
   useEffect(() => {
     if (timelineView !== "tracks") {
@@ -324,6 +336,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                 </button>
                 <button
                   aria-pressed={timelineView === "tracks"}
+                  data-tutorial="view-tracks-tab"
                   onClick={() => setTimelineView("tracks")}
                   type="button"
                 >
@@ -983,6 +996,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           </label>
           <input
             className="project-compact-name-input"
+            data-tutorial="project-name-input"
             id="project-view-name"
             onChange={(e) => lab.updateProjectName(e.target.value)}
             placeholder={t.project.projectName}
@@ -1029,6 +1043,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           </button>
           <button
             className="project-export-btn project-export-btn-primary project-compact-btn-wide"
+            data-tutorial="export-wav-button"
             disabled={
               (lab.allRecordedNotes.length === 0 &&
                 getSamplerTracks(lab.project.timeline).length === 0) ||
@@ -1191,6 +1206,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                     : t.common.startRecording
                 }
                 className={`perform-mode-transport-button${labRecording.recordingState === "recording" ? " perform-mode-transport-button-active" : ""}`}
+                data-tutorial="pad-record-button"
                 onClick={
                   labRecording.recordingState === "recording"
                     ? () => labRecording.stopRecording()
@@ -1213,6 +1229,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                     : t.common.play
                 }
                 className={`perform-mode-transport-button${labPlayback.playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
+                data-tutorial="pad-play-button"
                 disabled={labRecording.recordingState === "recording"}
                 onClick={
                   labPlayback.playbackTransport.isPlaying
@@ -1277,7 +1294,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               </button>
             </div>
 
-            <button className="ui-pill-btn" onClick={lab.addPadTrack} type="button">
+            <button className="ui-pill-btn" data-tutorial="add-pad-track-button" onClick={lab.addPadTrack} type="button">
               {t.toolbar.addPadTrack}
             </button>
 
@@ -1317,7 +1334,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
             </button>
           </header>
 
-          <div className="ui-smc-grid">
+          <div className="ui-smc-grid" data-tutorial="pad-grid">
             {smcPadSounds.slice(padPage * 8, padPage * 8 + 8).map((pad, i) => (
               <div key={pad.id} className="ui-smc-cell">
                 <button

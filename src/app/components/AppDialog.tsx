@@ -27,6 +27,7 @@ export function AppDialog({
     <div
       aria-hidden="true"
       className="app-dialog-backdrop"
+      data-tutorial="dialog-close"
       onClick={onClose}
     >
       <section

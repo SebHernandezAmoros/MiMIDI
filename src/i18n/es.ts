@@ -62,6 +62,7 @@ export const esMessages = {
         piano: "PIANO",
         audio: "AUDIO",
         lab: "LAB",
+        tutorial: "TUTORIAL",
       },
       items: {
         language: "Idioma",
@@ -69,6 +70,8 @@ export const esMessages = {
         showKeyLabels: "Mostrar etiquetas de teclas",
         masterVolume: "Volumen maestro",
         goToLab: "Ir al laboratorio",
+        basicTutorial: "Tutorial básico",
+        basicTutorialDesc: "Tu primera canción",
       },
       optionsTitle: "Opciones — Ajustes",
       optionsDesc: "Opciones adicionales de configuración.",

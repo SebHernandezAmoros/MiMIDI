@@ -123,7 +123,22 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
   const tc = resolveAppMessages(language ?? "es").lab.common
 
   type SamplerView = "editor" | "muestras" | "secuenciador"
-  const [samplerView, setSamplerView] = useState<SamplerView>("editor")
+
+  function getTabFromUrl(): SamplerView {
+    const tab = new URLSearchParams(window.location.search).get("tab")
+    if (tab === "editor" || tab === "secuenciador") return tab
+    return "muestras"
+  }
+
+  const [samplerView, setSamplerView] = useState<SamplerView>(getTabFromUrl)
+
+  useEffect(() => {
+    function syncTab() {
+      setSamplerView(getTabFromUrl())
+    }
+    window.addEventListener("popstate", syncTab)
+    return () => window.removeEventListener("popstate", syncTab)
+  }, [])
   const [slots, setSlots] = useState<(SampleSlotMeta | null)[]>(loadSlotMetas)
   const [selectedIndex, setSelectedIndex] = useState(1)
   const [decodedBuffer, setDecodedBuffer] = useState<AudioBuffer | null>(null)
@@ -623,10 +638,10 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
           <div className="app-mock-toolbar-controls">
 
             {/* Switch de vista */}
-            <div className="ui-toggle-group" role="group" aria-label={t.viewLabel}>
-              <button aria-pressed={samplerView === "muestras"} onClick={() => setSamplerView("muestras")} type="button">{t.tabSamples}</button>
-              <button aria-pressed={samplerView === "editor"} onClick={() => setSamplerView("editor")} type="button">{t.tabEditor}</button>
-              <button aria-pressed={samplerView === "secuenciador"} onClick={() => setSamplerView("secuenciador")} type="button">{t.tabSequencer}</button>
+            <div className="ui-toggle-group" data-tutorial="sampler-view-tabs" role="group" aria-label={t.viewLabel}>
+              <button aria-pressed={samplerView === "muestras"} data-tutorial="sampler-muestras-tab" onClick={() => setSamplerView("muestras")} type="button">{t.tabSamples}</button>
+              <button aria-pressed={samplerView === "editor"} data-tutorial="sampler-editor-tab" onClick={() => setSamplerView("editor")} type="button">{t.tabEditor}</button>
+              <button aria-pressed={samplerView === "secuenciador"} data-tutorial="sampler-seq-tab" onClick={() => setSamplerView("secuenciador")} type="button">{t.tabSequencer}</button>
             </div>
 
             {/* Slot navigator — qué estás editando (editor + muestras) */}
@@ -740,6 +755,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 </button>
                 <button
                   className="ui-icon-btn"
+                  data-tutorial="send-to-timeline-button"
                   disabled={seqPattern.lanes.length === 0 || seqIsPlaying}
                   onClick={() => { setSeqSendName(""); setSeqSendOpen(true) }}
                   title={t.sendToTimeline}
@@ -804,6 +820,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 </button>
                 <button
                   className="ui-icon-btn"
+                  data-tutorial="record-mic-button"
                   disabled={isLoading}
                   onClick={() => setRecordMicOpen(true)}
                   title={t.recordMic}

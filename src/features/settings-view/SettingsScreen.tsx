@@ -9,6 +9,7 @@ type SettingsScreenProps = {
   onLanguageChange: (language: AppLanguage) => void
   onMasterVolumeChange: (v: number) => void
   onOpenLab: () => void
+  onStartBasicTutorial: () => void
   settingsOpen: boolean
   onSettingsClose: () => void
   showKeyLabels: boolean
@@ -23,6 +24,7 @@ export function SettingsScreen({
   onLanguageChange,
   onMasterVolumeChange,
   onOpenLab,
+  onStartBasicTutorial,
   settingsOpen,
   onSettingsClose,
   showKeyLabels,
@@ -108,6 +110,25 @@ export function SettingsScreen({
           <button className="ui-list-row" onClick={onOpenLab} type="button">
             <span className="ui-list-icon">L</span>
             <span className="ui-list-label">{m.items.goToLab}</span>
+            <span className="ui-list-arrow" aria-hidden="true">›</span>
+          </button>
+        </section>
+
+        <section className="ui-list-section" aria-label={m.sections.tutorial}>
+          <span className="ui-label-muted">{m.sections.tutorial}</span>
+          <button
+            className="ui-list-row"
+            data-tutorial="repeat-tutorial-button"
+            onClick={onStartBasicTutorial}
+            type="button"
+          >
+            <span className="ui-list-icon">T</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
+              <span className="ui-list-label">{m.items.basicTutorial}</span>
+              <span style={{ fontSize: "0.72rem", color: "var(--ui-color-text-muted)" }}>
+                {m.items.basicTutorialDesc}
+              </span>
+            </div>
             <span className="ui-list-arrow" aria-hidden="true">›</span>
           </button>
         </section>

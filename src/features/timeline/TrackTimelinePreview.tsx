@@ -217,7 +217,7 @@ export function TrackTimelinePreview({
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <section className="track-timeline-preview" aria-label={tl.title}>
+    <section className="track-timeline-preview" aria-label={tl.title} data-tutorial="track-timeline">
       <div className="track-timeline-header">
         <div>
           <h2>{tl.title}</h2>

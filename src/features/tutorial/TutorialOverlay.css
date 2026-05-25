@@ -1,0 +1,184 @@
+/* ── Raíz del portal: cubre toda la pantalla, no bloquea clics ──── */
+
+.tutorial-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+}
+
+/* ── Fondo oscuro con recorte (spotlight) ────────────────────────── */
+
+.tutorial-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tutorial-spotlight {
+  position: absolute;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52);
+  border: 2px solid var(--ui-color-accent, #c82828);
+  pointer-events: none;
+  transition: top 0.22s ease, left 0.22s ease, width 0.22s ease, height 0.22s ease;
+}
+
+/* ── Modal: anclado al fondo, centrado ──────────────────────────── */
+
+.tutorial-modal {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(28rem, 92vw);
+  pointer-events: auto;
+  z-index: 201;
+  background: var(--ui-color-surface-raised, rgb(248 248 248 / 0.97));
+  border: 1px solid var(--ui-color-border, rgb(184 176 168 / 0.72));
+  border-radius: var(--ui-radius-lg, 1.35rem);
+  padding: 1rem 1.25rem 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  color: var(--ui-color-text, #303030);
+}
+
+/* ── Botón saltar ────────────────────────────────────────────────── */
+
+.tutorial-skip-btn {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--ui-color-text-muted, #686868);
+  font-size: 0.71rem;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  line-height: 1;
+}
+
+.tutorial-skip-btn:hover {
+  color: var(--ui-color-accent, #c82828);
+}
+
+/* ── Contenido del paso ──────────────────────────────────────────── */
+
+.tutorial-modal-content {
+  padding-right: 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tutorial-step-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ui-color-text, #303030);
+}
+
+.tutorial-step-text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--ui-color-text, #303030);
+  margin: 0;
+}
+
+/* ── Footer: contador + botones ─────────────────────────────────── */
+
+.tutorial-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tutorial-step-counter {
+  font-size: 0.72rem;
+  color: var(--ui-color-text-muted, #686868);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.tutorial-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.tutorial-btn-primary {
+  background: var(--ui-color-accent, #c82828);
+  color: #fff;
+  border: none;
+  border-radius: var(--ui-radius-md, 1rem);
+  padding: 0.4rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.tutorial-btn-primary:hover {
+  opacity: 0.85;
+}
+
+.tutorial-btn-secondary {
+  background: none;
+  border: 1px solid var(--ui-color-border, rgb(184 176 168 / 0.72));
+  border-radius: var(--ui-radius-md, 1rem);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--ui-color-text, #303030);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.tutorial-btn-secondary:hover {
+  border-color: var(--ui-color-accent, #c82828);
+}
+
+/* ── Paso 0: selección de idioma ────────────────────────────────── */
+
+.tutorial-modal-lang {
+  align-items: center;
+  text-align: center;
+}
+
+.tutorial-lang-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ui-color-text, #303030);
+  margin: 0;
+}
+
+.tutorial-lang-sub {
+  font-size: 0.8rem;
+  color: var(--ui-color-text-muted, #686868);
+  margin: 0;
+}
+
+.tutorial-lang-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.tutorial-lang-btn {
+  background: var(--ui-color-surface-inset, rgb(237 232 226 / 0.82));
+  border: 1px solid var(--ui-color-border, rgb(184 176 168 / 0.72));
+  border-radius: var(--ui-radius-md, 1rem);
+  padding: 0.55rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ui-color-text, #303030);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.tutorial-lang-btn:hover {
+  border-color: var(--ui-color-accent, #c82828);
+}

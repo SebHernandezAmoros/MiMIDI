@@ -35,6 +35,7 @@ import { setMasterVolume } from "../engine/audio/audioEngine"
 type AppModeProps = {
   activeLanguage: AppLanguage
   activeView?: AppViewId
+  onStartBasicTutorial: () => void
 }
 
 type ViewSettingsProps = {
@@ -52,6 +53,7 @@ function resolveScreen(
   onShowKeyLabelsChange: (v: boolean) => void,
   masterVolume: number,
   onMasterVolumeChange: (v: number) => void,
+  onStartBasicTutorial: () => void,
 ) {
   const messages = resolveAppMessages(activeLanguage)
   const viewCopy = messages.views[activeView]
@@ -74,6 +76,7 @@ function resolveScreen(
           onMasterVolumeChange={onMasterVolumeChange}
           onOpenLab={() => navigateTo(`/lab?lang=${activeLanguage}`)}
           onShowKeyLabelsChange={onShowKeyLabelsChange}
+          onStartBasicTutorial={onStartBasicTutorial}
           showKeyLabels={showKeyLabels}
           {...viewSettings}
         />
@@ -112,6 +115,7 @@ function AppViewIcon({ viewId }: { viewId: AppViewId }) {
 export function AppMode({
   activeLanguage,
   activeView = defaultAppView,
+  onStartBasicTutorial,
 }: AppModeProps) {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mimidi-dark-mode") === "true")
@@ -229,7 +233,7 @@ export function AppMode({
         </header>
 
         <div className="app-mode-window-content">
-          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, handleDarkModeChange, viewSettings, showKeyLabels, handleShowKeyLabelsChange, masterVolume, handleMasterVolumeChange)}
+          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, handleDarkModeChange, viewSettings, showKeyLabels, handleShowKeyLabelsChange, masterVolume, handleMasterVolumeChange, onStartBasicTutorial)}
         </div>
       </section>
     </AppShell>
