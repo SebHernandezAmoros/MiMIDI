@@ -129,7 +129,7 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* Grupo 2: Qué tocas — pista, instrumento y octava */}
-      <div className="ui-pad-pager">
+      <div className="ui-pad-pager" data-tutorial="track-selector">
         <button
           aria-label={tp.previousTrack}
           className="ui-icon-btn"
@@ -164,7 +164,7 @@ export function PerformResponsiveToolbar({
         {selectedInstrumentName.toUpperCase()}
       </button>
 
-      <div className="ui-counter" aria-label={tp.octaveControl}>
+      <div className="ui-counter" aria-label={tp.octaveControl} data-tutorial="octave-control">
         <button
           aria-label={tp.octaveDown}
           className="ui-counter-btn"
@@ -187,7 +187,7 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* Grupo 3: Cómo tocas — modo de nota y arpegiador */}
-      <div className="ui-toggle-group" role="group" aria-label={tp.pianoMode}>
+      <div className="ui-toggle-group" role="group" aria-label={tp.pianoMode} data-tutorial="piano-mode-toggle">
         <button
           aria-pressed={pianoMode === "note"}
           onClick={() => onPianoModeChange("note")}
@@ -204,7 +204,7 @@ export function PerformResponsiveToolbar({
         </button>
       </div>
 
-      <label className="perform-mode-arp-toggle" aria-label={tp.arpLabel}>
+      <label className="perform-mode-arp-toggle" aria-label={tp.arpLabel} data-tutorial="piano-arp-toggle">
         <input
           checked={isArpEnabled}
           className="ui-checkbox"
@@ -224,6 +224,7 @@ export function PerformResponsiveToolbar({
       <button
         aria-label={tp.removeActiveTrack}
         className="ui-icon-btn"
+        data-tutorial="remove-track-button"
         disabled={removeTrackDisabled}
         onClick={onConfirmRemoveTrack}
         type="button"

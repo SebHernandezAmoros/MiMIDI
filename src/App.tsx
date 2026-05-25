@@ -8,7 +8,9 @@ import { navigateTo } from "./app/navigation"
 import { CatalogPage } from "./features/catalog/CatalogPage"
 import LabApp from "./features/lab/LabApp"
 import { TutorialOverlay } from "./features/tutorial/TutorialOverlay"
-import { isTutorialSeen } from "./features/tutorial/tutorialStorage"
+import { isTutorialSeen, markTutorialSeen, markCompleteTutorialSeen } from "./features/tutorial/tutorialStorage"
+import { COMPLETE_TUTORIAL_STEPS, COMPLETE_TOTAL_STEPS } from "./features/tutorial/tutorialCompleteSteps"
+import { tutorialCompleteTexts } from "./features/tutorial/tutorialTexts"
 
 function App() {
   const [activeRoute, setActiveRoute] = useState(() =>
@@ -23,6 +25,9 @@ function App() {
 
   const [tutorialActive, setTutorialActive] = useState(false)
   const [tutorialStep, setTutorialStep] = useState(0)
+
+  const [completeTutorialActive, setCompleteTutorialActive] = useState(false)
+  const [completeTutorialStep, setCompleteTutorialStep] = useState(1)
 
   // Auto-start on first visit (only in AppMode, not in /lab or /catalog)
   useEffect(() => {
@@ -49,8 +54,13 @@ function App() {
   }, [])
 
   function startBasicTutorial() {
-    setTutorialStep(1)
+    setTutorialStep(0)
     setTutorialActive(true)
+  }
+
+  function startCompleteTutorial() {
+    setCompleteTutorialStep(1)
+    setCompleteTutorialActive(true)
   }
 
   function handleTutorialLanguageChange(lang: AppLanguage) {
@@ -71,14 +81,25 @@ function App() {
         activeLanguage={activeLanguage}
         activeView={activeView}
         onStartBasicTutorial={startBasicTutorial}
+        onStartCompleteTutorial={startCompleteTutorial}
       />
       <TutorialOverlay
         active={tutorialActive}
         language={activeLanguage}
         step={tutorialStep}
-        onClose={() => setTutorialActive(false)}
+        onClose={() => { setTutorialActive(false); markTutorialSeen() }}
         onLanguageChange={handleTutorialLanguageChange}
         onStep={setTutorialStep}
+      />
+      <TutorialOverlay
+        active={completeTutorialActive}
+        customTexts={tutorialCompleteTexts}
+        language={activeLanguage}
+        step={completeTutorialStep}
+        steps={COMPLETE_TUTORIAL_STEPS}
+        totalSteps={COMPLETE_TOTAL_STEPS}
+        onClose={() => { setCompleteTutorialActive(false); markCompleteTutorialSeen() }}
+        onStep={setCompleteTutorialStep}
       />
     </>
   )

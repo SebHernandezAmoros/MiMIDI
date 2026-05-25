@@ -726,6 +726,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 <button
                   aria-label={seqIsPlaying ? t.stopSeq : t.playSeq}
                   className="ui-icon-btn"
+                  data-tutorial="seq-play-button"
                   disabled={seqPattern.lanes.length === 0}
                   onClick={seqIsPlaying ? stopSeq : startSeq}
                   title={seqIsPlaying ? t.stopSeq : t.playSeq}
@@ -735,6 +736,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 </button>
                 <button
                   className="ui-icon-btn"
+                  data-tutorial="seq-clear-button"
                   disabled={seqPattern.lanes.length === 0}
                   onClick={clearSeqPattern}
                   title={t.clearSteps}
@@ -766,7 +768,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 <span aria-hidden="true" className="perform-mode-transport-divider" />
 
                 {/* BPM */}
-                <div className="audio-sampler-seq-ctrl-group">
+                <div className="audio-sampler-seq-ctrl-group" data-tutorial="seq-bpm-ctrl">
                   <span className="audio-sampler-seq-ctrl-label">BPM</span>
                   <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm - 1)} type="button">−</button>
                   <span className="audio-sampler-seq-bpm-val">{seqPattern.bpm}</span>
@@ -776,7 +778,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 <span aria-hidden="true" className="perform-mode-transport-divider" />
 
                 {/* Número de pasos */}
-                <div className="audio-sampler-seq-ctrl-group">
+                <div className="audio-sampler-seq-ctrl-group" data-tutorial="seq-steps-ctrl">
                   <span className="audio-sampler-seq-ctrl-label">{t.stepsLabel}</span>
                   <button
                     className={`audio-sampler-seq-small-btn${seqPattern.stepsPerBar === 16 ? " audio-sampler-seq-small-btn-on" : ""}`}
@@ -927,7 +929,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 </div>
 
                 {/* Panel lateral de calibración — 1/3 del ancho */}
-                <div className="audio-sampler-cal-panel">
+                <div className="audio-sampler-cal-panel" data-tutorial="sampler-cal-panel">
                   {decodedBuffer && selectedSlot ? (
                     <>
                       {/* Gain + Normalize */}
@@ -1138,7 +1140,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
         open={settingsOpen}
         title={t.optionsTitle}
       >
-        <div className="audio-sampler-settings">
+        <div className="audio-sampler-settings" data-tutorial="sampler-options-content">
           <section className="ui-list-section">
             <span className="ui-label-muted">{t.summaryTitle}</span>
             <div className="audio-sampler-modal-summary">

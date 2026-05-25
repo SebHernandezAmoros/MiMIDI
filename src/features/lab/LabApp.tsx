@@ -756,7 +756,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           open={settingsOpen}
           title={t.dialogs.editorOptions}
         >
-          <div className="control-group">
+          <div className="control-group" data-tutorial="edit-options-content">
             <label>{timelineView === "notes" ? t.project.noteTimelineDurationShort : t.project.trackTimelineDurationShort} (s)</label>
             <input
               min="1"
@@ -1268,7 +1268,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               ))}
             </select>
 
-            <div className="ui-pad-pager">
+            <div className="ui-pad-pager" data-tutorial="pad-page-pager">
               <button
                 aria-label={t.pad.prevPage}
                 className="ui-icon-btn"
@@ -1308,6 +1308,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                   : t.toolbar.lockConfig
               }
               className="ui-icon-btn"
+              data-tutorial="pad-lock-button"
               onClick={() =>
                 lab.applyUpdate((p) => ({
                   ...p,
@@ -1364,6 +1365,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                   <button
                     aria-label={tpl(t.pad.configurePad, { label: pad.label })}
                     className="ui-smc-config-btn"
+                    data-tutorial={i === 0 ? "pad-settings-btn" : undefined}
                     onClick={() => setConfigSoundId(pad.id)}
                     title={tpl(t.pad.configurePad, { label: pad.label })}
                     type="button"
@@ -1438,7 +1440,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           open={settingsOpen}
           title={t.project.perTrackMix}
         >
-          <div className="edit-settings-track-section">
+          <div className="edit-settings-track-section" data-tutorial="pad-options-content">
             <span className="perform-instrument-dialog-title">
               {t.toolbar.activeTrack} — {lab.primaryTrack.name}
             </span>
@@ -1825,8 +1827,8 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           open={settingsOpen}
           title={t.dialogs.pianoOptions}
         >
-          <div className="perform-settings-dialog-v">
-            <div className="perform-settings-dialog-section">
+          <div className="perform-settings-dialog-v" data-tutorial="piano-options-content">
+            <div className="perform-settings-dialog-section" data-tutorial="piano-chord-section">
               <span className="perform-instrument-dialog-title">{t.perform.chordType}</span>
               <div className="perform-instrument-dialog-tabs">
                 {(["major", "minor", "power"] as const).map((type) => (
@@ -1841,7 +1843,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                 ))}
               </div>
             </div>
-            <div className="perform-settings-dialog-section">
+            <div className="perform-settings-dialog-section" data-tutorial="piano-arp-mode-section">
               <span className="perform-instrument-dialog-title">{t.perform.arpMode}</span>
               <div className="perform-instrument-dialog-tabs">
                 {(["up", "down", "up-down", "random", "chord"] as const).map((m) => (
@@ -1864,7 +1866,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                 ))}
               </div>
             </div>
-            <div className="perform-settings-dialog-section">
+            <div className="perform-settings-dialog-section" data-tutorial="piano-arp-params">
               <span className="perform-instrument-dialog-title">{t.perform.arpRate}</span>
               <div className="perform-instrument-dialog-tabs">
                 {(["1/4", "1/8", "1/16", "1/8T"] as const).map((r) => (

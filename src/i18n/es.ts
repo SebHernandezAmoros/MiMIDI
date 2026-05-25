@@ -72,6 +72,8 @@ export const esMessages = {
         goToLab: "Ir al laboratorio",
         basicTutorial: "Tutorial básico",
         basicTutorialDesc: "Tu primera canción",
+        completeTutorial: "Tutorial avanzado",
+        completeTutorialDesc: "Piano, sampler y timeline",
       },
       optionsTitle: "Opciones — Ajustes",
       optionsDesc: "Opciones adicionales de configuración.",

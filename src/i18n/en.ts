@@ -72,6 +72,8 @@ export const enMessages = {
         goToLab: "Go to lab",
         basicTutorial: "Basic tutorial",
         basicTutorialDesc: "Your first song",
+        completeTutorial: "Advanced tutorial",
+        completeTutorialDesc: "Piano, sampler and timeline",
       },
       optionsTitle: "Options — Settings",
       optionsDesc: "Additional configuration options.",

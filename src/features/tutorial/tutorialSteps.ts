@@ -1,6 +1,7 @@
 export type BasicTutorialStep = {
   view: string
   target: string | null
+  triggerBefore?: string  // data-tutorial de elemento a clicar antes de hacer spotlight (ej. abrir un diálogo)
 }
 
 export const BASIC_TUTORIAL_STEPS: BasicTutorialStep[] = [

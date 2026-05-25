@@ -10,6 +10,7 @@ type SettingsScreenProps = {
   onMasterVolumeChange: (v: number) => void
   onOpenLab: () => void
   onStartBasicTutorial: () => void
+  onStartCompleteTutorial: () => void
   settingsOpen: boolean
   onSettingsClose: () => void
   showKeyLabels: boolean
@@ -25,6 +26,7 @@ export function SettingsScreen({
   onMasterVolumeChange,
   onOpenLab,
   onStartBasicTutorial,
+  onStartCompleteTutorial,
   settingsOpen,
   onSettingsClose,
   showKeyLabels,
@@ -127,6 +129,20 @@ export function SettingsScreen({
               <span className="ui-list-label">{m.items.basicTutorial}</span>
               <span style={{ fontSize: "0.72rem", color: "var(--ui-color-text-muted)" }}>
                 {m.items.basicTutorialDesc}
+              </span>
+            </div>
+            <span className="ui-list-arrow" aria-hidden="true">›</span>
+          </button>
+          <button
+            className="ui-list-row"
+            onClick={onStartCompleteTutorial}
+            type="button"
+          >
+            <span className="ui-list-icon">A</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
+              <span className="ui-list-label">{m.items.completeTutorial}</span>
+              <span style={{ fontSize: "0.72rem", color: "var(--ui-color-text-muted)" }}>
+                {m.items.completeTutorialDesc}
               </span>
             </div>
             <span className="ui-list-arrow" aria-hidden="true">›</span>

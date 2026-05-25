@@ -1,9 +1,8 @@
 import { createPortal } from "react-dom"
 import { useEffect, useLayoutEffect, useState } from "react"
 import { navigateTo } from "../../app/navigation"
-import { markTutorialSeen } from "./tutorialStorage"
-import { BASIC_TUTORIAL_STEPS, BASIC_TOTAL_STEPS } from "./tutorialSteps"
-import { tutorialBasicTexts } from "./tutorialTexts"
+import { BASIC_TUTORIAL_STEPS, BASIC_TOTAL_STEPS, type BasicTutorialStep } from "./tutorialSteps"
+import { tutorialBasicTexts, type TutorialLangTexts } from "./tutorialTexts"
 import type { AppLanguage } from "../../app/appI18n"
 import "./TutorialOverlay.css"
 
@@ -13,7 +12,10 @@ type TutorialOverlayProps = {
   language: AppLanguage
   onStep: (step: number) => void
   onClose: () => void
-  onLanguageChange: (lang: AppLanguage) => void
+  onLanguageChange?: (lang: AppLanguage) => void
+  steps?: BasicTutorialStep[]
+  totalSteps?: number
+  customTexts?: Record<AppLanguage, TutorialLangTexts>
 }
 
 export function TutorialOverlay({
@@ -23,16 +25,22 @@ export function TutorialOverlay({
   onStep,
   onClose,
   onLanguageChange,
+  steps,
+  totalSteps,
+  customTexts,
 }: TutorialOverlayProps) {
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null)
   const isDark = localStorage.getItem("mimidi-dark-mode") === "true"
 
-  const isLangStep = step === 0
+  const resolvedSteps = steps ?? BASIC_TUTORIAL_STEPS
+  const resolvedTotalSteps = totalSteps ?? BASIC_TOTAL_STEPS
+  const texts = (customTexts ?? tutorialBasicTexts)[language]
+
+  const isLangStep = step === 0 && !!onLanguageChange
   const stepIndex = step - 1
-  const currentStep = isLangStep ? null : BASIC_TUTORIAL_STEPS[stepIndex]
-  const texts = tutorialBasicTexts[language]
+  const currentStep = isLangStep ? null : resolvedSteps[stepIndex]
   const stepTexts = isLangStep ? null : texts.steps[stepIndex]
-  const isLastStep = step === BASIC_TOTAL_STEPS
+  const isLastStep = step === resolvedTotalSteps
 
   useLayoutEffect(() => {
     if (!active) return
@@ -51,14 +59,27 @@ export function TutorialOverlay({
       return
     }
 
+    let innerTimer: number | null = null
     const timer = window.setTimeout(() => {
+      if (currentStep.triggerBefore) {
+        const triggerEl = document.querySelector(`[data-tutorial="${currentStep.triggerBefore}"]`) as HTMLElement | null
+        triggerEl?.click()
+        innerTimer = window.setTimeout(() => {
+          if (!currentStep.target) { setSpotlightRect(null); return }
+          const el = document.querySelector(`[data-tutorial="${currentStep.target}"]`)
+          if (!el) { setSpotlightRect(null); return }
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          setSpotlightRect(el.getBoundingClientRect())
+        }, 250)
+        return
+      }
       const el = document.querySelector(`[data-tutorial="${currentStep.target}"]`)
       if (!el) { setSpotlightRect(null); return }
       el.scrollIntoView({ behavior: "smooth", block: "center" })
       setSpotlightRect(el.getBoundingClientRect())
     }, 200)
 
-    return () => clearTimeout(timer)
+    return () => { clearTimeout(timer); if (innerTimer !== null) clearTimeout(innerTimer) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, step])
 
@@ -77,7 +98,7 @@ export function TutorialOverlay({
   if (!active) return null
 
   function handleNext() {
-    if (isLastStep) { markTutorialSeen(); onClose(); return }
+    if (isLastStep) { onClose(); return }
     onStep(step + 1)
   }
 
@@ -86,12 +107,11 @@ export function TutorialOverlay({
   }
 
   function handleSkip() {
-    markTutorialSeen()
     onClose()
   }
 
   function handleLangSelect(lang: AppLanguage) {
-    onLanguageChange(lang)
+    onLanguageChange?.(lang)
     onStep(1)
   }
 
@@ -144,7 +164,7 @@ export function TutorialOverlay({
 
           <div className="tutorial-modal-footer">
             <span className="tutorial-step-counter">
-              {texts.ui.stepOf(step, BASIC_TOTAL_STEPS)}
+              {texts.ui.stepOf(step, resolvedTotalSteps)}
             </span>
             <div className="tutorial-modal-actions">
               {step > 1 && (

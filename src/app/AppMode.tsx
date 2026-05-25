@@ -36,6 +36,7 @@ type AppModeProps = {
   activeLanguage: AppLanguage
   activeView?: AppViewId
   onStartBasicTutorial: () => void
+  onStartCompleteTutorial: () => void
 }
 
 type ViewSettingsProps = {
@@ -54,6 +55,7 @@ function resolveScreen(
   masterVolume: number,
   onMasterVolumeChange: (v: number) => void,
   onStartBasicTutorial: () => void,
+  onStartCompleteTutorial: () => void,
 ) {
   const messages = resolveAppMessages(activeLanguage)
   const viewCopy = messages.views[activeView]
@@ -77,6 +79,7 @@ function resolveScreen(
           onOpenLab={() => navigateTo(`/lab?lang=${activeLanguage}`)}
           onShowKeyLabelsChange={onShowKeyLabelsChange}
           onStartBasicTutorial={onStartBasicTutorial}
+          onStartCompleteTutorial={onStartCompleteTutorial}
           showKeyLabels={showKeyLabels}
           {...viewSettings}
         />
@@ -116,6 +119,7 @@ export function AppMode({
   activeLanguage,
   activeView = defaultAppView,
   onStartBasicTutorial,
+  onStartCompleteTutorial,
 }: AppModeProps) {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mimidi-dark-mode") === "true")
@@ -223,6 +227,7 @@ export function AppMode({
             <button
               aria-label={messages.appMode.viewOptions}
               className="app-mode-fullscreen-toggle"
+              data-tutorial="view-options-btn"
               onClick={() => setIsViewSettingsOpen(true)}
               title={messages.appMode.viewOptions}
               type="button"
@@ -233,7 +238,7 @@ export function AppMode({
         </header>
 
         <div className="app-mode-window-content">
-          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, handleDarkModeChange, viewSettings, showKeyLabels, handleShowKeyLabelsChange, masterVolume, handleMasterVolumeChange, onStartBasicTutorial)}
+          {resolveScreen(activeDefinition.id, activeLanguage, darkMode, handleDarkModeChange, viewSettings, showKeyLabels, handleShowKeyLabelsChange, masterVolume, handleMasterVolumeChange, onStartBasicTutorial, onStartCompleteTutorial)}
         </div>
       </section>
     </AppShell>
