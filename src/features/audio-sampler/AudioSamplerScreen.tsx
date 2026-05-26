@@ -3,7 +3,7 @@ import "./AudioSamplerScreen.css"
 import { Download, Eraser, Gauge, ListPlus, Mic, Play, RotateCcw, Square, Trash2, Upload } from "lucide-react"
 import { AppDialog } from "../../app/components/AppDialog"
 import { resolveAppMessages, tpl, type AppViewMessages, type AppLanguage } from "../../app/appI18n"
-import { type AudioCalibration, getAudioCurrentTime } from "../../engine/audio/audioEngine"
+import { type AudioCalibration, getAudioCurrentTime, playAudioBufferLooping } from "../../engine/audio/audioEngine"
 import { NUM_SLOTS, DEFAULT_CALIBRATION, type SampleSlotMeta, loadSlotMetas, saveSlotMetas } from "../../engine/audio/sampleModel"
 import { SEQ_DEFAULT_BPM, type SequencerPattern, syncPatternLanes, resizePatternSteps, saveSeqPattern, loadSeqPattern } from "../../engine/audio/sequencerModel"
 import { addSamplerMix, getSamplerTracks } from "../../engine/project/projectModel"
@@ -139,7 +139,16 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     window.addEventListener("popstate", syncTab)
     return () => window.removeEventListener("popstate", syncTab)
   }, [])
+
   const [slots, setSlots] = useState<(SampleSlotMeta | null)[]>(loadSlotMetas)
+
+  useEffect(() => {
+    function onStorageChange(e: StorageEvent) {
+      if (e.key === "mimidi-audio-slots") setSlots(loadSlotMetas())
+    }
+    window.addEventListener("storage", onStorageChange)
+    return () => window.removeEventListener("storage", onStorageChange)
+  }, [])
   const [selectedIndex, setSelectedIndex] = useState(1)
   const [decodedBuffer, setDecodedBuffer] = useState<AudioBuffer | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -179,6 +188,8 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
   const seqIsPlayingRef = useRef(false)
   const slotsRef = useRef(slots)
   const seqTickRef = useRef<(() => void) | null>(null)
+  // Looping sources for stepsPerBar=1 mode (native Web Audio loop)
+  const seqLoopSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map())
 
   const selectedSlot = slots[selectedIndex - 1] ?? null
   const calibration: AudioCalibration = selectedSlot?.calibration ?? { ...DEFAULT_CALIBRATION }
@@ -526,14 +537,29 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
 
       while (seqNextStepTimeRef.current < now + 0.1) {
         const step = seqCurrentStepRef.current
-        pattern.lanes.forEach(lane => {
-          if (!lane.steps[step]?.active) return
-          const slot = slotsRef.current.find(s => s?.dbId === lane.slotDbId)
-          if (!slot) return
-          const buf = bufferCacheRef.current.get(lane.slotDbId)
-          if (!buf) return
-          playSequencerStep(buf, slot.calibration, seqNextStepTimeRef.current)
-        })
+
+        if (pattern.stepsPerBar === 1) {
+          // Modo 1-paso: loop nativo por Web Audio (sample-accurate, sin gaps)
+          pattern.lanes.forEach(lane => {
+            if (!lane.steps[0]?.active) return
+            if (seqLoopSourcesRef.current.has(lane.slotDbId)) return
+            const slot = slotsRef.current.find(s => s?.dbId === lane.slotDbId)
+            if (!slot) return
+            const buf = bufferCacheRef.current.get(lane.slotDbId)
+            if (!buf) return
+            const src = playAudioBufferLooping(buf, slot.calibration, seqNextStepTimeRef.current)
+            seqLoopSourcesRef.current.set(lane.slotDbId, src)
+          })
+        } else {
+          pattern.lanes.forEach(lane => {
+            if (!lane.steps[step]?.active) return
+            const slot = slotsRef.current.find(s => s?.dbId === lane.slotDbId)
+            if (!slot) return
+            const buf = bufferCacheRef.current.get(lane.slotDbId)
+            if (!buf) return
+            playSequencerStep(buf, slot.calibration, seqNextStepTimeRef.current)
+          })
+        }
 
         const fireTime = seqNextStepTimeRef.current
         const delay = Math.max(0, (fireTime - now) * 1000)
@@ -550,7 +576,23 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     }
   })
 
+  function stopLoopSources() {
+    seqLoopSourcesRef.current.forEach(src => {
+      try { src.stop() } catch { /* already stopped */ }
+    })
+    seqLoopSourcesRef.current.clear()
+  }
+
   async function startSeq() {
+    stopLoopSources()
+    // Con 1 paso, recalcula el BPM desde la calibración actual antes de reproducir
+    if (seqPatternRef.current.stepsPerBar === 1) {
+      const freshBpm = calcOneShotBpm()
+      const refreshed = { ...seqPatternRef.current, bpm: freshBpm }
+      seqPatternRef.current = refreshed
+      setSeqPattern(refreshed)
+      saveSeqPattern(refreshed)
+    }
     // Pre-cargar buffers que falten en caché antes de iniciar el tick
     for (const lane of seqPatternRef.current.lanes) {
       if (!bufferCacheRef.current.has(lane.slotDbId)) {
@@ -571,6 +613,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
       clearTimeout(seqSchedulerRef.current)
       seqSchedulerRef.current = null
     }
+    stopLoopSources()
     seqIsPlayingRef.current = false
     setSeqIsPlaying(false)
     setSeqCurrentStep(-1)
@@ -594,14 +637,31 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
   }
 
   function updateSeqBpm(bpm: number) {
-    const next = { ...seqPattern, bpm: Math.min(240, Math.max(40, bpm)) }
+    const next = { ...seqPattern, bpm: Math.min(240, Math.max(0.1, bpm)) }
     seqPatternRef.current = next
     setSeqPattern(next)
     saveSeqPattern(next)
   }
 
+  // BPM derivado de la duración efectiva (trim + tune) de todos los slots cargados
+  function calcOneShotBpm(): number {
+    const maxDuration = slots.filter(Boolean).reduce((max, s) => {
+      const cal = s!.calibration
+      const trimFraction = Math.max(0.001, cal.trimEnd - cal.trimStart)
+      const playbackRate = Math.pow(2, cal.tune / 12)
+      return Math.max(max, s!.duration * trimFraction / playbackRate)
+    }, 0)
+    return maxDuration > 0 ? Math.max(0.1, 60 / (maxDuration * 4)) : seqPattern.bpm
+  }
+
   function updateSeqSteps(stepsPerBar: number) {
-    const next = resizePatternSteps(seqPattern, stepsPerBar)
+    let bpm = seqPattern.bpm
+    if (stepsPerBar === 1) {
+      bpm = calcOneShotBpm()
+    } else if (seqPattern.stepsPerBar === 1 && bpm < 40) {
+      bpm = 120
+    }
+    const next = resizePatternSteps({ ...seqPattern, bpm }, stepsPerBar)
     seqPatternRef.current = next
     setSeqPattern(next)
     saveSeqPattern(next)
@@ -612,7 +672,11 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     if (!project) return
     const mixCount = getSamplerTracks(project.timeline).length
     const mixName = name.trim() || `Mix ${mixCount + 1}`
-    const updated = addSamplerMix(project, seqPattern, mixName)
+    // Con 1 paso, recalcula siempre el BPM desde la calibración actual antes de guardar
+    const pattern = seqPattern.stepsPerBar === 1
+      ? { ...seqPattern, bpm: calcOneShotBpm() }
+      : seqPattern
+    const updated = addSamplerMix(project, pattern, mixName)
     saveProject(updated)
   }
 
@@ -770,9 +834,9 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 {/* BPM */}
                 <div className="audio-sampler-seq-ctrl-group" data-tutorial="seq-bpm-ctrl">
                   <span className="audio-sampler-seq-ctrl-label">BPM</span>
-                  <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm - 1)} type="button">−</button>
-                  <span className="audio-sampler-seq-bpm-val">{seqPattern.bpm}</span>
-                  <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm + 1)} type="button">+</button>
+                  <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm - (seqPattern.bpm < 10 ? 0.1 : 1))} type="button">−</button>
+                  <span className="audio-sampler-seq-bpm-val">{seqPattern.bpm < 10 ? seqPattern.bpm.toFixed(2) : Math.round(seqPattern.bpm)}</span>
+                  <button className="audio-sampler-seq-small-btn" onClick={() => updateSeqBpm(seqPattern.bpm + (seqPattern.bpm < 10 ? 0.1 : 1))} type="button">+</button>
                 </div>
 
                 <span aria-hidden="true" className="perform-mode-transport-divider" />
@@ -1075,7 +1139,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                     <div className="audio-sampler-step-cells">
                       {Array.from({ length: Math.ceil(seqPattern.stepsPerBar / 4) }, (_, gi) => (
                         <div key={gi} className="audio-sampler-step-group">
-                          {Array.from({ length: 4 }, (_, si) => {
+                          {Array.from({ length: Math.min(4, seqPattern.stepsPerBar - gi * 4) }, (_, si) => {
                             const stepIdx = gi * 4 + si
                             return (
                               <div
@@ -1163,13 +1227,14 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
             <div className="audio-sampler-modal-seq-card">
               <div className="audio-sampler-modal-seq-card-header">
                 <span className="audio-sampler-modal-seq-card-label">BPM</span>
-                <span className="audio-sampler-modal-seq-card-value">{seqPattern.bpm}</span>
+                <span className="audio-sampler-modal-seq-card-value">{seqPattern.bpm < 10 ? seqPattern.bpm.toFixed(2) : Math.round(seqPattern.bpm)}</span>
               </div>
               <div className="audio-sampler-modal-bpm-ctrl">
                 <input
                   className="audio-sampler-modal-bpm-slider"
                   max={240}
-                  min={40}
+                  min={0.1}
+                  step={seqPattern.bpm < 10 ? 0.1 : 1}
                   onChange={e => updateSeqBpm(Number(e.target.value))}
                   type="range"
                   value={seqPattern.bpm}
@@ -1177,10 +1242,11 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 <input
                   className="audio-sampler-modal-bpm-input"
                   max={240}
-                  min={40}
+                  min={0.1}
+                  step={seqPattern.bpm < 10 ? 0.1 : 1}
                   onChange={e => updateSeqBpm(Number(e.target.value))}
                   type="number"
-                  value={seqPattern.bpm}
+                  value={seqPattern.bpm < 10 ? seqPattern.bpm.toFixed(2) : Math.round(seqPattern.bpm)}
                 />
                 <button
                   className="audio-sampler-cal-btn"
@@ -1198,7 +1264,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
                 <span className="audio-sampler-modal-seq-card-value">{seqPattern.stepsPerBar}</span>
               </div>
               <div className="audio-sampler-modal-steps-ctrl">
-                {[4, 8, 16, 24, 32, 40].map(n => (
+                {[1, 2, 4, 8, 16, 24, 32, 40].map(n => (
                   <button
                     className={`audio-sampler-seq-small-btn${seqPattern.stepsPerBar === n ? " audio-sampler-seq-small-btn-on" : ""}`}
                     key={n}

@@ -10,7 +10,8 @@ export async function saveFile(
 ): Promise<void> {
   if ("showSaveFilePicker" in window) {
     try {
-      const handle = await window.showSaveFilePicker({ suggestedName, types })
+      const picker = window.showSaveFilePicker as (opts: { suggestedName: string; types: SaveFileType[] }) => Promise<FileSystemFileHandle>
+      const handle = await picker({ suggestedName, types })
       const writable = await handle.createWritable()
       await writable.write(blob)
       await writable.close()

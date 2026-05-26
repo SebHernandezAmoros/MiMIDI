@@ -9,99 +9,124 @@ import type {
 export type RegisteredPluginSummary = MiMIDIPluginDefinition & {
   enabled: boolean
   instrumentCount: number
+  isExternal: boolean
 }
+
+// ─── Runtime registry (internal + external cargados en sesión) ────────────────
+
+const runtimePlugins = new Map<string, MiMIDIPluginDefinition>(
+  internalPlugins.map((p) => [p.id, p]),
+)
+const externalPluginIds = new Set<string>()
+
+type RegistryListener = () => void
+const listeners = new Set<RegistryListener>()
+
+function notifyListeners() {
+  listeners.forEach((cb) => cb())
+}
+
+export function subscribeToPluginRegistry(cb: RegistryListener): () => void {
+  listeners.add(cb)
+  return () => listeners.delete(cb)
+}
+
+export function registerExternalPlugin(def: MiMIDIPluginDefinition): void {
+  runtimePlugins.set(def.id, def)
+  externalPluginIds.add(def.id)
+  notifyListeners()
+}
+
+export function unregisterExternalPlugin(id: string): void {
+  if (externalPluginIds.has(id)) {
+    runtimePlugins.delete(id)
+    externalPluginIds.delete(id)
+    notifyListeners()
+  }
+}
+
+export function isExternalPlugin(id: string): boolean {
+  return externalPluginIds.has(id)
+}
+
+// ─── Helpers públicos ─────────────────────────────────────────────────────────
 
 function dedupeInstruments(instruments: MathematicalInstrument[]) {
   const catalog = new Map<string, MathematicalInstrument>()
-
-  for (const instrument of instruments) {
-    catalog.set(instrument.id, instrument)
-  }
-
+  for (const instrument of instruments) catalog.set(instrument.id, instrument)
   return [...catalog.values()]
 }
 
-export function getRegisteredPlugins() {
-  return [...internalPlugins]
+export function getRegisteredPlugins(): MiMIDIPluginDefinition[] {
+  return [...runtimePlugins.values()]
 }
 
 export function createDefaultPluginStates(
   plugins: MiMIDIPluginDefinition[] = internalPlugins,
 ): MiMIDIPluginStateMap {
-  return Object.fromEntries(
-    plugins.map((plugin) => [plugin.id, plugin.enabledByDefault]),
-  )
+  return Object.fromEntries(plugins.map((p) => [p.id, p.enabledByDefault]))
 }
 
 export function resolvePluginStates(
   pluginStates: Partial<MiMIDIPluginStateMap> | undefined,
-  plugins: MiMIDIPluginDefinition[] = internalPlugins,
+  plugins?: MiMIDIPluginDefinition[],
 ): MiMIDIPluginStateMap {
-  const defaultStates = createDefaultPluginStates(plugins)
-
-  if (!pluginStates) {
-    return defaultStates
+  const all = plugins ?? getRegisteredPlugins()
+  const defaults = Object.fromEntries(all.map((p) => [p.id, p.enabledByDefault]))
+  if (!pluginStates) return defaults
+  for (const p of all) {
+    if (typeof pluginStates[p.id] === "boolean") defaults[p.id] = pluginStates[p.id]!
   }
-
-  for (const plugin of plugins) {
-    const nextState = pluginStates[plugin.id]
-
-    if (typeof nextState === "boolean") {
-      defaultStates[plugin.id] = nextState
-    }
-  }
-
-  return defaultStates
+  return defaults
 }
 
 export function isKnownPluginId(
   pluginId: MiMIDIPluginId,
-  plugins: MiMIDIPluginDefinition[] = internalPlugins,
+  plugins?: MiMIDIPluginDefinition[],
 ) {
-  return plugins.some((plugin) => plugin.id === pluginId)
+  return (plugins ?? getRegisteredPlugins()).some((p) => p.id === pluginId)
 }
 
 export function getEnabledPlugins(
   pluginStates?: Partial<MiMIDIPluginStateMap>,
-  plugins: MiMIDIPluginDefinition[] = internalPlugins,
+  plugins?: MiMIDIPluginDefinition[],
 ) {
-  const resolvedPluginStates = resolvePluginStates(pluginStates, plugins)
-
-  return plugins.filter((plugin) => resolvedPluginStates[plugin.id])
+  const all = plugins ?? getRegisteredPlugins()
+  const resolved = resolvePluginStates(pluginStates, all)
+  return all.filter((p) => resolved[p.id])
 }
 
 export function getPluginInstruments(
   pluginStates?: Partial<MiMIDIPluginStateMap>,
-  plugins: MiMIDIPluginDefinition[] = internalPlugins,
+  plugins?: MiMIDIPluginDefinition[],
 ) {
   return dedupeInstruments(
     getEnabledPlugins(pluginStates, plugins).flatMap(
-      (plugin) => plugin.instruments?.instruments ?? [],
+      (p) => p.instruments?.instruments ?? [],
     ),
   )
 }
 
 export function getRegisteredPluginSummaries(
   pluginStates?: Partial<MiMIDIPluginStateMap>,
-  plugins: MiMIDIPluginDefinition[] = internalPlugins,
-) {
-  const resolvedPluginStates = resolvePluginStates(pluginStates, plugins)
-
-  return plugins.map((plugin) => ({
-    ...plugin,
-    enabled: resolvedPluginStates[plugin.id],
-    instrumentCount: plugin.instruments?.instruments.length ?? 0,
-  })) satisfies RegisteredPluginSummary[]
+  plugins?: MiMIDIPluginDefinition[],
+): RegisteredPluginSummary[] {
+  const all = plugins ?? getRegisteredPlugins()
+  const resolved = resolvePluginStates(pluginStates, all)
+  return all.map((p) => ({
+    ...p,
+    enabled: resolved[p.id] ?? p.enabledByDefault,
+    instrumentCount: p.instruments?.instruments.length ?? 0,
+    isExternal: externalPluginIds.has(p.id),
+  }))
 }
 
 export function findRegisteredPluginByInstrumentId(
   instrumentId: string,
   pluginStates?: Partial<MiMIDIPluginStateMap>,
-  plugins: MiMIDIPluginDefinition[] = internalPlugins,
+  plugins?: MiMIDIPluginDefinition[],
 ) {
-  return getEnabledPlugins(pluginStates, plugins).find((plugin) =>
-    (plugin.instruments?.instruments ?? []).some(
-      (instrument) => instrument.id === instrumentId,
-    ),
+  return getEnabledPlugins(pluginStates, plugins).find((p) =>
+    (p.instruments?.instruments ?? []).some((i) => i.id === instrumentId),
   )
 }

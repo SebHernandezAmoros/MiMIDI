@@ -37,6 +37,8 @@ import {
   renameProject,
   renameTrack,
   resetProject,
+  updateAudioClipStartTime,
+  updateAudioClipTrackMuted,
   updateMidiClipStartTime,
   updateNoteInTrack,
   updateProjectPluginEnabled,
@@ -57,7 +59,7 @@ import {
   type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
-import { findRegisteredPluginByInstrumentId, getRegisteredPluginSummaries } from "../../engine/plugins/pluginRegistry"
+import { findRegisteredPluginByInstrumentId, getRegisteredPluginSummaries, subscribeToPluginRegistry } from "../../engine/plugins/pluginRegistry"
 import { useProjectHistory } from "../history/useProjectHistory"
 
 export type LabAppMode =
@@ -66,6 +68,7 @@ export type LabAppMode =
   | "project-only"
   | "perform-only"
   | "plugins-only"
+  | "plugin-workspace"
   | "sampler-only"
 
 const HISTORY_LIMIT = 20
@@ -172,9 +175,13 @@ export function useLabProject({
   const selectedRecordedNote =
     primaryTrackNotes.find((note) => note.id === selectedRecordedNoteId) ?? null
 
+  const [pluginRegistryVersion, setPluginRegistryVersion] = useState(0)
+  useEffect(() => subscribeToPluginRegistry(() => setPluginRegistryVersion((v) => v + 1)), [])
+
   const registeredPlugins = useMemo(
     () => getRegisteredPluginSummaries(project.pluginStates),
-    [project.pluginStates],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [project.pluginStates, pluginRegistryVersion],
   )
 
   let selectedNoteHistoryStatus: "modificada" | "sin-cambios" | null = null
@@ -554,6 +561,26 @@ export function useLabProject({
     applyUpdate((p) => removeSamplerClip(p, trackId, clipId))
   }
 
+  function updateAudioClipStartTimeHandler(
+    trackId: string,
+    clipId: string,
+    startTime: number,
+    historyMode: "transient" | "commit" = "commit",
+  ) {
+    const snapped = timelineSnapEnabled
+      ? Math.max(0, Math.round(startTime / timelineSnapStep) * timelineSnapStep)
+      : Math.max(0, startTime)
+    if (historyMode === "transient") {
+      applyTransientUpdate((p) => updateAudioClipStartTime(p, trackId, clipId, snapped))
+    } else {
+      commitTransientUpdate((p) => updateAudioClipStartTime(p, trackId, clipId, snapped))
+    }
+  }
+
+  function updateAudioClipTrackMutedHandler(trackId: string, muted: boolean) {
+    applyUpdate((p) => updateAudioClipTrackMuted(p, trackId, muted))
+  }
+
   function updateSamplerTrackMutedHandler(trackId: string, muted: boolean) {
     applyUpdate((p) => updateSamplerTrackMuted(p, trackId, muted))
   }
@@ -832,6 +859,8 @@ export function useLabProject({
     // actions — clips
     updateMidiClipStartTimeHandler,
     updateSamplerClipStartTimeHandler,
+    updateAudioClipStartTimeHandler,
+    updateAudioClipTrackMutedHandler,
     duplicateMidiClipHandler,
     duplicateSamplerClipHandler,
     removeMidiClipHandler,

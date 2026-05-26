@@ -292,7 +292,7 @@ function startSourceVoice(
 
   if (options.distortion && options.distortion > 0) {
     const shaper = ctx.createWaveShaper()
-    shaper.curve = makeDistortionCurve(options.distortion)
+    shaper.curve = makeDistortionCurve(options.distortion) as Float32Array<ArrayBuffer>
     shaper.oversample = "2x"
     chainTail.connect(shaper)
     chainTail = shaper
@@ -364,6 +364,32 @@ export function playAudioBuffer(
   return () => {
     try { source.stop() } catch { /* already stopped */ }
   }
+}
+
+export function scheduleAudioBuffer(
+  audioBuffer: AudioBuffer,
+  when: number,
+  offset = 0,
+  volume = 1,
+): () => void {
+  const ctx = getAudioContext()
+
+  const gainNode = ctx.createGain()
+  gainNode.gain.value = clamp(volume, 0, 2)
+  gainNode.connect(getMasterGainNode(ctx))
+
+  const source = ctx.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(gainNode)
+  source.start(when, offset)
+
+  return () => {
+    try { source.stop() } catch { /* already stopped */ }
+  }
+}
+
+export function getAudioContextCurrentTime(): number {
+  return getAudioContext().currentTime
 }
 
 export type AudioCalibration = {
@@ -518,6 +544,45 @@ export function playNoise(duration = 1, options: PlayNoiseOptions = {}) {
 
 export function getAudioCurrentTime(): number {
   return getAudioContext().currentTime
+}
+
+export function playAudioBufferLooping(
+  audioBuffer: AudioBuffer,
+  cal: AudioCalibration,
+  when: number,
+  volume = 1,
+  pan = 0,
+): AudioBufferSourceNode {
+  const ctx = getAudioContext()
+  const totalDur = audioBuffer.duration
+  const offset = clamp(cal.trimStart, 0, 1) * totalDur
+  const bufferDuration = Math.max(0.001, clamp(cal.trimEnd, 0, 1) * totalDur - offset)
+  const playbackRate = Math.pow(2, cal.tune / 12)
+
+  const panNode = ctx.createStereoPanner()
+  panNode.pan.value = clamp(pan, -1, 1)
+  panNode.connect(getMasterGainNode(ctx))
+
+  const gainNode = ctx.createGain()
+  gainNode.gain.setValueAtTime(clamp(volume * cal.gain, 0, 4), when)
+  gainNode.connect(panNode)
+
+  const source = ctx.createBufferSource()
+  source.buffer = audioBuffer
+  source.playbackRate.value = playbackRate
+  source.loop = true
+  source.loopStart = offset
+  source.loopEnd = offset + bufferDuration
+  source.connect(gainNode)
+  source.start(when, offset)
+
+  source.onended = () => {
+    source.disconnect()
+    gainNode.disconnect()
+    panNode.disconnect()
+  }
+
+  return source
 }
 
 export function playAudioBufferCalibratedAt(

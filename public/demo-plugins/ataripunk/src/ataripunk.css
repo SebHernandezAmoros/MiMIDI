@@ -1,0 +1,376 @@
+/* ─── AtariPunk Console — two 555 timers drone synthesizer ─── */
+
+.atari-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #090909;
+  color: #33ff33;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  user-select: none;
+  overflow: hidden;
+  color-scheme: dark;
+}
+
+/* ── Header ─────────────────────────────────────────── */
+
+.atari-header {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #1c401c;
+  flex-shrink: 0;
+  gap: 0.75rem;
+}
+
+.atari-header-title {
+  font-size: 0.8rem;
+  font-weight: bold;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #55ff55;
+  flex-shrink: 0;
+}
+
+.atari-header-ver {
+  margin-left: auto;
+  opacity: 0.4;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.atari-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.atari-workspace .atari-tab {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 1px solid #1c401c;
+  border-radius: 0;
+  outline: none;
+  color: #1a7a1a;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: border-color 0.08s, color 0.08s;
+}
+
+.atari-workspace .atari-tab.active  { border-color: #33ff33; color: #33ff33; }
+.atari-workspace .atari-tab:hover:not(.active) { border-color: #2a6a2a; color: #33ff33; }
+
+/* ── Sliders ─────────────────────────────────────────── */
+
+.atari-params {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #1c401c;
+  flex-shrink: 0;
+}
+
+.atari-param-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.atari-param-badge {
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  color: #1a7a1a;
+  text-transform: uppercase;
+  width: 3.2rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.atari-param-name {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: #33ff33;
+  width: 3.5rem;
+  flex-shrink: 0;
+}
+
+.atari-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 3px;
+  background: #1c401c;
+  outline: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.atari-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background: #33ff33;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.atari-slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  background: #33ff33;
+  cursor: pointer;
+  border-radius: 0;
+  border: none;
+}
+
+.atari-param-value {
+  font-size: 0.62rem;
+  color: #55ff55;
+  width: 4rem;
+  text-align: right;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+/* ── BUZZ — protagonista ─────────────────────────────── */
+
+.atari-buzz-area {
+  flex: 1;
+  display: flex;
+  padding: 1.25rem 1.5rem;
+  min-height: 0;
+}
+
+.atari-workspace .atari-buzz-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  width: auto;
+  background: #090909;
+  border: 2px solid #1c401c;
+  border-radius: 0;
+  outline: none;
+  color: #1a7a1a;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.08s, border-color 0.08s, color 0.08s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.atari-workspace .atari-buzz-btn:hover { border-color: #33ff33; color: #33ff33; }
+
+.atari-workspace .atari-buzz-btn.on {
+  background: #0d2b0d;
+  border-color: #55ff55;
+  color: #55ff55;
+  box-shadow: 0 0 18px #33ff3340, inset 0 0 24px #33ff3318;
+  animation: buzz-pulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes buzz-pulse {
+  from { box-shadow: 0 0 12px #33ff3330, inset 0 0 16px #33ff3310; }
+  to   { box-shadow: 0 0 28px #33ff3360, inset 0 0 32px #33ff3328; }
+}
+
+.atari-buzz-icon  { font-size: 2rem; line-height: 1; }
+.atari-buzz-label { font-size: 0.72rem; letter-spacing: 0.3em; }
+
+/* ── Barra de grabación — dos filas ──────────────────── */
+
+.atari-rec-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 1.5rem;
+  border-top: 1px solid #1c401c;
+  flex-shrink: 0;
+}
+
+/* Fila 1: botón REC + timer */
+.atari-rec-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.atari-workspace .atari-rec-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  outline: none;
+  background: #090909;
+  border: 1px solid #1a7a1a;
+  color: #33ff33;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.65rem;
+  padding: 0.28rem 0.75rem;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  width: auto;
+  transition: background 0.08s, border-color 0.08s;
+}
+
+.atari-workspace .atari-rec-btn:hover:not(:disabled) { background: #0d2b0d; border-color: #33ff33; }
+.atari-workspace .atari-rec-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.atari-workspace .atari-rec-btn.recording { border-color: #ff4444; color: #ff6666; animation: rec-blink 1s ease-in-out infinite; }
+
+@keyframes rec-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.atari-rec-dot   { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.atari-rec-timer { font-size: 0.65rem; color: #1a7a1a; letter-spacing: 0.1em; min-width: 3.2rem; flex-shrink: 0; }
+.atari-rec-timer.active { color: #ff6666; }
+
+/* Fila 2: acciones post-grabación (horizontal, sin wrap) */
+.atari-rec-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+.atari-workspace .atari-action-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  outline: none;
+  background: #090909;
+  border: 1px solid #1a7a1a;
+  color: #33ff33;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.6rem;
+  padding: 0.22rem 0.6rem;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  width: auto;
+  flex-shrink: 0;
+  transition: background 0.08s, border-color 0.08s;
+}
+
+.atari-workspace .atari-action-btn:hover { background: #0d2b0d; border-color: #33ff33; }
+.atari-workspace .atari-send-btn { border-color: #2a6a2a; color: #55ff55; }
+.atari-workspace .atari-send-btn:hover { border-color: #55ff55; background: #0d2b0d; }
+
+/* ── Clips tab — grid garantiza botones siempre visibles ─ */
+
+.atari-clips {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem 1.25rem;
+  gap: 0;
+  min-height: 0;
+}
+
+.atari-clips-empty {
+  margin: auto;
+  font-size: 0.65rem;
+  color: #1a7a1a;
+  letter-spacing: 0.15em;
+  opacity: 0.6;
+}
+
+.atari-clip-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #1c401c;
+}
+
+/* Columna izquierda: nombre + duración */
+.atari-clip-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  overflow: hidden; /* hace que text-overflow funcione en el hijo */
+  min-width: 0;
+}
+
+.atari-clip-name {
+  font-size: 0.65rem;
+  color: #33ff33;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.atari-clip-dur {
+  font-size: 0.6rem;
+  color: #1a7a1a;
+  flex-shrink: 0;
+  letter-spacing: 0.06em;
+}
+
+/* Columna derecha: botones — siempre en el grid, nunca se ocultan */
+.atari-clip-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.atari-workspace .atari-clip-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  outline: none;
+  background: #090909;
+  border: 1px solid #1a7a1a;
+  color: #33ff33;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.55rem;
+  padding: 0.18rem 0.4rem;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  width: auto;
+  transition: background 0.08s, border-color 0.08s;
+}
+
+.atari-workspace .atari-clip-btn:hover { background: #0d2b0d; border-color: #33ff33; }
+.atari-workspace .atari-clip-btn-del   { border-color: #4a1a1a; color: #ff6666; }
+.atari-workspace .atari-clip-btn-del:hover { background: #2b0d0d; border-color: #ff4444; }
+
+/* ── Status bar ──────────────────────────────────────── */
+
+.atari-status {
+  flex-shrink: 0;
+  padding: 0.35rem 1.25rem;
+  border-top: 1px solid #1c401c;
+  font-size: 0.58rem;
+  color: #1a7a1a;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

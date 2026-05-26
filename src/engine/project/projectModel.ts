@@ -38,6 +38,11 @@ export type SamplerClip = {
   startTime: number           // position in the track timeline (seconds)
 }
 
+export type AudioClip = {
+  id:        string
+  startTime: number           // position in the track timeline (seconds)
+}
+
 // ─── Timeline track types ──────────────────────────────────────────────────
 
 export type MidiTrack = {
@@ -66,7 +71,17 @@ export type SamplerTrack = {
   pattern: SequencerPattern
 }
 
-export type TimelineTrack = MidiTrack | SamplerTrack
+export type AudioClipTrack = {
+  kind:     "audio-clip"
+  id:       string
+  name:     string
+  dbId:     string
+  duration: number
+  clips:    AudioClip[]
+  muted:    boolean
+}
+
+export type TimelineTrack = MidiTrack | SamplerTrack | AudioClipTrack
 
 export function isMidiTrack(t: TimelineTrack): t is MidiTrack {
   return t.kind === "midi"
@@ -76,12 +91,70 @@ export function isSamplerTrack(t: TimelineTrack): t is SamplerTrack {
   return t.kind === "sampler"
 }
 
+export function isAudioClipTrack(t: TimelineTrack): t is AudioClipTrack {
+  return t.kind === "audio-clip"
+}
+
 export function getMidiTracks(timeline: TimelineTrack[]): MidiTrack[] {
   return timeline.filter(isMidiTrack)
 }
 
 export function getSamplerTracks(timeline: TimelineTrack[]): SamplerTrack[] {
   return timeline.filter(isSamplerTrack)
+}
+
+export function getAudioClipTracks(timeline: TimelineTrack[]): AudioClipTrack[] {
+  return timeline.filter(isAudioClipTrack)
+}
+
+export function addAudioClipTrack(
+  project: MusicalProject,
+  entry: { name: string; dbId: string; duration: number },
+): MusicalProject {
+  const track: AudioClipTrack = {
+    kind: "audio-clip",
+    id: `audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: entry.name,
+    dbId: entry.dbId,
+    duration: entry.duration,
+    clips: [createAudioClip(0)],
+    muted: false,
+  }
+  return { ...project, timeline: [...project.timeline, track] }
+}
+
+export function updateAudioClipStartTime(
+  project: MusicalProject,
+  trackId: string,
+  clipId: string,
+  startTime: number,
+): MusicalProject {
+  return {
+    ...project,
+    timeline: project.timeline.map((t) =>
+      isAudioClipTrack(t) && t.id === trackId
+        ? {
+            ...t,
+            clips: t.clips.map((c) =>
+              c.id === clipId ? { ...c, startTime: Math.max(0, startTime) } : c,
+            ),
+          }
+        : t,
+    ),
+  }
+}
+
+export function updateAudioClipTrackMuted(
+  project: MusicalProject,
+  trackId: string,
+  muted: boolean,
+): MusicalProject {
+  return {
+    ...project,
+    timeline: project.timeline.map((t) =>
+      isAudioClipTrack(t) && t.id === trackId ? { ...t, muted } : t,
+    ),
+  }
 }
 
 // Backward-compat aliases so external files need minimal changes
@@ -150,6 +223,10 @@ export function createMidiClip(startTime = 0): MidiClip {
 
 export function createSamplerClip(startTime = 0): SamplerClip {
   return { id: `sclip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, startTime }
+}
+
+export function createAudioClip(startTime = 0): AudioClip {
+  return { id: `aclip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, startTime }
 }
 
 export function getMidiClipDuration(clip: MidiClip): number {
@@ -736,6 +813,20 @@ export function appendTrack(project: MusicalProject): MusicalProject {
   }
 }
 
+export function appendTrackWithNotes(
+  project: MusicalProject,
+  name: string,
+  instrumentId: string,
+  notes: MidiRecordedNote[],
+): MusicalProject {
+  const midiTracks = getMidiTracks(project.timeline)
+  const base = createProjectTrack(midiTracks.length + 1, "melodic")
+  const clip = createMidiClip(0)
+  clip.notes = notes
+  const track: MidiTrack = { ...base, name, instrumentId, clips: [clip] }
+  return { ...project, timeline: [...project.timeline, track] }
+}
+
 export function removeTrack(
   project: MusicalProject,
   trackId: string,
@@ -838,6 +929,9 @@ export function getTracksTimelineLength(timeline: TimelineTrack[]): number {
         (m, c) => Math.max(m, c.startTime + getMidiClipDuration(c)),
         max,
       )
+    }
+    if (isAudioClipTrack(t)) {
+      return t.clips.reduce((m, c) => Math.max(m, c.startTime + t.duration), max)
     }
     const samplerDuration = getSamplerTrackDuration(t)
     return t.clips.reduce(
@@ -1182,6 +1276,36 @@ export function parseImportedProject(projectJson: string): MusicalProject {
               pattern: item.pattern as SequencerPattern,
             },
           ]
+        }
+
+        if (
+          item.kind === "audio-clip" &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          typeof item.dbId === "string" &&
+          typeof item.duration === "number"
+        ) {
+          let audioClips: AudioClip[]
+          if (Array.isArray(item.clips)) {
+            audioClips = (item.clips as unknown[])
+              .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
+              .map((c) => ({
+                id: typeof c.id === "string" ? c.id : `aclip-migrated-${Date.now()}`,
+                startTime: typeof c.startTime === "number" ? Math.max(c.startTime, 0) : 0,
+              }))
+          } else {
+            // Migrate old format: startTime on the track itself
+            audioClips = [createAudioClip(typeof item.startTime === "number" ? item.startTime : 0)]
+          }
+          return [{
+            kind: "audio-clip",
+            id: item.id,
+            name: item.name,
+            dbId: item.dbId,
+            duration: item.duration,
+            clips: audioClips,
+            muted: typeof item.muted === "boolean" ? item.muted : false,
+          }]
         }
 
         return []

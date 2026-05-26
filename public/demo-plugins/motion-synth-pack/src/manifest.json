@@ -1,0 +1,12 @@
+{
+  "id": "motion-synth-pack",
+  "name": "Motion Synth Pack",
+  "version": "0.1.0",
+  "description": "Extiende el laboratorio con leads y pads matemáticos adicionales sin usar samples.",
+  "author": "MiMIDI Core Team",
+  "sourceUrl": "https://github.com/tu-usuario/mimidi",
+  "license": "MIT",
+  "entryPoint": "index.js",
+  "mimidiVersion": ">=1.0.0",
+  "permissions": []
+}

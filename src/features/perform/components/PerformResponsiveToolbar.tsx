@@ -38,7 +38,7 @@ type PerformResponsiveToolbarProps = {
   selectedInstrumentName: string
   trackNextDisabled: boolean
   trackPreviousDisabled: boolean
-  visibleInstruments: MathematicalInstrument[]
+  visibleInstruments: (MathematicalInstrument & { sourceLabel: string })[]
 }
 
 export function PerformResponsiveToolbar({

@@ -4,13 +4,22 @@ import {
   getMidiTrackNotes,
   getMidiTracks,
   getSamplerTracks,
+  getAudioClipTracks,
   type MusicalProject,
 } from "../../engine/project/projectModel"
+import { loadSampleBuffer } from "../../engine/audio/sampleStorage"
+import {
+  decodeAudioData,
+  ensureAudioReady,
+  scheduleAudioBuffer,
+  getAudioContextCurrentTime,
+} from "../../engine/audio/audioEngine"
 import { usePlaybackTransport } from "../transport/usePlaybackTransport"
 
 export function useLabPlayback({ project }: { project: MusicalProject }) {
   const playbackTransport = usePlaybackTransport()
   const samplerMixPlaybackRef = useRef<{ cancel: () => void } | null>(null)
+  const audioClipStopsRef = useRef<Array<() => void>>([])
   const [absolutePlayheadTime, setAbsolutePlayheadTime] = useState<number | null>(null)
   const [isMixOnlyPlaying, setIsMixOnlyPlaying] = useState(false)
   const mixOnlyStartRef = useRef<{ startedAt: number; duration: number } | null>(null)
@@ -50,9 +59,15 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
     return () => cancelAnimationFrame(rafId)
   }, [isMixOnlyPlaying])
 
+  function stopAudioClips() {
+    for (const stop of audioClipStopsRef.current) stop()
+    audioClipStopsRef.current = []
+  }
+
   function playAll(notesProject: MusicalProject, fromZero = false) {
     const startedAt = performance.now()
     samplerMixPlaybackRef.current?.cancel()
+    stopAudioClips()
 
     const allSamplerTracks = getSamplerTracks(notesProject.timeline)
     const midiTracksForPlay = getMidiTracks(notesProject.timeline)
@@ -66,7 +81,7 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
 
     samplerMixPlaybackRef.current = playSamplerMixes(samplerTracks, startedAt)
 
-    const mixMaxEnd =
+    const samplerMaxEnd =
       samplerTracks.length > 0
         ? Math.max(
             ...samplerTracks.map((m) => {
@@ -78,6 +93,35 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
             }),
           )
         : 0
+
+    // Schedule audio clip tracks
+    const audioClipTracks = getAudioClipTracks(notesProject.timeline).filter((t) => !t.muted)
+    const audioClipMaxEnd = audioClipTracks.reduce(
+      (max, track) => track.clips.reduce((m, c) => Math.max(m, c.startTime + track.duration), max),
+      0,
+    )
+
+    if (audioClipTracks.length > 0) {
+      void ensureAudioReady().then(async () => {
+        for (const track of audioClipTracks) {
+          const buf = await loadSampleBuffer(track.dbId)
+          if (!buf) continue
+          let audioBuffer: AudioBuffer
+          try {
+            audioBuffer = await decodeAudioData(buf)
+          } catch { continue }
+          for (const clip of track.clips) {
+            const elapsedSec = (performance.now() - startedAt) / 1000
+            const offset = Math.max(0, elapsedSec - clip.startTime)
+            const when = getAudioContextCurrentTime() + Math.max(0, clip.startTime - elapsedSec)
+            const stop = scheduleAudioBuffer(audioBuffer, when, offset)
+            audioClipStopsRef.current.push(stop)
+          }
+        }
+      })
+    }
+
+    const mixMaxEnd = Math.max(samplerMaxEnd, audioClipMaxEnd)
 
     const hasMidi = !hasMixSolo && midiTracksForPlay.some((t) => getMidiTrackNotes(t).length > 0)
     if (hasMidi) {
@@ -91,7 +135,7 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
           }
         },
       })
-    } else if (samplerTracks.length > 0) {
+    } else if (mixMaxEnd > 0) {
       mixOnlyStartRef.current = { startedAt, duration: mixMaxEnd }
       setIsMixOnlyPlaying(true)
     }
@@ -101,6 +145,7 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
     playbackTransport.stop()
     samplerMixPlaybackRef.current?.cancel()
     samplerMixPlaybackRef.current = null
+    stopAudioClips()
     setIsMixOnlyPlaying(false)
     mixOnlyStartRef.current = null
     setAbsolutePlayheadTime(null)

@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import "../../App.css"
 import { resolveAppMessages, tpl, type AppLanguage } from "../../app/appI18n"
 import {
@@ -8,10 +8,18 @@ import {
   getMidiTracks,
   getMidiTrackNotes,
   getSamplerTracks,
+  getAudioClipTracks,
   renameSamplerMix,
   removeSamplerMix,
+  removeTrack,
+  renameTrack,
+  appendTrackWithNotes,
+  addAudioClipTrack,
   type MusicalProject,
 } from "../../engine/project/projectModel"
+import { saveSampleBuffer, loadSampleBuffer } from "../../engine/audio/sampleStorage"
+import { decodeAudioData } from "../../engine/audio/audioEngine"
+import { loadSlotMetas, saveSlotMetas, DEFAULT_CALIBRATION } from "../../engine/audio/sampleModel"
 import {
   Play,
   Square,
@@ -67,6 +75,12 @@ import { useLabPlayback } from "./useLabPlayback"
 import { useLabPerform } from "./useLabPerform"
 import { previewOctaveOptions } from "../../engine/midi/notes"
 import { ensureAudioReady } from "../../engine/audio/audioEngine"
+import { playNote, stopNote } from "../../application/use-cases/playNote"
+import { saveFile } from "../../application/use-cases/saveFile"
+import { usePluginAPI } from "../../engine/plugins/pluginApi"
+import { useExternalPlugins } from "../../engine/plugins/useExternalPlugins"
+import { PluginWorkspaceHost } from "../plugins-view/PluginWorkspaceHost"
+import type { PluginOutput } from "../../engine/plugins/pluginModel"
 
 const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
   kick: "ui-smc-btn-kick",
@@ -88,11 +102,13 @@ function getPerformanceTimestamp() {
 type LabAppProps = {
   language?: AppLanguage
   mode?: LabAppMode
+  onOpenPlugin?: (pluginId: string) => void
+  pluginId?: string
   settingsOpen?: boolean
   onSettingsClose?: () => void
 }
 
-function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettingsClose }: LabAppProps) {
+function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settingsOpen = false, onSettingsClose }: LabAppProps) {
   const t = resolveAppMessages(language).lab
   // ── Simple local UI state ────────────────────────────────────────────────────
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
@@ -103,7 +119,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   })
   const [, setIsTimelineDragging] = useState(false)
   const [isTrackLaneFocused, setIsTrackLaneFocused] = useState(false)
-  const [selectedMixId, setSelectedMixId] = useState<string | null>(null)
+  const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
   const [isMixDeleteConfirmOpen, setIsMixDeleteConfirmOpen] = useState(false)
   const [selectedClipId, setSelectedClipId] = useState<{
     trackId: string
@@ -118,6 +134,9 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
     MathematicalInstrument["category"]
   >("base")
+  const [pluginToast, setPluginToast] = useState("")
+  const pluginToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pluginVoicesRef = useRef<Map<string, ReturnType<typeof playNote>>>(new Map())
 
   // ── Core hooks ───────────────────────────────────────────────────────────────
   const lab = useLabProject({ mode, timelineSnapEnabled, timelineSnapStep })
@@ -254,18 +273,18 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   // ── Bridge functions (span multiple hooks) ───────────────────────────────────
   function selectTrackLane(trackId: string) {
     switchActiveTrack(trackId)
-    setSelectedMixId(null)
+    setSelectedLaneId(null)
     setIsTrackLaneFocused(true)
   }
 
-  function selectMixLane(mixId: string) {
-    setSelectedMixId(mixId)
+  function selectLane(laneId: string) {
+    setSelectedLaneId(laneId)
     setIsTrackLaneFocused(true)
   }
 
   function exitTrackLaneFocus() {
     setSelectedClipId(null)
-    setSelectedMixId(null)
+    setSelectedLaneId(null)
     setIsTrackLaneFocused(false)
   }
 
@@ -362,18 +381,36 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           )}
           {timelineView === "tracks" &&
             (() => {
-              const activeMix = selectedMixId
-                ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedMixId)
+              const activeSamplerTrack = selectedLaneId
+                ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedLaneId)
                 : null
-              return activeMix ? (
+              const activeAudioTrack = !activeSamplerTrack && selectedLaneId
+                ? getAudioClipTracks(lab.project.timeline).find((t) => t.id === selectedLaneId)
+                : null
+              return activeSamplerTrack ? (
                 <input
                   aria-label={t.toolbar.mixName}
                   className="edit-note-input edit-track-name-input"
-                  defaultValue={activeMix.name}
-                  key={activeMix.id}
+                  defaultValue={activeSamplerTrack.name}
+                  key={activeSamplerTrack.id}
                   onBlur={(e) => {
                     const name = e.target.value.trim()
-                    if (name) lab.applyUpdate((p) => renameSamplerMix(p, activeMix.id, name))
+                    if (name) lab.applyUpdate((p) => renameSamplerMix(p, activeSamplerTrack.id, name))
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur()
+                  }}
+                  type="text"
+                />
+              ) : activeAudioTrack ? (
+                <input
+                  aria-label={t.toolbar.activeTrackName}
+                  className="edit-note-input edit-track-name-input"
+                  defaultValue={activeAudioTrack.name}
+                  key={activeAudioTrack.id}
+                  onBlur={(e) => {
+                    const name = e.target.value.trim()
+                    if (name) lab.applyUpdate((p) => renameTrack(p, activeAudioTrack.id, name))
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.currentTarget.blur()
@@ -464,6 +501,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                 disabled={
                   lab.allRecordedNotes.length === 0 &&
                   getSamplerTracks(lab.project.timeline).length === 0 &&
+                  getAudioClipTracks(lab.project.timeline).length === 0 &&
                   !labPlayback.playbackTransport.isPlaying &&
                   !labPlayback.isMixOnlyPlaying
                 }
@@ -585,13 +623,16 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           {timelineView === "tracks" &&
             isTrackLaneFocused &&
             (() => {
-              const activeMix = selectedMixId
-                ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedMixId)
+              const activeSamplerTrack = selectedLaneId
+                ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedLaneId)
                 : null
-              const lastMixClip = activeMix?.clips.at(-1)
-              const dupDisabled = activeMix ? !lastMixClip : !lab.activeClip
-              const isMuted = activeMix ? activeMix.muted : lab.primaryTrack.muted
-              const isSolo = activeMix ? (activeMix.solo ?? false) : lab.primaryTrack.solo
+              const activeAudioTrack = !activeSamplerTrack && selectedLaneId
+                ? getAudioClipTracks(lab.project.timeline).find((t) => t.id === selectedLaneId)
+                : null
+              const lastMixClip = activeSamplerTrack?.clips.at(-1)
+              const dupDisabled = activeSamplerTrack ? !lastMixClip : activeAudioTrack ? true : !lab.activeClip
+              const isMuted = activeSamplerTrack ? activeSamplerTrack.muted : activeAudioTrack ? activeAudioTrack.muted : lab.primaryTrack.muted
+              const isSolo = activeSamplerTrack ? (activeSamplerTrack.solo ?? false) : activeAudioTrack ? false : lab.primaryTrack.solo
               return (
                 <>
                   <span aria-hidden="true" className="perform-mode-transport-divider" />
@@ -599,8 +640,10 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                     aria-label={isMuted ? t.common.unmute : t.common.mute}
                     className={`ui-icon-btn edit-mute-solo-btn${isMuted ? " edit-mute-solo-btn-active" : ""}`}
                     onClick={() => {
-                      if (activeMix) {
-                        lab.updateSamplerTrackMutedHandler(activeMix.id, !activeMix.muted)
+                      if (activeSamplerTrack) {
+                        lab.updateSamplerTrackMutedHandler(activeSamplerTrack.id, !activeSamplerTrack.muted)
+                      } else if (activeAudioTrack) {
+                        lab.updateAudioClipTrackMutedHandler(activeAudioTrack.id, !activeAudioTrack.muted)
                       } else {
                         lab.togglePrimaryTrackMuted()
                       }
@@ -613,10 +656,11 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                   <button
                     aria-label={t.common.solo}
                     className={`ui-icon-btn edit-mute-solo-btn${isSolo ? " edit-mute-solo-btn-active" : ""}`}
+                    disabled={!!activeAudioTrack}
                     onClick={() => {
-                      if (activeMix) {
-                        lab.updateSamplerTrackSoloHandler(activeMix.id, !isSolo)
-                      } else {
+                      if (activeSamplerTrack) {
+                        lab.updateSamplerTrackSoloHandler(activeSamplerTrack.id, !isSolo)
+                      } else if (!activeAudioTrack) {
                         lab.togglePrimaryTrackSolo()
                       }
                     }}
@@ -630,21 +674,24 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                     className="ui-icon-btn"
                     disabled={dupDisabled}
                     onClick={() => {
-                      if (activeMix && lastMixClip) {
-                        lab.duplicateSamplerClipHandler(activeMix.id, lastMixClip.id)
-                      } else if (lab.activeClip) {
+                      if (activeSamplerTrack && lastMixClip) {
+                        lab.duplicateSamplerClipHandler(activeSamplerTrack.id, lastMixClip.id)
+                      } else if (!activeAudioTrack && lab.activeClip) {
                         lab.duplicateMidiClipHandler(lab.primaryTrack.id, lab.activeClip.id)
                       }
                     }}
                     title={
-                      activeMix
-                        ? tpl(t.toolbar.duplicateClipFrom, { name: activeMix.name })
-                        : tpl(t.toolbar.duplicateClipFrom, { name: lab.primaryTrack.name })
+                      activeSamplerTrack
+                        ? tpl(t.toolbar.duplicateClipFrom, { name: activeSamplerTrack.name })
+                        : activeAudioTrack
+                          ? tpl(t.toolbar.duplicateClipFrom, { name: activeAudioTrack.name })
+                          : tpl(t.toolbar.duplicateClipFrom, { name: lab.primaryTrack.name })
                     }
                     type="button"
                   >
                     <Copy size={18} />
                   </button>
+                  {!activeAudioTrack && (
                   <button
                     aria-label={t.toolbar.deleteClipSelected}
                     className="ui-icon-btn"
@@ -659,20 +706,23 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                   >
                     <X size={18} />
                   </button>
+                  )}
                   <button
-                    aria-label={activeMix ? t.toolbar.deleteMix : t.toolbar.deleteTrack}
+                    aria-label={activeSamplerTrack ? t.toolbar.deleteMix : t.toolbar.deleteTrack}
                     className="ui-icon-btn"
                     onClick={() => {
-                      if (activeMix) {
+                      if (activeSamplerTrack || activeAudioTrack) {
                         setIsMixDeleteConfirmOpen(true)
                       } else {
                         lab.confirmRemoveActiveTrack()
                       }
                     }}
                     title={
-                      activeMix
-                        ? tpl(t.toolbar.deleteMixFromTimeline, { name: activeMix.name })
-                        : tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })
+                      activeSamplerTrack
+                        ? tpl(t.toolbar.deleteMixFromTimeline, { name: activeSamplerTrack.name })
+                        : activeAudioTrack
+                          ? tpl(t.toolbar.deleteMixFromTimeline, { name: activeAudioTrack.name })
+                          : tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })
                     }
                     type="button"
                   >
@@ -705,13 +755,14 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
             setSelectedClipId(info)
             if (info) setIsTrackLaneFocused(true)
           }}
-          onSelectMix={selectMixLane}
+          onSelectLane={selectLane}
           onSelectTrack={selectTrackLane}
           onUpdateMidiClipStartTime={lab.updateMidiClipStartTimeHandler}
           onUpdateSamplerClipStartTime={lab.updateSamplerClipStartTimeHandler}
+          onUpdateAudioClipStartTime={lab.updateAudioClipStartTimeHandler}
           playheadTime={labPlayback.absolutePlayheadTime}
           selectedClipId={selectedClipId}
-          selectedMixId={selectedMixId}
+          selectedLaneId={selectedLaneId}
           timeline={lab.project.timeline}
           timelineLength={lab.projectTrackTimelineLength}
         />
@@ -743,6 +794,7 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
           />
         </>
       )}
+
     </section>
   )
 
@@ -905,10 +957,13 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
               <button
                 className="app-dialog-confirm"
                 onClick={() => {
-                  const id = selectedMixId
+                  const id = selectedLaneId
                   setIsMixDeleteConfirmOpen(false)
-                  setSelectedMixId(null)
-                  if (id) lab.applyUpdate((p) => removeSamplerMix(p, id))
+                  setSelectedLaneId(null)
+                  if (id) {
+                    const isSampler = getSamplerTracks(lab.project.timeline).some((m) => m.id === id)
+                    lab.applyUpdate((p) => isSampler ? removeSamplerMix(p, id) : removeTrack(p, id))
+                  }
                 }}
                 type="button"
               >
@@ -1123,43 +1178,187 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
   }
 
   // ────────────────────────────────────────────────────────────────────────────
+  // ── external plugins ─────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const externalPlugins = useExternalPlugins()
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // ── plugin-workspace ─────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const pluginApi = usePluginAPI({
+    isPlaying: labPlayback.playbackTransport.isPlaying,
+    isRecording: labRecording.recordingState === "recording",
+    bpm: getSamplerTracks(lab.project.timeline)[0]?.pattern.bpm ?? 120,
+    playNote: (note, instrumentId, duration) => {
+      const inst = instrumentCatalog.availableInstruments.find(i => i.id === instrumentId)
+      const voiceId = playNote(note as Parameters<typeof playNote>[0], duration, {
+        waveform: inst?.waveform,
+        envelope: inst?.envelope,
+        volume: inst?.volume,
+      })
+      pluginVoicesRef.current.set(note, voiceId)
+    },
+    stopNote: (note) => {
+      const voiceId = pluginVoicesRef.current.get(note)
+      if (voiceId !== undefined) { stopNote(voiceId); pluginVoicesRef.current.delete(note) }
+    },
+    triggerPad: (padId, velocity = 1) => labPerform.triggerSmcPad(padId as SmcPadSoundId, velocity),
+    getTracks: () =>
+      getMidiTracks(lab.project.timeline).map(tr => ({
+        id: tr.id,
+        name: tr.name,
+        type: tr.trackType === "melodic" ? "melodic" as const : "percussion" as const,
+      })),
+    receivePluginOutput: (output: PluginOutput) => {
+      if (output.type === "midi") {
+        lab.applyUpdate(p => appendTrackWithNotes(p, output.name, output.instrumentId, output.notes))
+      } else if (output.type === "audio") {
+        if (output.destination === "sampler") {
+          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+          void output.blob.arrayBuffer().then(async buf => {
+            if (!output.dbId) await saveSampleBuffer(dbId, buf)
+            try {
+              const audioBuffer = await decodeAudioData(buf)
+              const slots = loadSlotMetas()
+              const emptyIdx = slots.findIndex(s => s === null)
+              if (emptyIdx !== -1) {
+                const next = [...slots]
+                next[emptyIdx] = {
+                  index: emptyIdx + 1,
+                  name: output.name,
+                  duration: audioBuffer.duration,
+                  dbId,
+                  sampleRate: audioBuffer.sampleRate,
+                  channels: audioBuffer.numberOfChannels,
+                  calibration: { ...DEFAULT_CALIBRATION },
+                }
+                saveSlotMetas(next)
+                window.dispatchEvent(new StorageEvent("storage", {
+                  key: "mimidi-audio-slots",
+                  newValue: JSON.stringify(next),
+                  storageArea: localStorage,
+                }))
+              } else {
+                void saveFile(new Blob([buf], { type: "audio/webm" }), `${output.name}.webm`, [
+                  { description: "Audio WebM", accept: { "audio/webm": [".webm"] } },
+                ])
+              }
+            } catch { /* decode failed */ }
+          })
+        } else {
+          // destination === "project" → pista de audio en el timeline
+          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+          if (output.dbId) {
+            lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
+          } else {
+            void output.blob.arrayBuffer().then(async buf => {
+              await saveSampleBuffer(dbId, buf)
+              lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
+            })
+          }
+        }
+      }
+    },
+    notify: (message) => {
+      if (pluginToastTimerRef.current) clearTimeout(pluginToastTimerRef.current)
+      setPluginToast(message)
+      pluginToastTimerRef.current = setTimeout(() => setPluginToast(""), 3500)
+    },
+    storeClip: async (blob, _name, _duration) => {
+      const dbId = `plugin-clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      const buf = await blob.arrayBuffer()
+      await saveSampleBuffer(dbId, buf)
+      return dbId
+    },
+    loadClip: async (dbId) => {
+      const buf = await loadSampleBuffer(dbId)
+      if (!buf) return null
+      return new Blob([buf], { type: "audio/webm" })
+    },
+  })
+
+  if (mode === "plugin-workspace") {
+    return (
+      <>
+        <PluginWorkspaceHost
+          api={pluginApi}
+          language={language}
+          pluginId={pluginId ?? ""}
+        />
+        {pluginToast && (
+          <div role="status" className="plugin-toast">{pluginToast}</div>
+        )}
+      </>
+    )
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
   // ── plugins-only ─────────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
   if (mode === "plugins-only") {
+    const mimodInputRef = { current: null as HTMLInputElement | null }
+
+    function handleMimodFile(e: React.ChangeEvent<HTMLInputElement>) {
+      const file = e.target.files?.[0]
+      if (!file) return
+      e.target.value = ""
+      void externalPlugins.installFromFile(file).then((manifest) => {
+        lab.applyUpdate((p) => ({
+          ...p,
+          pluginStates: { ...p.pluginStates, [manifest.id]: true },
+        }))
+      }).catch((err: unknown) => {
+        console.error("[IMPORT .mimod]", err)
+        alert(`No se pudo instalar el plugin:\n${err instanceof Error ? err.message : String(err)}`)
+      })
+    }
+
     return (
       <section className="app-mock-screen" aria-label={t.project.pluginsSection}>
+        <input
+          accept=".mimod"
+          hidden
+          ref={mimodInputRef}
+          type="file"
+          onChange={handleMimodFile}
+        />
         <header className="app-mock-toolbar">
           <div className="app-mock-toolbar-actions">
-            <button className="ui-pill-btn" type="button">
+            <button
+              className="ui-pill-btn"
+              type="button"
+              onClick={() => mimodInputRef.current?.click()}
+            >
               <Upload size={14} />
-              IMPORT
-            </button>
-            <button className="ui-pill-btn" type="button">
-              <Folder size={14} />
-              PLUGIN FOLDER
+              IMPORT .mimod
             </button>
           </div>
         </header>
         <div className="app-plugin-list" aria-label={t.project.pluginList}>
+          {externalPlugins.isRestoring && (
+            <p style={{ padding: "0.75rem 1rem", opacity: 0.5, fontSize: "0.8rem" }}>
+              Restaurando plugins...
+            </p>
+          )}
           {lab.registeredPlugins.map((plugin) => {
             const words = plugin.name.trim().split(/\s+/)
             const shortLabel =
               words.length === 1
                 ? plugin.name.slice(0, 2).toUpperCase()
-                : words
-                    .slice(0, 2)
-                    .map((w) => w[0])
-                    .join("")
-                    .toUpperCase()
+                : words.slice(0, 2).map((w) => w[0]).join("").toUpperCase()
+            const isExt = plugin.isExternal
             return (
               <article className="ui-list-row" key={plugin.id}>
-                <span className="ui-badge" aria-hidden="true">
+                <span className="ui-badge" aria-hidden="true" title={isExt ? "Plugin externo (.mimod)" : "Plugin interno"}>
                   {shortLabel}
                 </span>
                 <div className="ui-plugin-copy">
                   <strong>{plugin.name}</strong>
                   <span>
                     {plugin.version} · {plugin.description}
+                    {isExt && <em style={{ opacity: 0.6 }}> · externo</em>}
                   </span>
                 </div>
                 <label
@@ -1173,9 +1372,37 @@ function LabApp({ language = "es", mode = "full", settingsOpen = false, onSettin
                   />
                   <span />
                 </label>
-                <span className="ui-list-arrow" aria-hidden="true">
-                  ›
-                </span>
+                {plugin.workspace && onOpenPlugin ? (
+                  <button
+                    aria-label={`Abrir ${plugin.name}`}
+                    className="ui-list-arrow ui-list-arrow-btn"
+                    onClick={() => onOpenPlugin(plugin.id)}
+                    type="button"
+                  >
+                    ›
+                  </button>
+                ) : (
+                  <span className="ui-list-arrow" aria-hidden="true" style={{ opacity: plugin.workspace ? 1 : 0.2 }}>
+                    ›
+                  </span>
+                )}
+                {isExt && (
+                  <button
+                    aria-label={`Desinstalar ${plugin.name}`}
+                    className="ui-icon-btn"
+                    style={{ marginLeft: "0.25rem", opacity: 0.6 }}
+                    title="Desinstalar plugin externo"
+                    type="button"
+                    onClick={() => void externalPlugins.uninstall(plugin.id).then(() => {
+                      lab.applyUpdate((p) => {
+                        const { [plugin.id]: _, ...rest } = p.pluginStates
+                        return { ...p, pluginStates: rest }
+                      })
+                    })}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </article>
             )
           })}
