@@ -172,7 +172,8 @@ export function AtariPunkWorkspace({ api, version }: { api: PluginAPI; version?:
       const blob = new Blob(chunksRef.current, { type: "audio/webm" })
       blobRef.current = blob
       setHasBlob(true)
-      const name = `AtariPunk ${new Date().toLocaleTimeString()}`
+      const _ts = new Date()
+      const name = `AtariPunk ${_ts.toLocaleDateString()} ${_ts.toLocaleTimeString()}`
       const duration = recSecsRef.current
       void api.session.storeClip(blob, name, duration).then(dbId => {
         const entry: ClipEntry = { id: dbId, dbId, name, blob, duration }
@@ -323,41 +324,46 @@ export function AtariPunkWorkspace({ api, version }: { api: PluginAPI; version?:
             </div>
           </div>
 
-          {/* ── BUZZ — protagonista ── */}
-          <div className="atari-buzz-area">
-            <button type="button" className={`atari-buzz-btn${isOn ? " on" : ""}`} onClick={toggleBuzz}>
-              <span className="atari-buzz-icon">{isOn ? "◼" : "▶"}</span>
-              <span className="atari-buzz-label">{isOn ? "BUZZ — ON" : "BUZZ — OFF"}</span>
-            </button>
-          </div>
-
-          {/* ── Barra de grabación — dos filas ── */}
-          <div className="atari-rec-bar">
-            {/* Fila 1: REC + timer */}
-            <div className="atari-rec-controls">
-              <button
-                type="button"
-                className={`atari-rec-btn${isRec ? " recording" : ""}`}
-                onClick={toggleRec}
-                disabled={!isOn && !isRec}
-                title={!isOn && !isRec ? "Activa el BUZZ primero" : undefined}
-              >
-                <span className="atari-rec-dot" />
-                {isRec ? "STOP" : "REC"}
+          {/* ── Área principal: BUZZ izquierda + controles derecha ── */}
+          <div className="atari-main-area">
+            {/* Columna BUZZ (35%) */}
+            <div className="atari-buzz-col">
+              <button type="button" className={`atari-buzz-btn${isOn ? " on" : ""}`} onClick={toggleBuzz}>
+                <span className="atari-buzz-icon">{isOn ? "◼" : "▶"}</span>
+                <span className="atari-buzz-label">{isOn ? "BUZZ — ON" : "BUZZ — OFF"}</span>
               </button>
-              <span className={`atari-rec-timer${isRec ? " active" : ""}`}>{fmtSecs(recSecs)}</span>
             </div>
-            {/* Fila 2: acciones post-grabación */}
-            {hasBlob && !isRec && (
-              <div className="atari-rec-actions">
-                <button type="button" className="atari-action-btn" onClick={togglePlayBlob}>
-                  {isPlayingBlob ? "◼ STOP" : "▶ PLAY"}
+
+            {/* Columna controles (65%) */}
+            <div className="atari-ctrl-col">
+              {/* Fila 1: REC + timer + PLAY prominente */}
+              <div className="atari-top-row">
+                <button
+                  type="button"
+                  className={`atari-rec-btn${isRec ? " recording" : ""}`}
+                  onClick={toggleRec}
+                  disabled={!isOn && !isRec}
+                  title={!isOn && !isRec ? "Activa el BUZZ primero" : undefined}
+                >
+                  <span className="atari-rec-dot" />
+                  {isRec ? "STOP" : "REC"}
                 </button>
-                <button type="button" className="atari-action-btn" onClick={downloadBlobAudio}>⬇ SAVE</button>
-                <button type="button" className="atari-action-btn atari-send-btn" onClick={() => sendTo("sampler")}>→ SAMPLER</button>
-                <button type="button" className="atari-action-btn atari-send-btn" onClick={() => sendTo("project")}>→ PROYECTO</button>
+                <span className={`atari-rec-timer${isRec ? " active" : ""}`}>{fmtSecs(recSecs)}</span>
+                {hasBlob && !isRec && (
+                  <button type="button" className="atari-play-btn" onClick={togglePlayBlob}>
+                    {isPlayingBlob ? "◼ STOP" : "▶ PLAY"}
+                  </button>
+                )}
               </div>
-            )}
+              {/* Fila 2: acciones secundarias post-grabación */}
+              {hasBlob && !isRec && (
+                <div className="atari-actions-row">
+                  <button type="button" className="atari-action-btn" onClick={downloadBlobAudio}>⬇ SAVE</button>
+                  <button type="button" className="atari-action-btn atari-send-btn" onClick={() => sendTo("sampler")}>→ SAMPLER</button>
+                  <button type="button" className="atari-action-btn atari-send-btn" onClick={() => sendTo("project")}>→ PROYECTO</button>
+                </div>
+              )}
+            </div>
           </div>
         </>
       ) : (

@@ -138,20 +138,28 @@
   letter-spacing: 0.04em;
 }
 
-/* ── BUZZ — protagonista ─────────────────────────────── */
+/* ── Área principal: BUZZ (35% izq) + controles (65% der) ─── */
 
-.atari-buzz-area {
-  flex: 1;
+.atari-main-area {
+  flex-shrink: 0;
   display: flex;
-  padding: 1.25rem 1.5rem;
-  min-height: 0;
+}
+
+/* Columna BUZZ — ancho fijo 35% */
+.atari-buzz-col {
+  width: 35%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border-right: 1px solid #1c401c;
 }
 
 .atari-workspace .atari-buzz-btn {
   -webkit-appearance: none;
   appearance: none;
-  flex: 1;
-  width: auto;
+  width: 100%;
+  height: 5.5rem;
   background: #090909;
   border: 2px solid #1c401c;
   border-radius: 0;
@@ -188,22 +196,22 @@
 .atari-buzz-icon  { font-size: 2rem; line-height: 1; }
 .atari-buzz-label { font-size: 0.72rem; letter-spacing: 0.3em; }
 
-/* ── Barra de grabación — dos filas ──────────────────── */
-
-.atari-rec-bar {
+/* Columna controles — ocupa el resto */
+.atari-ctrl-col {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.65rem 1.5rem;
-  border-top: 1px solid #1c401c;
-  flex-shrink: 0;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  min-width: 0;
 }
 
-/* Fila 1: botón REC + timer */
-.atari-rec-controls {
+/* Fila superior: REC + timer + PLAY */
+.atari-top-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .atari-workspace .atari-rec-btn {
@@ -241,12 +249,39 @@
 .atari-rec-timer { font-size: 0.65rem; color: #1a7a1a; letter-spacing: 0.1em; min-width: 3.2rem; flex-shrink: 0; }
 .atari-rec-timer.active { color: #ff6666; }
 
-/* Fila 2: acciones post-grabación (horizontal, sin wrap) */
-.atari-rec-actions {
+/* PLAY — más prominente que REC pero acotado */
+.atari-workspace .atari-play-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  max-width: 14rem;
+  border-radius: 0;
+  outline: none;
+  background: #090909;
+  border: 1px solid #2a6a2a;
+  color: #55ff55;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72rem;
+  padding: 0.38rem 0.5rem;
+  cursor: pointer;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  width: auto;
+  transition: background 0.08s, border-color 0.08s;
+}
+
+.atari-workspace .atari-play-btn:hover { background: #0d2b0d; border-color: #55ff55; }
+
+/* Fila inferior: acciones secundarias — reparten el ancho igual */
+.atari-actions-row {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   flex-wrap: nowrap;
+}
+
+.atari-actions-row > button {
+  flex: 1;
 }
 
 .atari-workspace .atari-action-btn {
