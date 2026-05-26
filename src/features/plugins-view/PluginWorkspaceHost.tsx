@@ -56,7 +56,7 @@ export function PluginWorkspaceHost({ api, language, pluginId }: PluginWorkspace
         )}
         {plugin?.workspace && (
           <AppErrorBoundary>
-            <plugin.workspace.component api={api} language={language} />
+            <plugin.workspace.component api={api} language={language} version={plugin.version} />
           </AppErrorBoundary>
         )}
       </div>

@@ -74,6 +74,7 @@ export type MiMIDIPluginAPI = {
 export type PluginWorkspaceProps = {
   api: MiMIDIPluginAPI
   language: AppLanguage
+  version?: string
 }
 
 export type PluginToolSlotProps = {

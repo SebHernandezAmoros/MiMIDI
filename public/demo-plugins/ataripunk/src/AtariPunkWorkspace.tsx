@@ -34,7 +34,7 @@ function saveClipMetas(clips: ClipEntry[]) {
   try { localStorage.setItem(CLIPS_KEY, JSON.stringify(metas)) } catch {}
 }
 
-export function AtariPunkWorkspace({ api }: { api: PluginAPI }) {
+export function AtariPunkWorkspace({ api, version }: { api: PluginAPI; version?: string }) {
   const [tab, setTab]               = useState<"record" | "clips">("record")
   const [isOn, setIsOn]             = useState(false)
   const [freq, setFreq]             = useState(220)
@@ -296,7 +296,7 @@ export function AtariPunkWorkspace({ api }: { api: PluginAPI }) {
             {clips.length > 0 ? `CLIPS (${clips.length})` : "CLIPS"}
           </button>
         </div>
-        <span className="atari-header-ver">v0.4.0</span>
+        <span className="atari-header-ver">{version ? `v${version}` : ""}</span>
       </div>
 
       {tab === "record" ? (
@@ -365,20 +365,18 @@ export function AtariPunkWorkspace({ api }: { api: PluginAPI }) {
         <div className="atari-clips">
           {clips.length === 0 ? (
             <span className="atari-clips-empty">SIN GRABACIONES AÚN</span>
-          ) : clips.map(clip => (
-            <div key={clip.id} className="atari-clip-row">
-              <div className="atari-clip-info">
-                <span className="atari-clip-name" title={clip.name}>{clip.name}</span>
-                <span className="atari-clip-dur">{fmtSecs(Math.round(clip.duration))}</span>
-              </div>
+          ) : clips.map((clip, idx) => (
+            <div key={clip.dbId ?? idx} className="atari-clip-row">
+              <span className="atari-clip-name" title={clip.name}>{clip.name}</span>
+              <span className="atari-clip-dur">{fmtSecs(Math.round(clip.duration))}</span>
               <div className="atari-clip-btns">
-                <button type="button" className="atari-clip-btn" title={playingClipId === clip.id ? "Detener" : "Reproducir"} onClick={() => toggleClipPlay(clip)}>
-                  {playingClipId === clip.id ? "◼" : "▶"}
+                <button type="button" className="atari-clip-btn" onClick={() => toggleClipPlay(clip)}>
+                  {playingClipId === clip.id ? "◼ STOP" : "▶ PLAY"}
                 </button>
-                <button type="button" className="atari-clip-btn" title="Descargar" onClick={() => downloadClip(clip)}>⬇</button>
-                <button type="button" className="atari-clip-btn" title="Enviar al sampler" onClick={() => sendClipTo(clip, "sampler")}>SMPLR</button>
-                <button type="button" className="atari-clip-btn" title="Guardar en proyecto" onClick={() => sendClipTo(clip, "project")}>PROJ</button>
-                <button type="button" className="atari-clip-btn atari-clip-btn-del" title="Eliminar" onClick={() => removeClip(clip.id)}>✕</button>
+                <button type="button" className="atari-clip-btn" onClick={() => downloadClip(clip)}>⬇ SAVE</button>
+                <button type="button" className="atari-clip-btn" onClick={() => sendClipTo(clip, "sampler")}>→ SMPLR</button>
+                <button type="button" className="atari-clip-btn" onClick={() => sendClipTo(clip, "project")}>→ PROJ</button>
+                <button type="button" className="atari-clip-btn atari-clip-btn-del" onClick={() => removeClip(clip.dbId ?? clip.id)}>✕ DEL</button>
               </div>
             </div>
           ))}

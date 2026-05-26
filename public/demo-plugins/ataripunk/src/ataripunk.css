@@ -273,15 +273,14 @@
 .atari-workspace .atari-send-btn { border-color: #2a6a2a; color: #55ff55; }
 .atari-workspace .atari-send-btn:hover { border-color: #55ff55; background: #0d2b0d; }
 
-/* ── Clips tab — grid garantiza botones siempre visibles ─ */
+/* ── Clips tab — una fila por clip: nombre izquierda, botones derecha ── */
 
 .atari-clips {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0.5rem 1.25rem;
+  padding: 0.4rem 1.25rem;
   gap: 0;
   min-height: 0;
 }
@@ -295,47 +294,38 @@
 }
 
 .atari-clip-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   padding: 0.4rem 0;
   border-bottom: 1px solid #1c401c;
-}
-
-/* Columna izquierda: nombre + duración */
-.atari-clip-info {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  overflow: hidden; /* hace que text-overflow funcione en el hijo */
   min-width: 0;
 }
 
 .atari-clip-name {
+  flex: 1;
+  min-width: 0;
   font-size: 0.65rem;
   color: #33ff33;
   letter-spacing: 0.06em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex-shrink: 1;
-  min-width: 0;
 }
 
 .atari-clip-dur {
+  flex-shrink: 0;
   font-size: 0.6rem;
   color: #1a7a1a;
-  flex-shrink: 0;
   letter-spacing: 0.06em;
 }
 
-/* Columna derecha: botones — siempre en el grid, nunca se ocultan */
 .atari-clip-btns {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
 .atari-workspace .atari-clip-btn {
@@ -347,13 +337,14 @@
   border: 1px solid #1a7a1a;
   color: #33ff33;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.55rem;
-  padding: 0.18rem 0.4rem;
+  font-size: 0.58rem;
+  padding: 0.2rem 0.5rem;
   cursor: pointer;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
   width: auto;
+  flex-shrink: 0;
   transition: background 0.08s, border-color 0.08s;
 }
 

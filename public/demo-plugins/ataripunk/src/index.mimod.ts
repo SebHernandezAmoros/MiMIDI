@@ -26,7 +26,7 @@ import { AtariPunkWorkspace } from "./AtariPunkWorkspace"
 export default {
   id: "ataripunk",
   name: "AtariPunk Synth",
-  version: "0.1.0",
+  version: "0.3.0",
   description: "Sintetizador de ondas cuadradas estilo chip Atari con teclado propio y controles de timbre.",
   enabledByDefault: true,
   workspace: { component: AtariPunkWorkspace },
