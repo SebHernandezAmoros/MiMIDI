@@ -1350,7 +1350,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                 : words.slice(0, 2).map((w) => w[0]).join("").toUpperCase()
             const isExt = plugin.isExternal
             return (
-              <article className="ui-list-row" key={plugin.id}>
+              <article className={`ui-list-row${isExt ? " ui-list-row-ext" : ""}`} key={plugin.id}>
                 <span className="ui-badge" aria-hidden="true" title={isExt ? "Plugin externo (.mimod)" : "Plugin interno"}>
                   {shortLabel}
                 </span>
@@ -1372,6 +1372,22 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                   />
                   <span />
                 </label>
+                {isExt && (
+                  <button
+                    aria-label={`Desinstalar ${plugin.name}`}
+                    className="ui-icon-btn ui-icon-btn-danger"
+                    title="Desinstalar plugin externo"
+                    type="button"
+                    onClick={() => void externalPlugins.uninstall(plugin.id).then(() => {
+                      lab.applyUpdate((p) => {
+                        const { [plugin.id]: _, ...rest } = p.pluginStates
+                        return { ...p, pluginStates: rest }
+                      })
+                    })}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
                 {plugin.workspace && onOpenPlugin ? (
                   <button
                     aria-label={`Abrir ${plugin.name}`}
@@ -1385,23 +1401,6 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                   <span className="ui-list-arrow" aria-hidden="true" style={{ opacity: plugin.workspace ? 1 : 0.2 }}>
                     ›
                   </span>
-                )}
-                {isExt && (
-                  <button
-                    aria-label={`Desinstalar ${plugin.name}`}
-                    className="ui-icon-btn"
-                    style={{ marginLeft: "0.25rem", opacity: 0.6 }}
-                    title="Desinstalar plugin externo"
-                    type="button"
-                    onClick={() => void externalPlugins.uninstall(plugin.id).then(() => {
-                      lab.applyUpdate((p) => {
-                        const { [plugin.id]: _, ...rest } = p.pluginStates
-                        return { ...p, pluginStates: rest }
-                      })
-                    })}
-                  >
-                    <X size={14} />
-                  </button>
                 )}
               </article>
             )

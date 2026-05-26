@@ -263,6 +263,19 @@
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 
+/* Plugin externo: añade columna para botón desinstalar */
+.ui-list-row-ext {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+
+.ui-icon-btn-danger {
+  color: #e53e3e;
+  opacity: 1 !important;
+}
+.ui-icon-btn-danger:hover {
+  color: #c53030;
+}
+
 .ui-list-icon {
   display: grid;
   place-items: center;
