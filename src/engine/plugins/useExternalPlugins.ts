@@ -5,15 +5,17 @@ import {
   deleteExternalPlugin,
   listExternalPluginIds,
 } from "./externalPluginStorage"
-import { loadPluginFromMimod, type ExternalPluginManifest } from "./pluginLoader"
+import { exposeRuntime, loadPluginFromMimod, type ExternalPluginManifest } from "./pluginLoader"
 import {
   registerExternalPlugin,
   unregisterExternalPlugin,
 } from "./pluginRegistry"
+import type { MiMIDIPluginDefinition } from "./pluginModel"
 
 export type ExternalPluginEntry = {
   id: string
   manifest: ExternalPluginManifest
+  isDev?: boolean
 }
 
 export function useExternalPlugins() {
@@ -64,13 +66,59 @@ export function useExternalPlugins() {
     return manifest
   }
 
+  async function installFromFolder(): Promise<ExternalPluginManifest> {
+    type DirHandle = { getFileHandle(name: string): Promise<{ getFile(): Promise<File> }> }
+    const picker = (window as Record<string, unknown>).showDirectoryPicker as (() => Promise<DirHandle>) | undefined
+    if (!picker) throw new Error("showDirectoryPicker no disponible en este navegador")
+
+    const dir = await picker()
+
+    const manifestFile = await dir.getFileHandle("manifest.json").then(h => h.getFile()).catch(() => {
+      throw new Error("No se encontró manifest.json en el directorio")
+    })
+    const manifest = JSON.parse(await manifestFile.text()) as ExternalPluginManifest
+    if (!manifest.id || !manifest.name || !manifest.entryPoint) {
+      throw new Error("manifest.json inválido — faltan id, name o entryPoint")
+    }
+
+    const entryFile = await dir.getFileHandle(manifest.entryPoint).then(h => h.getFile()).catch(() => {
+      throw new Error(`No se encontró ${manifest.entryPoint}. Compila primero: node scripts/build-plugin.mjs ${manifest.id}`)
+    })
+    const jsText = await entryFile.text()
+
+    exposeRuntime()
+    const blobUrl = URL.createObjectURL(new Blob([jsText], { type: "application/javascript" }))
+    let definition: MiMIDIPluginDefinition
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const mod = await import(/* @vite-ignore */ blobUrl)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      definition = (mod.default ?? mod) as MiMIDIPluginDefinition
+    } finally {
+      URL.revokeObjectURL(blobUrl)
+    }
+
+    if (!definition.id || definition.id !== manifest.id) {
+      throw new Error(`El módulo exporta id "${definition.id}" pero manifest dice "${manifest.id}"`)
+    }
+
+    registerExternalPlugin(definition)
+
+    const entry: ExternalPluginEntry = { id: manifest.id, manifest, isDev: true }
+    const next = [...entriesRef.current.filter((e) => e.id !== manifest.id), entry]
+    entriesRef.current = next
+    setEntries(next)
+    return manifest
+  }
+
   async function uninstall(id: string): Promise<void> {
-    await deleteExternalPlugin(id)
+    const entry = entriesRef.current.find((e) => e.id === id)
+    if (!entry?.isDev) await deleteExternalPlugin(id)
     unregisterExternalPlugin(id)
     const next = entriesRef.current.filter((e) => e.id !== id)
     entriesRef.current = next
     setEntries(next)
   }
 
-  return { isRestoring, entries, installFromFile, uninstall }
+  return { isRestoring, entries, installFromFile, installFromFolder, uninstall }
 }

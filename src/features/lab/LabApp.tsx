@@ -1293,6 +1293,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   // ────────────────────────────────────────────────────────────────────────────
   if (mode === "plugins-only") {
     const mimodInputRef = { current: null as HTMLInputElement | null }
+    const supportsDirectoryPicker = "showDirectoryPicker" in window
 
     function handleMimodFile(e: React.ChangeEvent<HTMLInputElement>) {
       const file = e.target.files?.[0]
@@ -1306,6 +1307,19 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
       }).catch((err: unknown) => {
         console.error("[IMPORT .mimod]", err)
         alert(`No se pudo instalar el plugin:\n${err instanceof Error ? err.message : String(err)}`)
+      })
+    }
+
+    function handlePluginFolder() {
+      void externalPlugins.installFromFolder().then((manifest) => {
+        lab.applyUpdate((p) => ({
+          ...p,
+          pluginStates: { ...p.pluginStates, [manifest.id]: true },
+        }))
+      }).catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return
+        console.error("[PLUGIN FOLDER]", err)
+        alert(`No se pudo cargar el plugin:\n${err instanceof Error ? err.message : String(err)}`)
       })
     }
 
@@ -1328,6 +1342,25 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               <Upload size={14} />
               IMPORT .mimod
             </button>
+            <button
+              className="ui-pill-btn"
+              disabled={!supportsDirectoryPicker}
+              title={supportsDirectoryPicker ? "Cargar plugin desde directorio de desarrollo (Chrome/Edge)" : "Solo disponible en Chrome y Edge"}
+              type="button"
+              onClick={handlePluginFolder}
+            >
+              <Folder size={14} />
+              PLUGIN FOLDER
+            </button>
+            <a
+              className="ui-pill-btn"
+              download="mimidi-plugin-sdk.d.ts"
+              href="/mimidi-plugin-sdk.d.ts"
+              style={{ textDecoration: "none" }}
+            >
+              <Download size={14} />
+              SDK .d.ts
+            </a>
           </div>
         </header>
         <div className="app-plugin-list" aria-label={t.project.pluginList}>
@@ -1343,16 +1376,23 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                 ? plugin.name.slice(0, 2).toUpperCase()
                 : words.slice(0, 2).map((w) => w[0]).join("").toUpperCase()
             const isExt = plugin.isExternal
+            const extEntry = externalPlugins.entries.find((e) => e.id === plugin.id)
+            const isDev = extEntry?.isDev ?? false
             return (
               <article className={`ui-list-row${isExt ? " ui-list-row-ext" : ""}`} key={plugin.id}>
-                <span className="ui-badge" aria-hidden="true" title={isExt ? "Plugin externo (.mimod)" : "Plugin interno"}>
+                <span
+                  className="ui-badge"
+                  aria-hidden="true"
+                  title={isDev ? "Plugin de desarrollo (no persistido)" : isExt ? "Plugin externo (.mimod)" : "Plugin interno"}
+                >
                   {shortLabel}
                 </span>
                 <div className="ui-plugin-copy">
                   <strong>{plugin.name}</strong>
                   <span>
                     {plugin.version} · {plugin.description}
-                    {isExt && <em style={{ opacity: 0.6 }}> · externo</em>}
+                    {isDev && <em style={{ opacity: 0.6 }}> · dev</em>}
+                    {isExt && !isDev && <em style={{ opacity: 0.6 }}> · externo</em>}
                   </span>
                 </div>
                 <label

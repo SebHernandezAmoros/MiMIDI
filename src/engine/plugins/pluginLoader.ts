@@ -17,7 +17,7 @@ export type ExternalPluginManifest = {
 
 // Expone React al scope global para que plugins con workspace puedan usarlo
 // como external en su bundle (window.__MIMIDI_RUNTIME__.React).
-function exposeRuntime() {
+export function exposeRuntime() {
   ;(window as unknown as Record<string, unknown>).__MIMIDI_RUNTIME__ = { React }
 }
 
