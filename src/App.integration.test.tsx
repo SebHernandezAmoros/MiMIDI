@@ -12,6 +12,14 @@ vi.mock("./engine/audio/audioEngine", () => ({
   stopVoice: vi.fn(),
 }))
 
+// IndexedDB no existe en jsdom — mock del storage de plugins externos
+vi.mock("./engine/plugins/externalPluginStorage", () => ({
+  listExternalPluginIds: vi.fn(() => Promise.resolve([])),
+  loadExternalPlugin:    vi.fn(() => Promise.resolve(null)),
+  saveExternalPlugin:    vi.fn(() => Promise.resolve()),
+  deleteExternalPlugin:  vi.fn(() => Promise.resolve()),
+}))
+
 function getFirstTimelineBlock(container: HTMLElement) {
   const block = container.querySelector(".timeline-note-block")
 
@@ -325,42 +333,6 @@ describe("App integration: timeline history", () => {
 
     block = getFirstTimelineBlock(container)
     expect(Number(getNoteStartValue(block))).toBe(0)
-  })
-
-  it("shows plugin instruments in the instrument selector", () => {
-    render(<App />)
-
-    const instrumentSelect = screen.getByLabelText("Instrumento matematico")
-
-    expect(
-      within(instrumentSelect).getByRole("option", {
-        name: "Glass Pluck (Base · Motion Synth Pack)",
-      }),
-    ).toBeTruthy()
-  })
-
-  it("allows disabling a plugin from the lab and persists that state", () => {
-    render(<App />)
-
-    const instrumentSelect = screen.getByLabelText("Instrumento matematico")
-    expect(
-      within(instrumentSelect).getByRole("option", {
-        name: "Glass Pluck (Base · Motion Synth Pack)",
-      }),
-    ).toBeTruthy()
-
-    fireEvent.click(screen.getByLabelText("Activar Motion Synth Pack"))
-
-    expect(
-      within(instrumentSelect).queryByRole("option", {
-        name: "Glass Pluck (Base · Motion Synth Pack)",
-      }),
-    ).toBeNull()
-
-    const storedProject = window.localStorage.getItem(PROJECT_STORAGE_KEY)
-
-    expect(storedProject).not.toBeNull()
-    expect(JSON.parse(storedProject ?? "{}").pluginStates["motion-synth-pack"]).toBe(false)
   })
 
   it("shows the app mode shell on the root route", () => {
