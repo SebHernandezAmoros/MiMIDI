@@ -80,6 +80,7 @@ import { saveFile } from "../../application/use-cases/saveFile"
 import { usePluginAPI } from "../../engine/plugins/pluginApi"
 import { useExternalPlugins } from "../../engine/plugins/useExternalPlugins"
 import { PluginWorkspaceHost } from "../plugins-view/PluginWorkspaceHost"
+import { PluginSlot } from "../plugins-view/PluginSlot"
 import type { PluginOutput } from "../../engine/plugins/pluginModel"
 
 const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
@@ -226,6 +227,100 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
       setSelectedClipId(null)
     }
   }, [timelineView])
+
+  // ── Plugin hooks (must be before any early return) ──────────────────────────
+  const externalPlugins = useExternalPlugins()
+
+  const pluginApi = usePluginAPI({
+    isPlaying: labPlayback.playbackTransport.isPlaying,
+    isRecording: labRecording.recordingState === "recording",
+    bpm: getSamplerTracks(lab.project.timeline)[0]?.pattern.bpm ?? 120,
+    playNote: (note, instrumentId, duration) => {
+      const inst = instrumentCatalog.availableInstruments.find(i => i.id === instrumentId)
+      const voiceId = playNote(note as Parameters<typeof playNote>[0], duration, {
+        waveform: inst?.waveform,
+        envelope: inst?.envelope,
+        volume: inst?.volume,
+      })
+      pluginVoicesRef.current.set(note, voiceId)
+    },
+    stopNote: (note) => {
+      const voiceId = pluginVoicesRef.current.get(note)
+      if (voiceId !== undefined) { stopNote(voiceId); pluginVoicesRef.current.delete(note) }
+    },
+    triggerPad: (padId, velocity = 1) => labPerform.triggerSmcPad(padId as SmcPadSoundId, velocity),
+    getTracks: () =>
+      getMidiTracks(lab.project.timeline).map(tr => ({
+        id: tr.id,
+        name: tr.name,
+        type: tr.trackType === "melodic" ? "melodic" as const : "percussion" as const,
+      })),
+    receivePluginOutput: (output: PluginOutput) => {
+      if (output.type === "midi") {
+        lab.applyUpdate(p => appendTrackWithNotes(p, output.name, output.instrumentId, output.notes))
+      } else if (output.type === "audio") {
+        if (output.destination === "sampler") {
+          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+          void output.blob.arrayBuffer().then(async buf => {
+            if (!output.dbId) await saveSampleBuffer(dbId, buf)
+            try {
+              const audioBuffer = await decodeAudioData(buf)
+              const slots = loadSlotMetas()
+              const emptyIdx = slots.findIndex(s => s === null)
+              if (emptyIdx !== -1) {
+                const next = [...slots]
+                next[emptyIdx] = {
+                  index: emptyIdx + 1,
+                  name: output.name,
+                  duration: audioBuffer.duration,
+                  dbId,
+                  sampleRate: audioBuffer.sampleRate,
+                  channels: audioBuffer.numberOfChannels,
+                  calibration: { ...DEFAULT_CALIBRATION },
+                }
+                saveSlotMetas(next)
+                window.dispatchEvent(new StorageEvent("storage", {
+                  key: "mimidi-audio-slots",
+                  newValue: JSON.stringify(next),
+                  storageArea: localStorage,
+                }))
+              } else {
+                void saveFile(new Blob([buf], { type: "audio/webm" }), `${output.name}.webm`, [
+                  { description: "Audio WebM", accept: { "audio/webm": [".webm"] } },
+                ])
+              }
+            } catch { /* decode failed */ }
+          })
+        } else {
+          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+          if (output.dbId) {
+            lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
+          } else {
+            void output.blob.arrayBuffer().then(async buf => {
+              await saveSampleBuffer(dbId, buf)
+              lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
+            })
+          }
+        }
+      }
+    },
+    notify: (message) => {
+      if (pluginToastTimerRef.current) clearTimeout(pluginToastTimerRef.current)
+      setPluginToast(message)
+      pluginToastTimerRef.current = setTimeout(() => setPluginToast(""), 3500)
+    },
+    storeClip: async (blob, _name, _duration) => {
+      const dbId = `plugin-clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      const buf = await blob.arrayBuffer()
+      await saveSampleBuffer(dbId, buf)
+      return dbId
+    },
+    loadClip: async (dbId) => {
+      const buf = await loadSampleBuffer(dbId)
+      if (!buf) return null
+      return new Blob([buf], { type: "audio/webm" })
+    },
+  })
 
   // ── Coordinators: sequences that span multiple hooks ─────────────────────────
   function switchActiveTrack(trackId: string) {
@@ -741,6 +836,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               )
             })()}
         </div>
+        <PluginSlot api={pluginApi} language={language} pluginStates={lab.project.pluginStates} slotId="edit-toolbar" />
       </header>
 
       {timelineView === "tracks" ? (
@@ -1177,108 +1273,6 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     )
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // ── external plugins ─────────────────────────────────────────────────────────
-  // ────────────────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const externalPlugins = useExternalPlugins()
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // ── plugin-workspace ─────────────────────────────────────────────────────────
-  // ────────────────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const pluginApi = usePluginAPI({
-    isPlaying: labPlayback.playbackTransport.isPlaying,
-    isRecording: labRecording.recordingState === "recording",
-    bpm: getSamplerTracks(lab.project.timeline)[0]?.pattern.bpm ?? 120,
-    playNote: (note, instrumentId, duration) => {
-      const inst = instrumentCatalog.availableInstruments.find(i => i.id === instrumentId)
-      const voiceId = playNote(note as Parameters<typeof playNote>[0], duration, {
-        waveform: inst?.waveform,
-        envelope: inst?.envelope,
-        volume: inst?.volume,
-      })
-      pluginVoicesRef.current.set(note, voiceId)
-    },
-    stopNote: (note) => {
-      const voiceId = pluginVoicesRef.current.get(note)
-      if (voiceId !== undefined) { stopNote(voiceId); pluginVoicesRef.current.delete(note) }
-    },
-    triggerPad: (padId, velocity = 1) => labPerform.triggerSmcPad(padId as SmcPadSoundId, velocity),
-    getTracks: () =>
-      getMidiTracks(lab.project.timeline).map(tr => ({
-        id: tr.id,
-        name: tr.name,
-        type: tr.trackType === "melodic" ? "melodic" as const : "percussion" as const,
-      })),
-    receivePluginOutput: (output: PluginOutput) => {
-      if (output.type === "midi") {
-        lab.applyUpdate(p => appendTrackWithNotes(p, output.name, output.instrumentId, output.notes))
-      } else if (output.type === "audio") {
-        if (output.destination === "sampler") {
-          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-          void output.blob.arrayBuffer().then(async buf => {
-            if (!output.dbId) await saveSampleBuffer(dbId, buf)
-            try {
-              const audioBuffer = await decodeAudioData(buf)
-              const slots = loadSlotMetas()
-              const emptyIdx = slots.findIndex(s => s === null)
-              if (emptyIdx !== -1) {
-                const next = [...slots]
-                next[emptyIdx] = {
-                  index: emptyIdx + 1,
-                  name: output.name,
-                  duration: audioBuffer.duration,
-                  dbId,
-                  sampleRate: audioBuffer.sampleRate,
-                  channels: audioBuffer.numberOfChannels,
-                  calibration: { ...DEFAULT_CALIBRATION },
-                }
-                saveSlotMetas(next)
-                window.dispatchEvent(new StorageEvent("storage", {
-                  key: "mimidi-audio-slots",
-                  newValue: JSON.stringify(next),
-                  storageArea: localStorage,
-                }))
-              } else {
-                void saveFile(new Blob([buf], { type: "audio/webm" }), `${output.name}.webm`, [
-                  { description: "Audio WebM", accept: { "audio/webm": [".webm"] } },
-                ])
-              }
-            } catch { /* decode failed */ }
-          })
-        } else {
-          // destination === "project" → pista de audio en el timeline
-          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-          if (output.dbId) {
-            lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
-          } else {
-            void output.blob.arrayBuffer().then(async buf => {
-              await saveSampleBuffer(dbId, buf)
-              lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
-            })
-          }
-        }
-      }
-    },
-    notify: (message) => {
-      if (pluginToastTimerRef.current) clearTimeout(pluginToastTimerRef.current)
-      setPluginToast(message)
-      pluginToastTimerRef.current = setTimeout(() => setPluginToast(""), 3500)
-    },
-    storeClip: async (blob, _name, _duration) => {
-      const dbId = `plugin-clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-      const buf = await blob.arrayBuffer()
-      await saveSampleBuffer(dbId, buf)
-      return dbId
-    },
-    loadClip: async (dbId) => {
-      const buf = await loadSampleBuffer(dbId)
-      if (!buf) return null
-      return new Blob([buf], { type: "audio/webm" })
-    },
-  })
-
   if (mode === "plugin-workspace") {
     return (
       <>
@@ -1559,6 +1553,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             >
               <Trash2 size={18} />
             </button>
+            <PluginSlot api={pluginApi} language={language} pluginStates={lab.project.pluginStates} slotId="pad-toolbar" />
           </header>
 
           <div className="ui-smc-grid" data-tutorial="pad-grid">
@@ -1993,6 +1988,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               trackPreviousDisabled={lab.melodicTracks[0]?.id === lab.primaryTrack.id}
               visibleInstruments={dialogVisibleInstruments}
             />
+            <PluginSlot api={pluginApi} language={language} pluginStates={lab.project.pluginStates} slotId="piano-toolbar" />
           </header>
 
           <section className="perform-workspace-card perform-workspace-card-piano">
