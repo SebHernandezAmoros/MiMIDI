@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Generador de efectos de sonido procedural estilo 8-bit: disparos, explosiones, saltos y más.",
   "author": "MiMIDI Core Team",
-  "sourceUrl": "https://github.com/tu-usuario/mimidi",
+  "sourceUrl": "https://github.com/SebHernandezAmoros/MiMIDI",
   "license": "MIT",
   "entryPoint": "index.js",
   "mimidiVersion": ">=1.0.0",

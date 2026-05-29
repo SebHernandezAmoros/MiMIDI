@@ -4,7 +4,7 @@
   "version": "0.3.0",
   "description": "Sintetizador de ondas cuadradas estilo chip Atari con teclado propio y controles de timbre.",
   "author": "MiMIDI Core Team",
-  "sourceUrl": "https://github.com/tu-usuario/mimidi",
+  "sourceUrl": "https://github.com/SebHernandezAmoros/MiMIDI",
   "license": "MIT",
   "entryPoint": "index.js",
   "mimidiVersion": ">=1.0.0",
