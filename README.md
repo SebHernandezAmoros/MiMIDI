@@ -7,17 +7,34 @@ A **mobile-first** modular music lab built on mathematical synthesis and a plugi
 ---
 
 <!-- Screenshots -->
-<p align="center">
-  <img src=".github/assets/piano.png" alt="Piano view" width="48%" />
-  <img src=".github/assets/edit.png" alt="Track timeline" width="48%" />
-</p>
-<p align="center">
-  <img src=".github/assets/ataripunk.png" alt="AtariPunk Synth plugin" width="48%" />
-  <img src=".github/assets/sfxr.png" alt="SFXR Generator plugin" width="48%" />
-</p>
-<p align="center">
-  <img src=".github/assets/plugins.png" alt="Plugin list" width="60%" />
-</p>
+
+**🎹 Piano** — Play and record notes with velocity. Switch between single note and chord mode.
+
+![Piano](.github/assets/piano.png)
+
+---
+
+**🎛 Edit** — Multi-track timeline. Drag clips, adjust timing, undo/redo.
+
+![Edit](.github/assets/edit.png)
+
+---
+
+**🔌 Plugin manager** — Install, enable and open plugins from `.mimod` files. Three demo plugins included out of the box.
+
+![Plugins](.github/assets/plugins.png)
+
+---
+
+**🟢 AtariPunk Synth** — Plugin workspace. Square-wave chip synth with oscillators and clip recorder.
+
+![AtariPunk](.github/assets/ataripunk.png)
+
+---
+
+**🟠 SFXR Generator** — Plugin workspace. Procedural 8-bit sound effects with presets, mutate and WAV export.
+
+![SFXR](.github/assets/sfxr.png)
 
 ---
 
