@@ -17,7 +17,7 @@ export default defineConfig({
         background_color: '#0f0f0f',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: process.env.GITHUB_ACTIONS ? '/MiMIDI/' : '/',
         icons: [
           {
             src: 'icon-192.png',
