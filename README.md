@@ -2,15 +2,21 @@
 
 A **mobile-first** modular music lab built on mathematical synthesis and a plugin architecture. Designed to create, record, and play musical ideas from your phone — with a dedicated browser experience on the way.
 
-> UI and documentation are in Spanish. The codebase and plugin API are in English.
+> The UI is bilingual — Spanish and English. The codebase and plugin API are in English.
 
 ---
 
 <!-- Screenshots -->
 <p align="center">
-  <img src=".github/assets/perform.png" alt="Perform view" width="30%" />
-  <img src=".github/assets/edit.png" alt="Edit / Timeline" width="30%" />
-  <img src=".github/assets/plugins.png" alt="Plugins" width="30%" />
+  <img src=".github/assets/piano.png" alt="Piano view" width="48%" />
+  <img src=".github/assets/edit.png" alt="Track timeline" width="48%" />
+</p>
+<p align="center">
+  <img src=".github/assets/ataripunk.png" alt="AtariPunk Synth plugin" width="48%" />
+  <img src=".github/assets/sfxr.png" alt="SFXR Generator plugin" width="48%" />
+</p>
+<p align="center">
+  <img src=".github/assets/plugins.png" alt="Plugin list" width="60%" />
 </p>
 
 ---
