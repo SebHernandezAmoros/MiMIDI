@@ -240,4 +240,4 @@ scripts/              ← plugin build tools
 
 ## License
 
-MIT
+[MIT + Commons Clause](LICENSE) — free to use, study, and contribute. Commercial use requires permission from the author.
