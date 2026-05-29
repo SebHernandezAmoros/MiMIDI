@@ -68,7 +68,7 @@ export function useExternalPlugins() {
 
   async function installFromFolder(): Promise<ExternalPluginManifest> {
     type DirHandle = { getFileHandle(name: string): Promise<{ getFile(): Promise<File> }> }
-    const picker = (window as Record<string, unknown>).showDirectoryPicker as (() => Promise<DirHandle>) | undefined
+    const picker = (window as unknown as Record<string, unknown>).showDirectoryPicker as (() => Promise<DirHandle>) | undefined
     if (!picker) throw new Error("showDirectoryPicker no disponible en este navegador")
 
     const dir = await picker()
