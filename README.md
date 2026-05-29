@@ -1,6 +1,6 @@
 # MiMIDI
 
-A modular, extensible musical creation platform built on mathematical synthesis and a plugin architecture. Not just a piano on screen — a small, understandable core capable of growing through new views, instruments, and plugins.
+A **mobile-first** modular music lab built on mathematical synthesis and a plugin architecture. Designed to create, record, and play musical ideas from your phone — no desktop required.
 
 > UI and documentation are in Spanish. The codebase and plugin API are in English.
 
@@ -8,7 +8,7 @@ A modular, extensible musical creation platform built on mathematical synthesis 
 
 ## What is MiMIDI?
 
-MiMIDI is a browser-based music laboratory. Its core deliberate constraint: **all sound comes from mathematical synthesis** — oscillators, envelopes, and parameters — not sample banks. This keeps the core lightweight and auditable while samples and complex instruments arrive later as plugins.
+MiMIDI is a mobile-first music laboratory. The primary target is phones and tablets; the desktop browser experience is secondary. Its core deliberate constraint: **all sound comes from mathematical synthesis** — oscillators, envelopes, and parameters — not sample banks. This keeps the core lightweight and fast on mobile hardware, while samples and complex instruments arrive later as plugins.
 
 The project follows **Screaming Architecture**: the folder structure speaks about music, MIDI, audio, instruments, timeline, transport, and plugins — not about React.
 
