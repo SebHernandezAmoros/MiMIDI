@@ -1,158 +1,215 @@
 # MiMIDI
 
-MiMIDI es una aplicacion musical en desarrollo para crear, explorar, grabar y
-reproducir ideas basadas en MIDI y sintesis matematica.
+A modular, extensible musical creation platform built on mathematical synthesis and a plugin architecture. Not just a piano on screen — a small, understandable core capable of growing through new views, instruments, and plugins.
 
-El proyecto no busca ser solo un piano en pantalla ni una demo visual con audio.
-La meta es construir un core musical pequeno, entendible y extensible, capaz de
-crecer hacia nuevas vistas, herramientas, instrumentos y futuros mods/plugins.
+> UI and documentation are in Spanish. The codebase and plugin API are in English.
 
-## Que estamos construyendo
+---
 
-MiMIDI parte de una decision central: el core trabaja con instrumentos
-matematicos. Es decir, el sonido inicial se genera con sintesis, osciladores,
-envolventes y parametros, no con samples ni bancos de sonido pesados.
+## What is MiMIDI?
 
-Esto permite mantener una base liviana y clara mientras se validan las piezas
-principales del sistema:
+MiMIDI is a browser-based music laboratory. Its core deliberate constraint: **all sound comes from mathematical synthesis** — oscillators, envelopes, and parameters — not sample banks. This keeps the core lightweight and auditable while samples and complex instruments arrive later as plugins.
 
-- motor de audio con Web Audio API,
-- notas musicales y conversion a frecuencia,
-- eventos MIDI basicos,
-- piano visual de prueba,
-- grabacion de notas con duracion,
-- timeline minima tipo piano roll,
-- reproduccion de lo grabado,
-- y una arquitectura preparada para crecer por dominios.
+The project follows **Screaming Architecture**: the folder structure speaks about music, MIDI, audio, instruments, timeline, transport, and plugins — not about React.
 
-Los instrumentos sampleados no estan descartados. La idea es que lleguen mas
-adelante como plugins, mods o extensiones opcionales, sin ensuciar el nucleo
-inicial.
+---
 
-## Estado actual
+## Features
 
-La aplicacion funciona como un laboratorio temporal para probar el core musical.
-Actualmente permite:
+### Core
+- Multi-track recording with MIDI events
+- Piano roll timeline — move, resize, snap, undo/redo (Ctrl+Z / Ctrl+Y)
+- Mathematical instruments (sine, square, sawtooth, triangle, noise) with ADSR envelopes
+- WAV export of the current mix
+- Import / export project as JSON
+- SMC Pad — 8 synthetic percussion sounds with velocity via Y position
+- Arpeggiator mode
+- Master volume control
+- Persistent local state (IndexedDB)
 
-- seleccionar un instrumento matematico,
-- seleccionar una nota musical de prueba,
-- tocar una nota o un acorde,
-- tocar notas desde un piano visual,
-- sostener notas mientras una tecla esta presionada,
-- registrar eventos MIDI `note-on` y `note-off`,
-- convertir eventos en notas grabadas con inicio y duracion,
-- ver las notas en una timeline horizontal,
-- agrupar notas iguales en lanes,
-- reproducir la grabacion,
-- limpiar la sesion,
-- ajustar volumen maestro,
-- y detener voces activas.
+### Plugin system
+- Install plugins from `.mimod` files (ZIP-based format)
+- Two plugin types: **instrument packs** (no build step) and **React workspaces** (full UI)
+- Developer mode: load a plugin directly from a local folder (Chrome/Edge)
+- Typed SDK available as `mimidi-plugin-sdk.d.ts`
+- Plugin API exposes: audio playback, project/transport state, clip storage, notifications
 
-La interfaz todavia no representa el producto final. Su proposito actual es
-validar sonido, interaccion, eventos, timeline y separacion arquitectonica.
+### Demo plugins included
+| Plugin | Type | Description |
+|--------|------|-------------|
+| **Motion Synth Pack** | Instrument pack | Additional mathematical leads and pads |
+| **AtariPunk Synth** | Workspace | Square-wave chip synth with its own keyboard |
+| **SFXR Generator** | Workspace | Procedural 8-bit sound effects (shots, jumps, explosions) |
 
-## Arquitectura
+---
 
-MiMIDI sigue una idea de Screaming Architecture: la estructura del proyecto debe
-hablar de musica, MIDI, audio, instrumentos, timeline, transporte y plugins antes
-que hablar solo de React.
-
-Principios activos:
-
-- React es la capa de presentacion, no el centro conceptual del sistema.
-- MIDI representa intencion musical, eventos y tiempo.
-- Audio representa generacion sonora, voces, osciladores y salida.
-- La UI no debe contener logica de sintesis.
-- El core debe permanecer pequeno, claro y extensible.
-- Los plugins deben influir en el diseno desde temprano, aunque el sistema
-  completo de plugins llegue despues.
-
-Estructura principal actual:
-
-```text
-src/
-  application/
-    use-cases/
-  engine/
-    audio/
-    midi/
-  features/
-    midi-events/
-    piano/
-    timeline/
-```
-
-## Tecnologias
-
-- React
-- TypeScript
-- Vite
-- Web Audio API
-- ESLint
-
-## Comandos
-
-Instalar dependencias:
+## Getting started
 
 ```bash
 npm install
-```
-
-Ejecutar en desarrollo:
-
-```bash
 npm run dev
 ```
 
-Validar lint:
+Open `http://localhost:5173`.
 
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Dev server with HMR |
+| `npm run build` | Production build |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run unit tests (Vitest) |
+
+---
+
+## Plugin development
+
+### Install a plugin
+Drag a `.mimod` file onto the plugin list, or use **IMPORT .mimod** in the lab panel.
+
+### Build one of the demo plugins
 ```bash
-npm run lint
+# Instrument pack (no build step needed — just pack)
+node scripts/build-mimod.mjs motion-synth-pack
+
+# React workspace plugin
+node scripts/build-plugin.mjs ataripunk
+node scripts/build-plugin.mjs sfxr
 ```
 
-Construir version de produccion:
+Output: `public/demo-plugins/<id>/<id>.mimod`
 
-```bash
-npm run build
+### Plugin format
+
+A `.mimod` file is a ZIP with two entries:
+
+```
+my-plugin.mimod (ZIP)
+├── manifest.json
+└── index.js        ← single ESM bundle
 ```
 
-Previsualizar build:
-
-```bash
-npm run preview
+**manifest.json** minimum fields:
+```json
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "description": "What it does.",
+  "author": "Your Name",
+  "license": "MIT",
+  "entryPoint": "index.js",
+  "mimidiVersion": ">=1.0.0",
+  "permissions": []
+}
 ```
 
-## Documentacion
+**Plugin definition** (TypeScript):
+```typescript
+import type { MiMIDIPluginDefinition } from "./mimidi-plugin-sdk"
 
-La carpeta `docs/` funciona como memoria viva del proyecto.
+const plugin: MiMIDIPluginDefinition = {
+  id: "my-plugin",
+  name: "My Plugin",
+  version: "0.1.0",
+  description: "...",
+  enabledByDefault: true,
 
-- `docs/00-README-DOCS.md`: indice y regla de mantenimiento.
-- `docs/01-arquitectura.md`: arquitectura general y principios.
-- `docs/02-proyecto-base-react.md`: base tecnica inicial en React.
-- `docs/03-contexto-y-metas.md`: vision, restricciones y metas.
-- `docs/04-plan-desarrollo.md`: fases de desarrollo.
-- `docs/05-contexto-vivo-desarrollo.md`: registro vivo de cambios y decisiones.
+  // Option A — instrument pack
+  instruments: {
+    instruments: [ /* MathematicalInstrument[] */ ]
+  },
 
-Si una decision importante cambia, debe quedar registrada en `docs/`.
+  // Option B — React workspace
+  workspace: {
+    component: MyWorkspaceComponent,
+  }
+}
 
-## Ruta de desarrollo
+export default plugin
+```
 
-Fases planteadas:
+**Plugin API** available inside the workspace component:
 
-1. Core de audio.
-2. Sistema de notas.
-3. Piano.
-4. MIDI basico.
-5. Timeline.
-6. Plugins.
-7. Sintesis avanzada.
-8. Proyecto musical y persistencia.
+```typescript
+// Received as prop: api: MiMIDIPluginAPI
+api.audio.playNote("C4", instrumentId, 0.5)
+api.transport.isPlaying
+api.transport.onPlay(() => { /* ... */ })
+api.project.getBPM()
+api.session.sendOutput(output)
+api.session.storeClip(blob, "name", duration)
+api.ui.notify("Done!")
+```
 
-El siguiente paso recomendado es introducir un transporte minimo con estados como
-`idle` y `playing`, evitando reproducciones duplicadas y preparando controles de
-play/stop mas estables.
+Download the full type declarations: **SDK .d.ts** button in the lab panel, or at `/mimidi-plugin-sdk.d.ts`.
 
-## Regla de oro
+---
 
-El core debe seguir siendo pequeno, entendible y extensible incluso cuando el
-proyecto crezca.
+## Architecture
+
+```
+src/
+  application/        ← use-cases, coordination
+  engine/
+    audio/            ← synthesis, oscillators, envelopes, WAV export
+    midi/             ← events, recording, playback
+  features/
+    lab/              ← plugin registry, lab UI
+    edit/             ← multi-track editor, piano roll
+    project/          ← project list, persistence
+    perform/          ← performance view
+    sampler/          ← SMC pad
+    settings-view/
+  domain/             ← musical types (Note, Track, Clip, Project…)
+  shared/             ← UI components, hooks, i18n
+
+public/
+  demo-plugins/       ← plugin source + built .mimod files
+    ataripunk/
+    sfxr/
+    motion-synth-pack/
+
+docs/                 ← living technical documentation
+scripts/              ← plugin build tools
+```
+
+**Key principles:**
+- React is the presentation layer — no synthesis logic inside components
+- MIDI = musical intention and events; Audio = sound generation
+- Core stays small: samples and complex instruments belong in plugins
+- Plugins are extensions, not patches — the API is designed to stay stable
+
+---
+
+## Tech stack
+
+| | |
+|---|---|
+| Framework | React 19 + TypeScript |
+| Build | Vite 8 |
+| Audio | Web Audio API |
+| Plugin bundler | esbuild |
+| Plugin storage | IndexedDB + fflate (ZIP) |
+| Icons | lucide-react |
+| Tests | Vitest + Testing Library |
+
+---
+
+## Documentation
+
+The `docs/` folder is the living technical memory of the project. If an important decision is not there, it is not yet consolidated.
+
+| File | Content |
+|------|---------|
+| `docs/01-arquitectura.md` | Architecture, layers, principles |
+| `docs/03-contexto-y-metas.md` | Vision, constraints, goals |
+| `docs/04-plan-desarrollo.md` | Development phases and current state |
+| `docs/05-contexto-vivo-desarrollo.md` | Changelog of decisions |
+| `docs/08-guia-crear-plugins.md` | Full plugin creation guide |
+
+---
+
+## License
+
+MIT
