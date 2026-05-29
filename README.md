@@ -1,8 +1,17 @@
 # MiMIDI
 
-A **mobile-first** modular music lab built on mathematical synthesis and a plugin architecture. Designed to create, record, and play musical ideas from your phone — no desktop required.
+A **mobile-first** modular music lab built on mathematical synthesis and a plugin architecture. Designed to create, record, and play musical ideas from your phone — with a dedicated browser experience on the way.
 
 > UI and documentation are in Spanish. The codebase and plugin API are in English.
+
+---
+
+<!-- Screenshots -->
+<p align="center">
+  <img src=".github/assets/perform.png" alt="Perform view" width="30%" />
+  <img src=".github/assets/edit.png" alt="Edit / Timeline" width="30%" />
+  <img src=".github/assets/plugins.png" alt="Plugins" width="30%" />
+</p>
 
 ---
 
@@ -170,7 +179,8 @@ public/
     sfxr/
     motion-synth-pack/
 
-docs/                 ← living technical documentation
+docs/                 ← internal technical documentation
+wiki/                 ← public documentation
 scripts/              ← plugin build tools
 ```
 
@@ -198,15 +208,10 @@ scripts/              ← plugin build tools
 
 ## Documentation
 
-The `docs/` folder is the living technical memory of the project. If an important decision is not there, it is not yet consolidated.
-
-| File | Content |
-|------|---------|
-| `docs/01-arquitectura.md` | Architecture, layers, principles |
-| `docs/03-contexto-y-metas.md` | Vision, constraints, goals |
-| `docs/04-plan-desarrollo.md` | Development phases and current state |
-| `docs/05-contexto-vivo-desarrollo.md` | Changelog of decisions |
-| `docs/08-guia-crear-plugins.md` | Full plugin creation guide |
+| | |
+|---|---|
+| [`wiki/`](wiki/00-README.md) | Public docs — architecture, plugin guide, roadmap |
+| [`docs/`](docs/00-README-DOCS.md) | Internal technical memory — decisions, context, dev log |
 
 ---
 
