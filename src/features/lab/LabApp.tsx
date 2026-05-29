@@ -1342,16 +1342,6 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               <Upload size={14} />
               IMPORT .mimod
             </button>
-            <button
-              className="ui-pill-btn"
-              disabled={!supportsDirectoryPicker}
-              title={supportsDirectoryPicker ? "Cargar plugin desde directorio de desarrollo (Chrome/Edge)" : "Solo disponible en Chrome y Edge"}
-              type="button"
-              onClick={handlePluginFolder}
-            >
-              <Folder size={14} />
-              PLUGIN FOLDER
-            </button>
             <a
               className="ui-pill-btn"
               download="mimidi-plugin-sdk.d.ts"
@@ -1395,17 +1385,19 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                     {isExt && !isDev && <em style={{ opacity: 0.6 }}> · externo</em>}
                   </span>
                 </div>
-                <label
-                  className="ui-toggle"
-                  aria-label={tpl(plugin.enabled ? t.project.disablePlugin : t.project.enablePlugin, { name: plugin.name })}
-                >
-                  <input
-                    checked={plugin.enabled}
-                    onChange={() => lab.updatePluginEnabled(plugin.id, !plugin.enabled)}
-                    type="checkbox"
-                  />
-                  <span />
-                </label>
+                {plugin.instrumentCount > 0 && (
+                  <label
+                    className="ui-toggle"
+                    aria-label={tpl(plugin.enabled ? t.project.disablePlugin : t.project.enablePlugin, { name: plugin.name })}
+                  >
+                    <input
+                      checked={plugin.enabled}
+                      onChange={() => lab.updatePluginEnabled(plugin.id, !plugin.enabled)}
+                      type="checkbox"
+                    />
+                    <span />
+                  </label>
+                )}
                 {isExt && (
                   <button
                     aria-label={`Desinstalar ${plugin.name}`}
@@ -1440,6 +1432,28 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             )
           })}
         </div>
+
+        {/* ── Dev tools ──────────────────────────────────────────────────── */}
+        <details className="app-devtools-section">
+          <summary className="app-devtools-summary">
+            Herramientas para desarrolladores
+          </summary>
+          <div className="app-devtools-body">
+            <p className="app-devtools-warn">
+              Solo disponible en Chrome y Edge. Carga un plugin desde una carpeta local sin empaquetar (.mimod).
+            </p>
+            <button
+              className="ui-pill-btn"
+              disabled={!supportsDirectoryPicker}
+              title={supportsDirectoryPicker ? "Cargar plugin desde directorio de desarrollo" : "Solo disponible en Chrome y Edge"}
+              type="button"
+              onClick={handlePluginFolder}
+            >
+              <Folder size={14} />
+              PLUGIN FOLDER
+            </button>
+          </div>
+        </details>
       </section>
     )
   }

@@ -490,6 +490,48 @@
   margin-top: 0.2rem;
 }
 
+.app-devtools-section {
+  border-top: 1px solid var(--ui-color-border);
+  margin-top: 0.5rem;
+}
+
+.app-devtools-summary {
+  padding: 0.55rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.app-devtools-summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-devtools-summary::before {
+  content: "▸ ";
+  font-size: 0.7rem;
+}
+
+details[open] .app-devtools-summary::before {
+  content: "▾ ";
+}
+
+.app-devtools-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem 0.8rem;
+}
+
+.app-devtools-warn {
+  font-size: 0.75rem;
+  color: var(--app-color-text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
 
 .app-settings-toolbar-dark-toggle {
   display: flex;
