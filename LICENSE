@@ -1,8 +1,10 @@
-MIT License + Commons Clause
+MIT License + Commons Clause (with Plugin Exception)
 
 Copyright (c) 2026 Sebastián Alberto Hernández Amorós
 
+─────────────────────────────────────────────────────────────────────────────
 "Commons Clause" License Condition v1.0
+─────────────────────────────────────────────────────────────────────────────
 
 The Software is provided to you by the Licensor under the License, as defined
 below, subject to the following condition.
@@ -16,16 +18,38 @@ rights granted to you under the License to provide to third parties, for a fee
 or other consideration (including without limitation fees for hosting or
 consulting/support services related to the Software), a product or service
 whose value derives, entirely or substantially, from the functionality of the
-Software. Any license notice or attribution required by the License must also
-include this Commons Clause License Condition notice.
+Software.
 
 Software: MiMIDI
 License: MIT
 Licensor: Sebastián Alberto Hernández Amorós
 
 ─────────────────────────────────────────────────────────────────────────────
+Plugin Exception
+─────────────────────────────────────────────────────────────────────────────
 
+The commercial restriction above does NOT apply to plugins, extensions, or
+add-ons created for MiMIDI using the public plugin API (.mimod format).
+
+This means any developer may freely create, distribute, and sell plugins for
+MiMIDI without requiring permission from the Licensor, as long as:
+
+  1. The plugin is distributed as a standalone .mimod file or equivalent
+     extension format, and not as a fork or redistribution of MiMIDI itself.
+  2. The plugin does not include or bundle a substantial portion of the
+     MiMIDI core source code.
+  3. The plugin listing or marketing does not imply official endorsement
+     by the MiMIDI author unless explicitly agreed in writing.
+
+The Licensor is not responsible for any third-party plugin, its content,
+behavior, quality, security, or fitness for any purpose. Installing a
+third-party plugin is done entirely at the user's own risk. The Licensor
+does not review, endorse, or guarantee any plugin not officially published
+in the MiMIDI repository.
+
+─────────────────────────────────────────────────────────────────────────────
 MIT License
+─────────────────────────────────────────────────────────────────────────────
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
