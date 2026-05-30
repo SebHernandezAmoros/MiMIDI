@@ -122,6 +122,8 @@ export function AppMode({
   onStartCompleteTutorial,
 }: AppModeProps) {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
+  const isPWA = typeof window !== "undefined" &&
+    window.matchMedia("(display-mode: standalone)").matches
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mimidi-dark-mode") === "true")
   const [isViewSettingsOpen, setIsViewSettingsOpen] = useState(false)
   const [showKeyLabels, setShowKeyLabels] = useState(() => {
@@ -160,6 +162,14 @@ export function AppMode({
 
     handleFullscreenChange()
     document.addEventListener("fullscreenchange", handleFullscreenChange)
+
+    if (isPWA && document.documentElement.requestFullscreen) {
+      const requestOnGesture = () => {
+        void document.documentElement.requestFullscreen().catch(() => {})
+        document.removeEventListener("pointerdown", requestOnGesture)
+      }
+      document.addEventListener("pointerdown", requestOnGesture, { once: true })
+    }
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
@@ -214,15 +224,17 @@ export function AppMode({
               ))}
             </nav>
 
-            <button
-              aria-label={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
-              className="app-mode-fullscreen-toggle"
-              onClick={toggleFullscreen}
-              title={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
-              type="button"
-            >
-              {isFullscreenActive ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            </button>
+            {!isPWA && (
+              <button
+                aria-label={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
+                className="app-mode-fullscreen-toggle"
+                onClick={toggleFullscreen}
+                title={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
+                type="button"
+              >
+                {isFullscreenActive ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+            )}
 
             <button
               aria-label={messages.appMode.viewOptions}
