@@ -30,9 +30,11 @@ function App() {
   const [completeTutorialStep, setCompleteTutorialStep] = useState(1)
 
   // Auto-start on first visit (only in AppMode, not in /lab or /catalog)
+  // Skip if device is in portrait mode on mobile — portrait blocker is showing
   useEffect(() => {
     const route = normalizeAppRoute(window.location.pathname)
-    if (route !== APP_LAB_ROUTE && route !== APP_CATALOG_ROUTE && !isTutorialSeen()) {
+    const isPortraitMobile = window.innerWidth < window.innerHeight && window.innerWidth <= 720
+    if (route !== APP_LAB_ROUTE && route !== APP_CATALOG_ROUTE && !isTutorialSeen() && !isPortraitMobile) {
       setTutorialActive(true)
       setTutorialStep(0)
     }

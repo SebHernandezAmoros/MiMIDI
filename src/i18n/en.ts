@@ -10,6 +10,7 @@ export const enMessages = {
     enterFullscreen: "Enter fullscreen",
     exitFullscreen: "Exit fullscreen",
     viewOptions: "View options",
+    portraitBlocker: "Rotate your device to landscape to use this view.",
   },
   views: {
     piano: {

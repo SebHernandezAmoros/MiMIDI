@@ -10,6 +10,7 @@ export const esMessages = {
     enterFullscreen: "Pantalla completa",
     exitFullscreen: "Salir de pantalla completa",
     viewOptions: "Opciones de la vista",
+    portraitBlocker: "Gira el dispositivo a horizontal para usar esta vista.",
   },
   views: {
     piano: {

@@ -191,7 +191,7 @@ export function AppMode({
   }
 
   return (
-    <AppShell subtitle={messages.appMode.subtitle} title={messages.appMode.title}>
+    <AppShell subtitle={messages.appMode.subtitle} title={messages.appMode.title} portraitMessage={messages.appMode.portraitBlocker}>
       <section
         className="app-mode-window app-surface-window"
         data-show-key-labels={showKeyLabels ? undefined : "false"}
