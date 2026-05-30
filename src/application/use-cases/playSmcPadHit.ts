@@ -92,21 +92,24 @@ export function playSmcPadHit(
       return
 
     case "snare":
+      // Crack agudo — highpass más bajo para dejar pasar el cuerpo medio
       playNoise(0.065 * ds, {
-        pan, volume: 0.58 * v,
-        envelope: { attack: 0.0001, decay: 0.03 * ds, sustain: 0.01, release: 0.04 * ds },
-        filter: { type: "highpass", frequency: 4200, Q: 0.5 },
+        pan, volume: 0.52 * v,
+        envelope: { attack: 0.0001, decay: 0.03 * ds, sustain: 0, release: 0.04 * ds },
+        filter: { type: "highpass", frequency: 2800, Q: 0.5 },
         distortion: dist,
       })
+      // Cuerpo del snare — más volumen y frecuencia más baja para dar presencia
       playNoise(0.1 + 0.06 * ds, {
-        pan, volume: 0.38 * v,
-        envelope: { attack: 0.0001, decay: 0.042 * ds, sustain: 0.04, release: 0.07 * ds },
-        filter: { type: "bandpass", frequency: 260, Q: 0.7 },
+        pan, volume: 0.58 * v,
+        envelope: { attack: 0.0001, decay: 0.055 * ds, sustain: 0, release: 0.08 * ds },
+        filter: { type: "bandpass", frequency: 220, Q: 0.8 },
       })
-      playFrequency(200, 0.06 * ds, {
-        pan, waveform: "triangle", volume: 0.22 * v,
-        envelope: { attack: 0.0001, decay: 0.026 * ds, sustain: 0.01, release: 0.04 * ds },
-        sweep: { from: 230, to: 140, duration: 0.04 },
+      // Tono del parche — más volumen para dar cuerpo tonal
+      playFrequency(185, 0.07 * ds, {
+        pan, waveform: "triangle", volume: 0.32 * v,
+        envelope: { attack: 0.0001, decay: 0.03 * ds, sustain: 0, release: 0.045 * ds },
+        sweep: { from: 220, to: 140, duration: 0.04 },
       })
       return
 
@@ -275,9 +278,10 @@ export function playSmcPadHit(
         envelope: { attack: 0.0001, decay: 0.006, sustain: 0, release: 0.006 },
         filter: { type: "highpass", frequency: 3500, Q: 0.6 },
       })
+      // sustain: 0 para que el ruido decaiga limpio sin cola residual
       playNoise(1.4 * ds, {
         pan, volume: 0.22 * v,
-        envelope: { attack: 0.001, decay: 0.55 * ds, sustain: 0.04, release: 1.0 * ds },
+        envelope: { attack: 0.001, decay: 0.55 * ds, sustain: 0, release: 0.85 * ds },
         filter: { type: "highpass", frequency: 4500, Q: 0.4 },
         distortion: dist,
       })
