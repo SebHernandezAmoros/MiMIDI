@@ -951,8 +951,15 @@ input.project-compact-name-input:focus {
   }
 }
 
-.app-shell-portrait-blocker {
-  display: none;
+@media (max-width: 720px) and (orientation: portrait) {
+  .app-shell-live-content,
+  .app-shell.app-theme-classic > .app-shell-live-content {
+    display: none;
+  }
+
+  .app-shell-portrait-blocker {
+    display: grid;
+  }
 }
 
 @media (max-height: 430px) and (orientation: landscape) {
