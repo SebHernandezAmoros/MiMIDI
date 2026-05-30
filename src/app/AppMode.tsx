@@ -216,15 +216,15 @@ export function AppMode({
               ))}
             </nav>
 
-            {!isFullscreenActive && (
+            {(isPWA || !isFullscreenActive) && (
               <button
-                aria-label={messages.appMode.enterFullscreen}
+                aria-label={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
                 className="app-mode-fullscreen-toggle"
                 onClick={toggleFullscreen}
-                title={messages.appMode.enterFullscreen}
+                title={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
                 type="button"
               >
-                <Maximize2 size={18} />
+                {isFullscreenActive ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
               </button>
             )}
 
