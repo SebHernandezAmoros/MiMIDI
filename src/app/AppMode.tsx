@@ -163,14 +163,6 @@ export function AppMode({
     handleFullscreenChange()
     document.addEventListener("fullscreenchange", handleFullscreenChange)
 
-    if (isPWA && document.documentElement.requestFullscreen) {
-      const requestOnGesture = () => {
-        void document.documentElement.requestFullscreen().catch(() => {})
-        document.removeEventListener("pointerdown", requestOnGesture)
-      }
-      document.addEventListener("pointerdown", requestOnGesture, { once: true })
-    }
-
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
     }
@@ -224,15 +216,15 @@ export function AppMode({
               ))}
             </nav>
 
-            {!isPWA && (
+            {!isFullscreenActive && (
               <button
-                aria-label={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
+                aria-label={messages.appMode.enterFullscreen}
                 className="app-mode-fullscreen-toggle"
                 onClick={toggleFullscreen}
-                title={isFullscreenActive ? messages.appMode.exitFullscreen : messages.appMode.enterFullscreen}
+                title={messages.appMode.enterFullscreen}
                 type="button"
               >
-                {isFullscreenActive ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                <Maximize2 size={18} />
               </button>
             )}
 

@@ -15,7 +15,7 @@ export default defineConfig({
         description: 'Mobile-first music lab with mathematical synthesis and a .mimod plugin system.',
         theme_color: '#f07040',
         background_color: '#0f0f0f',
-        display: 'standalone',
+        display: 'fullscreen',
         orientation: 'any',
         start_url: process.env.GITHUB_ACTIONS ? '/MiMIDI/' : '/',
         icons: [
