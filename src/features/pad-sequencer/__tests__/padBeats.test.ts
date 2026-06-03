@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { smcPadSounds } from "../../../application/use-cases/playSmcPadHit"
 import {
-  appendStepsTrack,
   createDefaultProject,
   getMidiTracks,
   resetTrackClips,

@@ -375,7 +375,7 @@ export function appendStepsTrack(project: MusicalProject): MusicalProject {
   }
 }
 
-export function getStepsTracks(timeline: ProjectTimeline): MidiTrack[] {
+export function getStepsTracks(timeline: TimelineTrack[]): MidiTrack[] {
   return getMidiTracks(timeline).filter((t) => t.trackType === "steps")
 }
 

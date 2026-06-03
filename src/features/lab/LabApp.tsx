@@ -15,7 +15,6 @@ import {
   renameTrack,
   appendTrackWithNotes,
   bakeOrReplaceTrackNotes,
-  appendTrack,
   resetTrackClips,
   toggleStepNoteInTrack,
   addAudioClipTrack,
@@ -41,8 +40,6 @@ import {
   Minus,
   Plus,
   Layers,
-  Lock,
-  Unlock,
   ChevronLeft,
   ChevronRight,
   X,
@@ -89,7 +86,7 @@ import type { LabAppMode } from "./useLabProject"
 import { useLabProject } from "./useLabProject"
 import { useLabPlayback } from "./useLabPlayback"
 import { useLabPerform } from "./useLabPerform"
-import { previewOctaveOptions } from "../../engine/midi/notes"
+import { previewOctaveOptions, type Octave } from "../../engine/midi/notes"
 import { ensureAudioReady } from "../../engine/audio/audioEngine"
 import { playNote, stopNote } from "../../application/use-cases/playNote"
 import { saveFile } from "../../application/use-cases/saveFile"
@@ -246,7 +243,6 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   })
 
   // ── Pad beats sequencer ──────────────────────────────────────────────────────
-  const pageSounds = smcPadSounds.slice(padPage * 8, padPage * 8 + 8)
   const padBeatsClipNotes = lab.primaryTrack.trackType === "percussion"
     ? (lab.primaryTrack.clips[0]?.notes ?? [])
     : []
@@ -2409,7 +2405,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             <button
               onClick={() => {
                 handleSetSeqBpm(120)
-                labPerform.stepPreviewOctave(4 - labPerform.previewOctave)
+                labPerform.updatePreviewOctave(4 as Octave)
               }}
               type="button"
             >

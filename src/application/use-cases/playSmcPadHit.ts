@@ -4,7 +4,7 @@ import type { MusicalNote } from "../../engine/midi/notes"
 
 export type { PadSoundParams, SmcPadSoundId }
 
-type SmcPadSoundDescriptor = {
+export type SmcPadSoundDescriptor = {
   accent: string
   description: string
   duration: number
