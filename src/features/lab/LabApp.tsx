@@ -1724,7 +1724,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             <span aria-hidden="true" className="perform-mode-transport-divider" />
 
             {/* Modo: pads en vivo / beats sequencer */}
-            <div className="ui-toggle-group" role="group" aria-label="Modo de entrada">
+            <div className="ui-toggle-group" role="group" aria-label="Modo de entrada" data-tutorial="pad-view-mode-toggle">
               <button
                 aria-pressed={padViewMode === "pads"}
                 onClick={() => { padBeats.stop(); setPadViewMode("pads"); localStorage.setItem("mimidi-pad-view-mode", "pads") }}
@@ -1734,6 +1734,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               </button>
               <button
                 aria-pressed={padViewMode === "beats"}
+                data-tutorial="pad-view-mode-beats-btn"
                 onClick={() => { setPadViewMode("beats"); localStorage.setItem("mimidi-pad-view-mode", "beats") }}
                 type="button"
               >

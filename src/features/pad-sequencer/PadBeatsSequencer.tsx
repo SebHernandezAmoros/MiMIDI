@@ -12,7 +12,7 @@ type Props = {
 
 export function PadBeatsSequencer({ sounds, grid, stepCount, activeStep, onToggleStep }: Props) {
   return (
-    <div className="pbs-grid">
+    <div className="pbs-grid" data-tutorial="beats-grid">
       {sounds.map((sound, rowIdx) => (
         <div className="pbs-row" key={sound.id}>
           <span className={`pbs-sound-label pbs-sound-${sound.id}`}>

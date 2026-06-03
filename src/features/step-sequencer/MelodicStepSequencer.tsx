@@ -28,7 +28,7 @@ export function MelodicStepSequencer({ notes, grid, stepCount, activeStep, onTog
   const displayNotes = [...notes].reverse()
 
   return (
-    <div className="mss-grid">
+    <div className="mss-grid" data-tutorial="steps-grid">
       {displayNotes.map((note, rowIdx) => {
         const sharp = isSharp(note)
         return (

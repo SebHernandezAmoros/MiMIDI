@@ -161,9 +161,10 @@ export function PerformResponsiveToolbar({
       <span aria-hidden="true" className="perform-mode-transport-divider" />
 
       {/* Modo de entrada: Keys / Steps */}
-      <div className="ui-toggle-group" role="group" aria-label="Modo de entrada">
+      <div className="ui-toggle-group" role="group" aria-label="Modo de entrada" data-tutorial="piano-view-mode-toggle">
         <button
           aria-pressed={!isStepsMode}
+          data-tutorial="piano-view-mode-keys-btn"
           onClick={() => onPianoViewModeChange("keys")}
           type="button"
         >
@@ -171,6 +172,7 @@ export function PerformResponsiveToolbar({
         </button>
         <button
           aria-pressed={isStepsMode}
+          data-tutorial="piano-view-mode-steps-btn"
           onClick={() => onPianoViewModeChange("steps")}
           type="button"
         >
