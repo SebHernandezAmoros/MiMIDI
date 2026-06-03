@@ -1,0 +1,138 @@
+.pbs-grid {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 9rem;
+  gap: 2px;
+  padding: 0.15rem 0;
+  box-sizing: border-box;
+}
+
+.pbs-row {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+/* ── Etiqueta de sonido a la izquierda ── */
+
+.pbs-sound-label {
+  width: 4.2rem;
+  flex-shrink: 0;
+  font-size: 0.52rem;
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.35rem;
+  user-select: none;
+  border-radius: 0 3px 3px 0;
+  box-sizing: border-box;
+  /* Hereda el fondo del tema — el borde de acento es el identificador visual */
+  background: var(--ui-color-surface, #f0ece4);
+  color: var(--ui-color-text-muted, #444);
+  border-right: 3px solid #ccc;
+}
+
+[data-ui-theme="dark"] .pbs-sound-label {
+  background: var(--ui-color-surface, #1a1a1a);
+  color: #888;
+  border-right-color: #444;
+}
+
+/* Color único por sound.id — hereda el fondo del tema, solo define color de texto y borde */
+.pbs-sound-kick      { color: #cc2010 !important; border-right-color: #cc2010 !important; }
+.pbs-sound-snare     { color: #28a028 !important; border-right-color: #28a028 !important; }
+.pbs-sound-hat       { color: #3050c0 !important; border-right-color: #3050c0 !important; }
+.pbs-sound-open-hat  { color: #1880c0 !important; border-right-color: #1880c0 !important; }
+.pbs-sound-clap      { color: #a020a0 !important; border-right-color: #a020a0 !important; }
+.pbs-sound-rimshot   { color: #803888 !important; border-right-color: #803888 !important; }
+.pbs-sound-tom       { color: #a09010 !important; border-right-color: #a09010 !important; }
+.pbs-sound-crash     { color: #c05010 !important; border-right-color: #c05010 !important; }
+.pbs-sound-floor-tom { color: #608010 !important; border-right-color: #608010 !important; }
+.pbs-sound-hi-tom    { color: #a0a010 !important; border-right-color: #a0a010 !important; }
+.pbs-sound-ride      { color: #109898 !important; border-right-color: #109898 !important; }
+.pbs-sound-sub       { color: #c01040 !important; border-right-color: #c01040 !important; }
+.pbs-sound-conga     { color: #c06808 !important; border-right-color: #c06808 !important; }
+.pbs-sound-cowbell   { color: #b89008 !important; border-right-color: #b89008 !important; }
+.pbs-sound-shaker    { color: #10a878 !important; border-right-color: #10a878 !important; }
+.pbs-sound-woodblock { color: #907840 !important; border-right-color: #907840 !important; }
+
+/* Modo oscuro — tono de fondo suave para resaltar el color */
+[data-ui-theme="dark"] .pbs-sound-kick      { background: #1a0808 !important; color: #ff5040 !important; border-right-color: #cc2010 !important; }
+[data-ui-theme="dark"] .pbs-sound-snare     { background: #081a08 !important; color: #50e050 !important; border-right-color: #28a028 !important; }
+[data-ui-theme="dark"] .pbs-sound-hat       { background: #08081a !important; color: #6080ff !important; border-right-color: #3050c0 !important; }
+[data-ui-theme="dark"] .pbs-sound-open-hat  { background: #081018 !important; color: #40b0ff !important; border-right-color: #1880c0 !important; }
+[data-ui-theme="dark"] .pbs-sound-clap      { background: #180818 !important; color: #e060e0 !important; border-right-color: #a020a0 !important; }
+[data-ui-theme="dark"] .pbs-sound-rimshot   { background: #140814 !important; color: #c050c8 !important; border-right-color: #803888 !important; }
+[data-ui-theme="dark"] .pbs-sound-tom       { background: #181408 !important; color: #d0c040 !important; border-right-color: #a09010 !important; }
+[data-ui-theme="dark"] .pbs-sound-crash     { background: #181008 !important; color: #ff8030 !important; border-right-color: #c05010 !important; }
+[data-ui-theme="dark"] .pbs-sound-floor-tom { background: #101808 !important; color: #98d040 !important; border-right-color: #608010 !important; }
+[data-ui-theme="dark"] .pbs-sound-hi-tom    { background: #181808 !important; color: #e0e040 !important; border-right-color: #a0a010 !important; }
+[data-ui-theme="dark"] .pbs-sound-ride      { background: #081818 !important; color: #30d8d8 !important; border-right-color: #109898 !important; }
+[data-ui-theme="dark"] .pbs-sound-sub       { background: #1a0808 !important; color: #ff3060 !important; border-right-color: #c01040 !important; }
+[data-ui-theme="dark"] .pbs-sound-conga     { background: #180e08 !important; color: #ff9820 !important; border-right-color: #c06808 !important; }
+[data-ui-theme="dark"] .pbs-sound-cowbell   { background: #1a1608 !important; color: #e8c030 !important; border-right-color: #b89008 !important; }
+[data-ui-theme="dark"] .pbs-sound-shaker    { background: #081818 !important; color: #40d8a8 !important; border-right-color: #10a878 !important; }
+[data-ui-theme="dark"] .pbs-sound-woodblock { background: #100e08 !important; color: #c8a860 !important; border-right-color: #907840 !important; }
+
+/* ── Celdas — idénticas al MelodicStepSequencer ── */
+
+.pbs-cell {
+  flex: 1;
+  min-width: 0;
+  border-radius: 4px;
+  border: 1px solid var(--ui-color-border) !important;
+  background: var(--ui-color-surface-inset) !important;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 60ms ease, border-color 60ms ease;
+  padding: 0;
+}
+
+.pbs-cell:focus,
+.pbs-cell:focus-visible {
+  outline: none;
+}
+
+.pbs-cell-on {
+  background: var(--ui-color-accent) !important;
+  border-color: var(--ui-color-accent) !important;
+}
+
+.pbs-cell-on:hover,
+.pbs-cell-on:active {
+  background: var(--ui-color-accent) !important;
+  opacity: 0.85;
+}
+
+.pbs-cell-beat-start {
+  margin-left: 4px;
+}
+
+.pbs-cell-cursor {
+  background: rgb(200 40 40 / 0.15) !important;
+  border-color: var(--ui-color-accent-soft, var(--ui-color-accent)) !important;
+}
+
+.pbs-cell-on-cursor {
+  background: var(--ui-color-accent) !important;
+  border-color: #fff !important;
+  opacity: 0.9;
+}
+
+[data-ui-theme="dark"] .pbs-cell-cursor {
+  background: rgb(255 49 80 / 0.18) !important;
+  border-color: var(--ui-color-accent) !important;
+}
+
+[data-ui-theme="dark"] .pbs-cell-on-cursor {
+  border-color: rgba(255 255 255 / 0.4) !important;
+}

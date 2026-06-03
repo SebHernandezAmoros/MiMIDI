@@ -11,6 +11,7 @@ import { deleteSampleBuffer } from "../../engine/audio/sampleStorage"
 import { isSmcPadRecordedNote } from "../../engine/midi/events"
 import {
   appendPadTrack,
+  appendStepsTrack,
   appendTrack,
   clearAllTrackNotes,
   compactTrackNotesStart,
@@ -140,6 +141,7 @@ export function useLabProject({
   const hasNoTracks = midiTracks.length === 0
   const melodicTracks = midiTracks.filter((t) => t.trackType === "melodic")
   const percussionTracks = midiTracks.filter((t) => t.trackType === "percussion")
+  const stepsTracks = midiTracks.filter((t) => t.trackType === "steps")
 
   const primaryTrack = (() => {
     if (mode === "sampler-only") {
@@ -165,7 +167,9 @@ export function useLabProject({
     )
   })()
 
-  const allRecordedNotes = midiTracks.flatMap((track) => getMidiTrackNotes(track))
+  const allRecordedNotes = midiTracks
+    .filter((t) => t.trackType !== "steps")
+    .flatMap((track) => getMidiTrackNotes(track))
   const projectTrackTimelineLength = getProjectTrackTimelineLength(project)
   const primaryTrackNoteTimelineLength = getTrackNoteTimelineLength(primaryTrack)
   const primaryTrackNotes = getMidiTrackNotes(primaryTrack)
@@ -290,6 +294,29 @@ export function useLabProject({
       }
       return nextProject
     })
+  }
+
+  const lastCreatedStepsTrackIdRef = useRef<string | null>(null)
+
+  function addStepsTrack() {
+    lastCreatedStepsTrackIdRef.current = null
+    applyUpdate((currentProject) => {
+      const nextProject = appendStepsTrack(currentProject)
+      const nextTrack = getMidiTracks(nextProject.timeline).at(-1)
+      if (nextTrack) {
+        lastCreatedStepsTrackIdRef.current = nextTrack.id
+        setProjectMessage(`Pista agregada: ${nextTrack.name}.`)
+      }
+      return nextProject
+    })
+    // El updater de setState corre síncronamente → el ref ya tiene el ID
+  }
+
+  function removeStepsTrack(trackId: string) {
+    const track = stepsTracks.find((t) => t.id === trackId)
+    if (!track) return
+    applyUpdate((p) => removeTrack(p, trackId))
+    setProjectMessage(`Pista eliminada: ${track.name}.`)
   }
 
   function removeActiveTrack() {
@@ -802,6 +829,7 @@ export function useLabProject({
     hasNoTracks,
     melodicTracks,
     percussionTracks,
+    stepsTracks,
     primaryTrack,
     allRecordedNotes,
     projectTrackTimelineLength,
@@ -832,6 +860,9 @@ export function useLabProject({
     // actions — track
     addTrack,
     addPadTrack,
+    addStepsTrack,
+    lastCreatedStepsTrackIdRef,
+    removeStepsTrack,
     switchActiveTrack,
     switchTrackByOffset,
     updateProjectName,

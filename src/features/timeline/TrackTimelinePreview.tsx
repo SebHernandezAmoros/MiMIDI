@@ -120,7 +120,7 @@ export function TrackTimelinePreview({
 }: TrackTimelinePreviewProps) {
   const tl = resolveAppMessages(language ?? "es").lab.timeline
   const midiTracks = getMidiTracks(timeline).filter((t) =>
-    t.clips.some((c) => c.notes.length > 0),
+    t.trackType !== "steps" && t.clips.some((c) => c.notes.length > 0),
   )
   const samplerTracks = getSamplerTracks(timeline).filter((t) =>
     t.pattern.lanes.some((l) => l.steps.some((s) => s.active)),

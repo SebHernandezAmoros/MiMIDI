@@ -259,6 +259,13 @@
   border: 1px solid rgb(239 239 239 / 0.96);
   border-radius: 1.15rem;
   background: rgb(255 255 255 / 0.52);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.app-mock-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .app-mock-toolbar .ui-icon-btn {
@@ -862,6 +869,13 @@ input.project-compact-name-input:focus {
 [data-ui-theme="dark"] .app-mock-toolbar {
   border-color: var(--ui-color-border);
   background: var(--ui-color-surface);
+}
+
+/* Contraste suficiente para el estado activo del toggle en dark mode */
+[data-ui-theme="dark"] .app-mock-toolbar .ui-toggle-group > button[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
 }
 
 [data-ui-theme="dark"] .app-surface-status {

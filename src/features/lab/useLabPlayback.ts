@@ -70,7 +70,7 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
     stopAudioClips()
 
     const allSamplerTracks = getSamplerTracks(notesProject.timeline)
-    const midiTracksForPlay = getMidiTracks(notesProject.timeline)
+    const midiTracksForPlay = getMidiTracks(notesProject.timeline).filter(t => t.trackType !== "steps")
     const hasMidiSolo = midiTracksForPlay.some((t) => t.solo)
     const hasMixSolo = allSamplerTracks.some((t) => t.solo)
     const samplerTracks = hasMidiSolo

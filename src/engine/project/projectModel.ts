@@ -23,7 +23,7 @@ export type TrackVolumeAutomation = {
   points: TrackVolumeAutomationPoint[]
 }
 
-export type ProjectTrackType = "melodic" | "percussion"
+export type ProjectTrackType = "melodic" | "percussion" | "steps"
 
 // ─── Clip types ────────────────────────────────────────────────────────────
 
@@ -342,6 +342,7 @@ export function createDefaultProject(): MusicalProject {
     timeline: [
       createProjectTrack(1, "melodic"),
       { ...createProjectTrack(2, "percussion"), name: "Pad 1" },
+      { ...createProjectTrack(3, "steps"), name: "Steps 1" },
     ],
     trackTimelineDuration: 8,
   }
@@ -355,6 +356,27 @@ export function appendPadTrack(project: MusicalProject): MusicalProject {
     ...project,
     timeline: [...project.timeline, { ...track, name: `Pad ${padCount + 1}` }],
   }
+}
+
+export function resetTrackClips(project: MusicalProject, trackId: string): MusicalProject {
+  return mapMidiTrack(project, trackId, (track) => ({
+    ...track,
+    clips: [createMidiClip(0)],
+  }))
+}
+
+export function appendStepsTrack(project: MusicalProject): MusicalProject {
+  const midiTracks = getMidiTracks(project.timeline)
+  const stepsCount = midiTracks.filter((t) => t.trackType === "steps").length
+  const track = createProjectTrack(midiTracks.length + 1, "steps")
+  return {
+    ...project,
+    timeline: [...project.timeline, { ...track, name: `Steps ${stepsCount + 1}` }],
+  }
+}
+
+export function getStepsTracks(timeline: ProjectTimeline): MidiTrack[] {
+  return getMidiTracks(timeline).filter((t) => t.trackType === "steps")
 }
 
 export function updatePadSoundSetting(
@@ -437,6 +459,40 @@ export function appendNotesToTrack(
     last.notes = [[...notes].reverse(), last.notes].flat()
     clips[clips.length - 1] = last
     return { ...track, clips }
+  })
+}
+
+export function toggleStepNoteInTrack(
+  project: MusicalProject,
+  trackId: string,
+  note: MusicalNote,
+  colIdx: number,
+  bpm: number,
+  instrumentId: MathematicalInstrumentId,
+  stepSubdivision = 4,
+): MusicalProject {
+  const stepDurationSec = (60 / bpm) / stepSubdivision
+  const noteDuration = stepDurationSec * 0.85
+  const targetStartTime = colIdx * stepDurationSec
+  const tolerance = stepDurationSec * 0.5
+
+  return mapMidiTrack(project, trackId, (t) => {
+    const track = ensureLastClip(t)
+    const clip = track.clips[0]
+    const existingIdx = clip.notes.findIndex(
+      n => n.note === note && Math.abs(n.startTime - targetStartTime) < tolerance,
+    )
+    const newNotes = existingIdx >= 0
+      ? clip.notes.filter((_, i) => i !== existingIdx)
+      : [...clip.notes, {
+          id: `step-${note}-${colIdx}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          note,
+          startTime: targetStartTime,
+          duration: noteDuration,
+          velocity: 0.8,
+          instrumentId,
+        }]
+    return { ...track, clips: [{ ...clip, notes: newNotes }] }
   })
 }
 
@@ -827,6 +883,41 @@ export function appendTrackWithNotes(
   return { ...project, timeline: [...project.timeline, track] }
 }
 
+/** Reemplaza las notas del primer clip de un track melódico existente. */
+export function replaceTrackNotes(
+  project: MusicalProject,
+  trackId: string,
+  notes: MidiRecordedNote[],
+): MusicalProject {
+  return mapMidiTrack(project, trackId, (track) => {
+    const clip = track.clips[0] ?? createMidiClip(0)
+    return { ...track, clips: [{ ...clip, notes }] }
+  })
+}
+
+/**
+ * Hornea notas en el timeline melódico.
+ * Si ya existe un track melódico con el mismo nombre, reemplaza sus notas.
+ * Si no existe, crea uno nuevo.
+ * Devuelve [proyecto actualizado, id del track resultante].
+ */
+export function bakeOrReplaceTrackNotes(
+  project: MusicalProject,
+  name: string,
+  instrumentId: string,
+  notes: MidiRecordedNote[],
+): [MusicalProject, string] {
+  const existing = getMidiTracks(project.timeline).find(
+    (t) => t.trackType === "melodic" && t.name === name,
+  )
+  if (existing) {
+    return [replaceTrackNotes(project, existing.id, notes), existing.id]
+  }
+  const updated = appendTrackWithNotes(project, name, instrumentId, notes)
+  const newTrack = getMidiTracks(updated.timeline).filter(t => t.trackType === "melodic").at(-1)!
+  return [updated, newTrack.id]
+}
+
 export function removeTrack(
   project: MusicalProject,
   trackId: string,
@@ -1150,7 +1241,11 @@ function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
         : 8,
     pan: typeof raw.pan === "number" ? clamp(raw.pan, -1, 1) : 0,
     solo: typeof raw.solo === "boolean" ? raw.solo : false,
-    trackType: raw.trackType === "percussion" ? "percussion" : "melodic",
+    trackType: raw.trackType === "percussion"
+      ? "percussion"
+      : raw.trackType === "steps"
+        ? "steps"
+        : "melodic",
     volumeAutomation: {
       enabled: typeof rawAutomation?.enabled === "boolean" ? rawAutomation.enabled : false,
       points:

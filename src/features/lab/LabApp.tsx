@@ -14,7 +14,13 @@ import {
   removeTrack,
   renameTrack,
   appendTrackWithNotes,
+  bakeOrReplaceTrackNotes,
+  appendTrack,
+  resetTrackClips,
+  toggleStepNoteInTrack,
   addAudioClipTrack,
+  updateTrackVolume,
+  updateTrackPan,
   type MusicalProject,
 } from "../../engine/project/projectModel"
 import { saveSampleBuffer, loadSampleBuffer } from "../../engine/audio/sampleStorage"
@@ -34,6 +40,7 @@ import {
   VolumeX,
   Minus,
   Plus,
+  Layers,
   Lock,
   Unlock,
   ChevronLeft,
@@ -52,11 +59,20 @@ import {
 } from "../../engine/midi/events"
 import { MidiEventLog } from "../midi-events/MidiEventLog"
 import { PianoPreview } from "../piano/PianoPreview"
+import { MelodicStepSequencer } from "../step-sequencer/MelodicStepSequencer"
+import {
+  useMelodicSequencer,
+  STEP_COUNT_OPTIONS,
+  STEP_SUBDIVISION_OPTIONS,
+  calcStepDurationSec,
+} from "../step-sequencer/useMelodicSequencer"
+import { PadBeatsSequencer } from "../pad-sequencer/PadBeatsSequencer"
+import { usePadBeats } from "../pad-sequencer/usePadBeats"
 import { MiniSmcPad } from "../smc-pad/MiniSmcPad"
 import { TrackTimelinePreview } from "../timeline/TrackTimelinePreview"
 import { TimelinePreview } from "../timeline/TimelinePreview"
 import { AppDialog } from "../../app/components/AppDialog"
-import { PerformResponsiveToolbar } from "../perform/components/PerformResponsiveToolbar"
+import { PerformResponsiveToolbar, type PianoViewMode } from "../perform/components/PerformResponsiveToolbar"
 import { LabActions } from "./LabActions"
 import { LabNoteEditor } from "./LabNoteEditor"
 import { LabProjectPanel } from "./LabProjectPanel"
@@ -130,8 +146,27 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   const [isClipDeleteConfirmOpen, setIsClipDeleteConfirmOpen] = useState(false)
   const [activeSamplerPadId, setActiveSamplerPadId] = useState<SmcPadSoundId | null>(null)
   const [padPage, setPadPage] = useState(0)
+  const [padViewMode, setPadViewMode] = useState<"pads" | "beats">(() => {
+    const saved = localStorage.getItem("mimidi-pad-view-mode")
+    return saved === "beats" ? "beats" : "pads"
+  })
   const [configSoundId, setConfigSoundId] = useState<SmcPadSoundId | null>(null)
   const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
+  const [activeStepsTrackId, setActiveStepsTrackId] = useState<string | null>(() =>
+    localStorage.getItem("mimidi-seq-active-steps-track")
+  )
+  const [pianoViewMode, setPianoViewMode] = useState<PianoViewMode>(() => {
+    const saved = localStorage.getItem("mimidi-piano-view-mode")
+    return saved === "steps" ? "steps" : "keys"
+  })
+  const [seqBpm, setSeqBpm] = useState<number>(() => {
+    const saved = Number(localStorage.getItem("mimidi-seq-bpm"))
+    return saved >= 40 && saved <= 240 ? saved : 120
+  })
+  const [seqStepSubdivision, setSeqStepSubdivision] = useState<import("../step-sequencer/useMelodicSequencer").StepSubdivision>(() => {
+    const saved = Number(localStorage.getItem("mimidi-seq-subdivision"))
+    return ([1, 2, 4, 8] as const).includes(saved as 1 | 2 | 4 | 8) ? saved as 1 | 2 | 4 | 8 : 4
+  })
   const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
     MathematicalInstrument["category"]
   >("base")
@@ -177,6 +212,62 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     applyUpdate: lab.applyUpdate,
     setProjectMessage: lab.setProjectMessage,
     project: lab.project,
+  })
+
+  // Busca por ID; si no existe aún (recarga, proyecto nuevo), cae al primero
+  const activeStepsTrack =
+    lab.stepsTracks.find(t => t.id === activeStepsTrackId) ??
+    lab.stepsTracks[0] ??
+    null
+
+  const activeStepsClipNotes = activeStepsTrack?.clips[0]?.notes ?? []
+
+  // 7 notas naturales (sin sostenidos) — más legible en móvil y en grilla
+  const stepSequencerNotes = labPerform.visibleNotes.filter(n => !n.includes("#"))
+
+  const melodicSequencer = useMelodicSequencer({
+    notes: stepSequencerNotes,
+    playOptions: labPerform.basePreviewPlayOptions,
+    bpm: seqBpm,
+    stepSubdivision: seqStepSubdivision,
+    clipNotes: activeStepsClipNotes,
+    onToggleStep: (row, col) => {
+      if (!activeStepsTrack) return
+      const note = stepSequencerNotes[stepSequencerNotes.length - 1 - row]
+      if (!note) return
+      lab.applyUpdate(p =>
+        toggleStepNoteInTrack(p, activeStepsTrack.id, note, col, seqBpm, activeStepsTrack.instrumentId, seqStepSubdivision),
+      )
+    },
+    onClearAll: () => {
+      if (!activeStepsTrack) return
+      lab.applyUpdate(p => resetTrackClips(p, activeStepsTrack.id))
+    },
+  })
+
+  // ── Pad beats sequencer ──────────────────────────────────────────────────────
+  const pageSounds = smcPadSounds.slice(padPage * 8, padPage * 8 + 8)
+  const padBeatsClipNotes = lab.primaryTrack.trackType === "percussion"
+    ? (lab.primaryTrack.clips[0]?.notes ?? [])
+    : []
+
+  const padBeats = usePadBeats({
+    sounds: smcPadSounds,   // todos los 16 sonidos en beats mode
+    bpm: seqBpm,
+    stepSubdivision: seqStepSubdivision,
+    clipNotes: padBeatsClipNotes,
+    padSoundSettings: lab.project.padSoundSettings,
+    onToggleStep: (row, col) => {
+      const sound = smcPadSounds[row]
+      if (!sound || lab.primaryTrack.trackType !== "percussion") return
+      lab.applyUpdate(p =>
+        toggleStepNoteInTrack(p, lab.primaryTrack.id, sound.note, col, seqBpm, lab.primaryTrack.instrumentId, seqStepSubdivision),
+      )
+    },
+    onClearAll: () => {
+      if (lab.primaryTrack.trackType !== "percussion") return
+      lab.applyUpdate(p => resetTrackClips(p, lab.primaryTrack.id))
+    },
   })
 
   // ── Derived from instrument catalog ──────────────────────────────────────────
@@ -250,11 +341,13 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     },
     triggerPad: (padId, velocity = 1) => labPerform.triggerSmcPad(padId as SmcPadSoundId, velocity),
     getTracks: () =>
-      getMidiTracks(lab.project.timeline).map(tr => ({
-        id: tr.id,
-        name: tr.name,
-        type: tr.trackType === "melodic" ? "melodic" as const : "percussion" as const,
-      })),
+      getMidiTracks(lab.project.timeline)
+        .filter(tr => tr.trackType !== "steps")
+        .map(tr => ({
+          id: tr.id,
+          name: tr.name,
+          type: tr.trackType === "melodic" ? "melodic" as const : "percussion" as const,
+        })),
     receivePluginOutput: (output: PluginOutput) => {
       if (output.type === "midi") {
         lab.applyUpdate(p => appendTrackWithNotes(p, output.name, output.instrumentId, output.notes))
@@ -348,6 +441,11 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
 
   async function handleRestartProject() {
     tearDownSession()
+    melodicSequencer.stop()
+    setPianoViewMode("keys")
+    localStorage.setItem("mimidi-piano-view-mode", "keys")
+    setActiveStepsTrackId(null)
+    localStorage.removeItem("mimidi-seq-active-steps-track")
     await lab.restartProject()
   }
 
@@ -381,6 +479,86 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     setSelectedClipId(null)
     setSelectedLaneId(null)
     setIsTrackLaneFocused(false)
+  }
+
+  function setActiveStepsTrack(id: string) {
+    setActiveStepsTrackId(id)
+    localStorage.setItem("mimidi-seq-active-steps-track", id)
+  }
+
+  // Auto-crear STEPS 1 si la app carga en modo steps sin pistas existentes
+  useEffect(() => {
+    if (pianoViewMode !== "steps" || lab.stepsTracks.length > 0) return
+    lab.addStepsTrack()
+    const newId = lab.lastCreatedStepsTrackIdRef.current
+    if (newId) setActiveStepsTrack(newId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pianoViewMode, lab.stepsTracks.length])
+
+  // Detener reproducción al cambiar de steps track
+  useEffect(() => {
+    melodicSequencer.stop()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStepsTrackId])
+
+  function handleSetPianoViewMode(mode: PianoViewMode) {
+    if (mode === "steps") {
+      if (labRecording.recordingState === "recording") labRecording.stopRecording()
+      if (lab.stepsTracks.length === 0) {
+        lab.addStepsTrack()
+        const newId = lab.lastCreatedStepsTrackIdRef.current
+        if (newId) setActiveStepsTrack(newId)
+      } else if (!activeStepsTrack) {
+        setActiveStepsTrack(lab.stepsTracks[0].id)
+      }
+    }
+    if (mode === "keys") melodicSequencer.stop()
+    setPianoViewMode(mode)
+    localStorage.setItem("mimidi-piano-view-mode", mode)
+  }
+
+  function handleAddStepsTrack() {
+    lab.addStepsTrack()
+    // El ref se popula síncronamente dentro del updater de setState
+    const newId = lab.lastCreatedStepsTrackIdRef.current
+    if (newId) setActiveStepsTrack(newId)
+  }
+
+  function handleStepsTrackByOffset(offset: -1 | 1) {
+    const tracks = lab.stepsTracks
+    const idx = tracks.findIndex(t => t.id === activeStepsTrack?.id)
+    const next = tracks[Math.max(0, Math.min(tracks.length - 1, idx + offset))]
+    if (next) setActiveStepsTrack(next.id)
+  }
+
+  function handleRemoveStepsTrack() {
+    if (!activeStepsTrack || lab.stepsTracks.length <= 1) return
+    const tracks = lab.stepsTracks
+    const idx = tracks.findIndex(t => t.id === activeStepsTrack.id)
+    const nextIdx = idx === 0 ? 1 : idx - 1
+    const next = tracks[nextIdx]
+    lab.removeStepsTrack(activeStepsTrack.id)
+    if (next) setActiveStepsTrack(next.id)
+  }
+
+  function handleBakeStepsToTrack() {
+    if (!activeStepsTrack || activeStepsClipNotes.length === 0) return
+    lab.applyUpdate((p) => {
+      const [updated] = bakeOrReplaceTrackNotes(
+        p,
+        activeStepsTrack.name,
+        activeStepsTrack.instrumentId,
+        activeStepsClipNotes,
+      )
+      return updated
+    })
+    lab.setProjectMessage(`Patrón "${activeStepsTrack.name}" enviado al timeline.`)
+  }
+
+  function handleSetSeqBpm(bpm: number) {
+    const clamped = Math.max(40, Math.min(240, bpm))
+    setSeqBpm(clamped)
+    localStorage.setItem("mimidi-seq-bpm", String(clamped))
   }
 
   function openInstrumentDialog() {
@@ -467,7 +645,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               value={lab.primaryTrack.id}
               onChange={(e) => switchActiveTrack(e.target.value)}
             >
-              {lab.midiTracks.map((track) => (
+              {lab.midiTracks.filter(t => t.trackType !== "steps").map((track) => (
                 <option key={track.id} value={track.id}>
                   {track.name}
                 </option>
@@ -1026,19 +1204,19 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                 onClick={lab.acceptRemoveActiveTrack}
                 type="button"
               >
-                {lab.midiTracks.length === 1 ? t.common.reset : t.common.delete}
+                {(lab.melodicTracks.length + lab.percussionTracks.length) === 1 ? t.common.reset : t.common.delete}
               </button>
             </>
           }
           description={
-            lab.midiTracks.length === 1
+            (lab.melodicTracks.length + lab.percussionTracks.length) === 1
               ? t.dialogs.resetTracksMsg
               : t.dialogs.deleteTrackMsg
           }
           onClose={lab.cancelRemoveActiveTrack}
           open={lab.isTrackRemovalConfirmOpen}
           title={
-            lab.midiTracks.length === 1
+            (lab.melodicTracks.length + lab.percussionTracks.length) === 1
               ? t.dialogs.resetTracksTitle
               : tpl(t.dialogs.deleteTrackTitle, { name: lab.primaryTrack.name })
           }
@@ -1155,7 +1333,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             value={lab.project.name}
           />
           <p className="project-compact-stats">
-            {getMidiTracks(lab.project.timeline).length} {t.project.tracksLabel}
+            {getMidiTracks(lab.project.timeline).filter(t => t.trackType !== "steps").length} {t.project.tracksLabel}
             {" · "}
             {getSamplerTracks(lab.project.timeline).length} mix
             {getSamplerTracks(lab.project.timeline).length !== 1 ? "es" : ""}
@@ -1473,46 +1651,63 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
         <section className="app-mock-screen" aria-label={t.pad.workspace}>
           <header className="app-mock-toolbar">
             <div className="perform-mode-transport" aria-label={t.pad.recordingControls}>
-              <button
-                aria-label={
-                  labRecording.recordingState === "recording"
-                    ? t.common.stopRecording
-                    : t.common.startRecording
-                }
-                className={`perform-mode-transport-button${labRecording.recordingState === "recording" ? " perform-mode-transport-button-active" : ""}`}
-                data-tutorial="pad-record-button"
-                onClick={
-                  labRecording.recordingState === "recording"
-                    ? () => labRecording.stopRecording()
-                    : startRecording
-                }
-                type="button"
-              >
-                <span className="perform-mode-transport-icon">
-                  <span
-                    className={`perform-mode-transport-glyph ${labRecording.recordingState === "recording" ? "perform-mode-transport-glyph-stop" : "perform-mode-transport-glyph-record"}`}
-                  >
-                    {labRecording.recordingState === "recording" ? "■" : "●"}
+              {padViewMode === "beats" ? (
+                // En beats: el patrón ya está en el track — el botón confirma y muestra mensaje
+                <button
+                  aria-label="Patrón guardado en el track de percusión"
+                  className="perform-mode-transport-button perform-mode-transport-record"
+                  onClick={() => lab.setProjectMessage(`Patrón guardado en "${lab.primaryTrack.name}".`)}
+                  title="Patrón guardado automáticamente en el track"
+                  type="button"
+                >
+                  <span aria-hidden="true" className="perform-mode-transport-icon">
+                    <Layers size={16} className="perform-mode-transport-glyph-record" />
                   </span>
-                </span>
-              </button>
+                </button>
+              ) : (
+                <button
+                  aria-label={
+                    labRecording.recordingState === "recording"
+                      ? t.common.stopRecording
+                      : t.common.startRecording
+                  }
+                  className={`perform-mode-transport-button${labRecording.recordingState === "recording" ? " perform-mode-transport-button-active" : ""}`}
+                  data-tutorial="pad-record-button"
+                  onClick={
+                    labRecording.recordingState === "recording"
+                      ? () => labRecording.stopRecording()
+                      : startRecording
+                  }
+                  type="button"
+                >
+                  <span className="perform-mode-transport-icon">
+                    <span
+                      className={`perform-mode-transport-glyph ${labRecording.recordingState === "recording" ? "perform-mode-transport-glyph-stop" : "perform-mode-transport-glyph-record"}`}
+                    >
+                      {labRecording.recordingState === "recording" ? "■" : "●"}
+                    </span>
+                  </span>
+                </button>
+              )}
               <button
                 aria-label={
-                  labPlayback.playbackTransport.isPlaying
+                  (padViewMode === "beats" ? padBeats.isPlaying : labPlayback.playbackTransport.isPlaying)
                     ? t.common.stopPlayback
                     : t.common.play
                 }
-                className={`perform-mode-transport-button${labPlayback.playbackTransport.isPlaying ? " perform-mode-transport-button-active" : ""}`}
+                className={`perform-mode-transport-button${(padViewMode === "beats" ? padBeats.isPlaying : labPlayback.playbackTransport.isPlaying) ? " perform-mode-transport-button-active" : ""}`}
                 data-tutorial="pad-play-button"
                 disabled={labRecording.recordingState === "recording"}
                 onClick={
-                  labPlayback.playbackTransport.isPlaying
-                    ? labPlayback.playbackTransport.stop
-                    : () =>
-                        labPlayback.playbackTransport.play(
-                          { ...lab.project, timeline: [lab.primaryTrack] },
-                          { padSoundSettings: lab.project.padSoundSettings },
-                        )
+                  padViewMode === "beats"
+                    ? padBeats.togglePlay
+                    : labPlayback.playbackTransport.isPlaying
+                      ? labPlayback.playbackTransport.stop
+                      : () =>
+                          labPlayback.playbackTransport.play(
+                            { ...lab.project, timeline: [lab.primaryTrack] },
+                            { padSoundSettings: lab.project.padSoundSettings },
+                          )
                 }
                 type="button"
               >
@@ -1523,6 +1718,26 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                     {labPlayback.playbackTransport.isPlaying ? "■" : "▶"}
                   </span>
                 </span>
+              </button>
+            </div>
+
+            <span aria-hidden="true" className="perform-mode-transport-divider" />
+
+            {/* Modo: pads en vivo / beats sequencer */}
+            <div className="ui-toggle-group" role="group" aria-label="Modo de entrada">
+              <button
+                aria-pressed={padViewMode === "pads"}
+                onClick={() => { padBeats.stop(); setPadViewMode("pads"); localStorage.setItem("mimidi-pad-view-mode", "pads") }}
+                type="button"
+              >
+                Pads
+              </button>
+              <button
+                aria-pressed={padViewMode === "beats"}
+                onClick={() => { setPadViewMode("beats"); localStorage.setItem("mimidi-pad-view-mode", "beats") }}
+                type="button"
+              >
+                Beats
               </button>
             </div>
 
@@ -1542,7 +1757,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               ))}
             </select>
 
-            <div className="ui-pad-pager" data-tutorial="pad-page-pager">
+            {padViewMode === "pads" && <div className="ui-pad-pager" data-tutorial="pad-page-pager">
               <button
                 aria-label={t.pad.prevPage}
                 className="ui-icon-btn"
@@ -1566,7 +1781,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               >
                 <ChevronRight size={15} />
               </button>
-            </div>
+            </div>}
 
             <button className="ui-pill-btn" data-tutorial="add-pad-track-button" onClick={lab.addPadTrack} type="button">
               {t.toolbar.addPadTrack}
@@ -1574,30 +1789,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
 
             <span aria-hidden="true" className="perform-mode-transport-divider" />
 
-            {/* Grupo 3: Configuración y acciones estructurales */}
-            <button
-              aria-label={
-                lab.project.padSettingsLocked
-                  ? t.toolbar.unlockConfig
-                  : t.toolbar.lockConfig
-              }
-              className="ui-icon-btn"
-              data-tutorial="pad-lock-button"
-              onClick={() =>
-                lab.applyUpdate((p) => ({
-                  ...p,
-                  padSettingsLocked: !p.padSettingsLocked,
-                }))
-              }
-              title={
-                lab.project.padSettingsLocked
-                  ? t.toolbar.unlockConfig
-                  : t.toolbar.lockConfig
-              }
-              type="button"
-            >
-              {lab.project.padSettingsLocked ? <Lock size={16} /> : <Unlock size={16} />}
-            </button>
+            {/* Grupo 3: Acciones estructurales */}
             <button
               aria-label={tpl(t.toolbar.deleteTrackNamed, { name: lab.primaryTrack.name })}
               className="ui-icon-btn"
@@ -1607,50 +1799,62 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             >
               <Trash2 size={18} />
             </button>
-            <PluginSlot api={pluginApi} language={language} pluginStates={lab.project.pluginStates} slotId="pad-toolbar" />
+            {/* <PluginSlot api={pluginApi} language={language} pluginStates={lab.project.pluginStates} slotId="pad-toolbar" /> */}
           </header>
 
-          <div className="ui-smc-grid" data-tutorial="pad-grid">
-            {smcPadSounds.slice(padPage * 8, padPage * 8 + 8).map((pad, i) => (
-              <div key={pad.id} className="ui-smc-cell">
-                <button
-                  aria-label={`${pad.label} — ${t.pad.pressPad}`}
-                  className={[
-                    "ui-smc-btn",
-                    getPadBtnClass(pad.id),
-                    activeSamplerPadId === pad.id ? "ui-smc-btn-triggered" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onPointerDown={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const velocity = Math.max(
-                      0.35,
-                      1 - ((e.clientY - rect.top) / rect.height) * 0.65,
-                    )
-                    void ensureAudioReady().then(() => handleSamplerPad(pad.id, velocity))
-                  }}
-                  type="button"
-                >
-                  <span className="ui-smc-btn-num">{padPage * 8 + i + 1}</span>
-                  <span className="ui-smc-btn-label">{pad.label}</span>
-                  <span className="ui-smc-btn-desc">{t.pad.descriptions[pad.id] ?? pad.description}</span>
-                </button>
-                {!lab.project.padSettingsLocked && (
+          {padViewMode === "beats" ? (
+            <div className="perform-workspace-card perform-workspace-card-piano">
+              <PadBeatsSequencer
+                activeStep={padBeats.activeStep}
+                grid={padBeats.grid}
+                sounds={smcPadSounds}
+                stepCount={padBeats.stepCount}
+                onToggleStep={padBeats.toggleStep}
+              />
+            </div>
+          ) : (
+            <div className="ui-smc-grid" data-tutorial="pad-grid">
+              {smcPadSounds.slice(padPage * 8, padPage * 8 + 8).map((pad, i) => (
+                <div key={pad.id} className="ui-smc-cell">
                   <button
-                    aria-label={tpl(t.pad.configurePad, { label: pad.label })}
-                    className="ui-smc-config-btn"
-                    data-tutorial={i === 0 ? "pad-settings-btn" : undefined}
-                    onClick={() => setConfigSoundId(pad.id)}
-                    title={tpl(t.pad.configurePad, { label: pad.label })}
+                    aria-label={`${pad.label} — ${t.pad.pressPad}`}
+                    className={[
+                      "ui-smc-btn",
+                      getPadBtnClass(pad.id),
+                      activeSamplerPadId === pad.id ? "ui-smc-btn-triggered" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onPointerDown={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const velocity = Math.max(
+                        0.35,
+                        1 - ((e.clientY - rect.top) / rect.height) * 0.65,
+                      )
+                      void ensureAudioReady().then(() => handleSamplerPad(pad.id, velocity))
+                    }}
                     type="button"
                   >
-                    ⚙
+                    <span className="ui-smc-btn-num">{padPage * 8 + i + 1}</span>
+                    <span className="ui-smc-btn-label">{pad.label}</span>
+                    <span className="ui-smc-btn-desc">{t.pad.descriptions[pad.id] ?? pad.description}</span>
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
+                  {!lab.project.padSettingsLocked && (
+                    <button
+                      aria-label={tpl(t.pad.configurePad, { label: pad.label })}
+                      className="ui-smc-config-btn"
+                      data-tutorial={i === 0 ? "pad-settings-btn" : undefined}
+                      onClick={() => setConfigSoundId(pad.id)}
+                      title={tpl(t.pad.configurePad, { label: pad.label })}
+                      type="button"
+                    >
+                      ⚙
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <AppDialog
@@ -1716,6 +1920,88 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
           title={t.project.perTrackMix}
         >
           <div className="edit-settings-track-section" data-tutorial="pad-options-content">
+            {/* Opciones de Beats — solo visibles en modo beats */}
+            {padViewMode === "beats" && (
+              <>
+                <div className="perform-settings-dialog-row">
+                  <div className="perform-settings-dialog-section">
+                    <span className="perform-instrument-dialog-title">BPM</span>
+                    <div className="ui-counter">
+                      <button className="ui-counter-btn" onClick={() => handleSetSeqBpm(seqBpm - 5)} type="button">−</button>
+                      <span className="ui-counter-value" style={{ minWidth: "2.8rem" }}>{seqBpm}</span>
+                      <button className="ui-counter-btn" onClick={() => handleSetSeqBpm(seqBpm + 5)} type="button">+</button>
+                    </div>
+                    <input
+                      max={240} min={40} step={1}
+                      style={{ width: "100%", marginTop: "0.5rem" }}
+                      type="range" value={seqBpm}
+                      onChange={(e) => handleSetSeqBpm(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <div className="perform-settings-dialog-section">
+                  <span className="perform-instrument-dialog-title">
+                    {t.perform.stepSubdivision ?? "Subdivisión"}
+                    <span style={{ opacity: 0.5, fontSize: "0.75em", marginLeft: "0.5rem" }}>
+                      = {Math.round(calcStepDurationSec(seqBpm, seqStepSubdivision) * 1000)}ms/paso
+                    </span>
+                  </span>
+                  <div className="perform-instrument-dialog-tabs">
+                    {STEP_SUBDIVISION_OPTIONS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        className={`ui-pill-btn${seqStepSubdivision === value ? " ui-pill-btn-active" : ""}`}
+                        onClick={() => {
+                          setSeqStepSubdivision(value)
+                          localStorage.setItem("mimidi-seq-subdivision", String(value))
+                        }}
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="perform-settings-dialog-section">
+                  <span className="perform-instrument-dialog-title">{t.perform.steps}</span>
+                  <div className="perform-instrument-dialog-tabs">
+                    {STEP_COUNT_OPTIONS.map((sc) => (
+                      <button
+                        key={sc}
+                        className={`ui-pill-btn${padBeats.stepCount === sc ? " ui-pill-btn-active" : ""}`}
+                        onClick={() => padBeats.setStepCount(sc)}
+                        type="button"
+                      >
+                        {sc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="perform-settings-dialog-section">
+                  <button
+                    className="ui-pill-btn"
+                    onClick={padBeats.clearGrid}
+                    style={{ width: "100%" }}
+                    type="button"
+                  >
+                    CLEAR BEATS
+                  </button>
+                </div>
+              </>
+            )}
+            {/* Lock de configuración de pads — movido desde la toolbar */}
+            <div className="perform-settings-dialog-section">
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", userSelect: "none" }}>
+                <input
+                  checked={lab.project.padSettingsLocked}
+                  className="ui-checkbox"
+                  onChange={() => lab.applyUpdate(p => ({ ...p, padSettingsLocked: !p.padSettingsLocked }))}
+                  type="checkbox"
+                />
+                <span>{lab.project.padSettingsLocked ? t.toolbar.unlockConfig : t.toolbar.lockConfig}</span>
+              </label>
+            </div>
+
             <span className="perform-instrument-dialog-title">
               {t.toolbar.activeTrack} — {lab.primaryTrack.name}
             </span>
@@ -1997,56 +2283,76 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
           <header className="app-mock-toolbar">
             <PerformResponsiveToolbar
               activeInstrumentCategory={instrumentDialogCategory}
-              allRecordedNotesCount={lab.allRecordedNotes.length}
+              allRecordedNotesCount={pianoViewMode === "steps" ? activeStepsClipNotes.length : lab.allRecordedNotes.length}
               instrumentCategories={instrumentCategories}
               isInstrumentDialogOpen={isInstrumentDialogOpen}
-              isPlaying={labPlayback.playbackTransport.isPlaying}
-              isRecording={labRecording.recordingState === "recording"}
+              isPlaying={pianoViewMode === "steps" ? melodicSequencer.isPlaying : labPlayback.playbackTransport.isPlaying}
+              isRecording={pianoViewMode === "steps" ? false : labRecording.recordingState === "recording"}
               language={language}
               octave={labPerform.previewOctave}
               isArpEnabled={labPerform.arpeggiatorSettings.enabled}
-              onAddTrack={lab.addTrack}
+              onAddTrack={pianoViewMode === "steps" ? handleAddStepsTrack : lab.addTrack}
               onArpToggle={() =>
                 labPerform.setArpeggiatorSettings((s) => ({ ...s, enabled: !s.enabled }))
               }
+              onBakeStepsToTrack={handleBakeStepsToTrack}
               onCloseInstrumentDialog={closeInstrumentDialog}
-              onConfirmRemoveTrack={lab.confirmRemoveActiveTrack}
+              onConfirmRemoveTrack={pianoViewMode === "steps" ? handleRemoveStepsTrack : lab.confirmRemoveActiveTrack}
               onInstrumentCategoryChange={setInstrumentDialogCategory}
               onInstrumentDialogOpen={openInstrumentDialog}
               onInstrumentSelect={lab.updateTrackInstrumentId}
               onOctaveDown={() => labPerform.stepPreviewOctave(-1)}
               onOctaveUp={() => labPerform.stepPreviewOctave(1)}
               onPianoModeChange={labPerform.setPianoMode}
+              onPianoViewModeChange={handleSetPianoViewMode}
               pianoMode={labPerform.pianoMode}
+              pianoViewMode={pianoViewMode}
+              onStepClear={melodicSequencer.clearGrid}
+              onStepCountChange={melodicSequencer.setStepCount}
+              stepCount={melodicSequencer.stepCount}
               onPlayToggle={
-                labPlayback.playbackTransport.isPlaying
-                  ? labPlayback.playbackTransport.stop
-                  : () =>
-                      labPlayback.playbackTransport.play({
-                        ...lab.project,
-                        timeline: [lab.primaryTrack],
-                      })
+                pianoViewMode === "steps"
+                  ? melodicSequencer.togglePlay
+                  : labPlayback.playbackTransport.isPlaying
+                    ? labPlayback.playbackTransport.stop
+                    : () =>
+                        labPlayback.playbackTransport.play({
+                          ...lab.project,
+                          timeline: [lab.primaryTrack],
+                        })
               }
               onRecordToggle={
-                labRecording.recordingState === "recording"
-                  ? () => labRecording.stopRecording()
-                  : startRecording
+                pianoViewMode === "steps"
+                  ? undefined
+                  : labRecording.recordingState === "recording"
+                    ? () => labRecording.stopRecording()
+                    : startRecording
               }
-              onSelectNextTrack={() => lab.switchTrackByOffset(1)}
-              onSelectPreviousTrack={() => lab.switchTrackByOffset(-1)}
-              primaryTrackName={lab.primaryTrack.name}
-              removeTrackDisabled={false}
+              onSelectNextTrack={pianoViewMode === "steps" ? () => handleStepsTrackByOffset(1) : () => lab.switchTrackByOffset(1)}
+              onSelectPreviousTrack={pianoViewMode === "steps" ? () => handleStepsTrackByOffset(-1) : () => lab.switchTrackByOffset(-1)}
+              primaryTrackName={pianoViewMode === "steps" ? (activeStepsTrack?.name ?? "Steps 1") : lab.primaryTrack.name}
+              removeTrackDisabled={pianoViewMode === "steps" ? lab.stepsTracks.length <= 1 : false}
               selectedInstrumentId={selectedInstrument.id}
               selectedInstrumentName={selectedInstrument.name}
-              trackNextDisabled={lab.melodicTracks.at(-1)?.id === lab.primaryTrack.id}
-              trackPreviousDisabled={lab.melodicTracks[0]?.id === lab.primaryTrack.id}
+              trackNextDisabled={pianoViewMode === "steps" ? lab.stepsTracks.at(-1)?.id === activeStepsTrack?.id : lab.melodicTracks.at(-1)?.id === lab.primaryTrack.id}
+              trackPreviousDisabled={pianoViewMode === "steps" ? lab.stepsTracks[0]?.id === activeStepsTrack?.id : lab.melodicTracks[0]?.id === lab.primaryTrack.id}
               visibleInstruments={dialogVisibleInstruments}
             />
             <PluginSlot api={pluginApi} language={language} pluginStates={lab.project.pluginStates} slotId="piano-toolbar" />
           </header>
 
           <section className="perform-workspace-card perform-workspace-card-piano">
-            {performPiano}
+            {pianoViewMode === "steps" ? (
+              <MelodicStepSequencer
+                activeStep={melodicSequencer.activeStep}
+                grid={melodicSequencer.grid}
+                notes={stepSequencerNotes}
+                onToggleStep={melodicSequencer.toggleStep}
+                stepCount={melodicSequencer.stepCount}
+              />
+            ) : (
+              performPiano
+            )}
           </section>
 
           <div className="sr-only">{performControls}</div>
@@ -2098,12 +2404,165 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
         />
 
         <AppDialog
+          actions={pianoViewMode === "steps" ? (
+            <button
+              onClick={() => {
+                handleSetSeqBpm(120)
+                labPerform.stepPreviewOctave(4 - labPerform.previewOctave)
+              }}
+              type="button"
+            >
+              {t.common.resetDefaults ?? "Reset"}
+            </button>
+          ) : undefined}
           description={t.dialogs.pianoOptionsDesc}
           onClose={onSettingsClose ?? (() => {})}
           open={settingsOpen}
           title={t.dialogs.pianoOptions}
         >
           <div className="perform-settings-dialog-v" data-tutorial="piano-options-content">
+            {/* Modo de entrada — siempre visible */}
+            <div className="perform-settings-dialog-section">
+              <span className="perform-instrument-dialog-title">{t.perform.inputMode}</span>
+              <div className="perform-instrument-dialog-tabs">
+                <button
+                  className={`ui-pill-btn${pianoViewMode === "keys" ? " ui-pill-btn-active" : ""}`}
+                  onClick={() => handleSetPianoViewMode("keys")}
+                  type="button"
+                >
+                  ⌨ {t.perform.modeKeys}
+                </button>
+                <button
+                  className={`ui-pill-btn${pianoViewMode === "steps" ? " ui-pill-btn-active" : ""}`}
+                  onClick={() => handleSetPianoViewMode("steps")}
+                  type="button"
+                >
+                  ▦ {t.perform.modeSteps}
+                </button>
+              </div>
+            </div>
+
+            {/* Modo PASOS: octava + BPM + pasos */}
+            {pianoViewMode === "steps" && (
+              <>
+                <div className="perform-settings-dialog-row">
+                  <div className="perform-settings-dialog-section">
+                    <span className="perform-instrument-dialog-title">{t.perform.octave}</span>
+                    <div className="ui-counter">
+                      <button className="ui-counter-btn" onClick={() => labPerform.stepPreviewOctave(-1)} type="button">−</button>
+                      <span className="ui-counter-value">{labPerform.previewOctave}</span>
+                      <button className="ui-counter-btn" onClick={() => labPerform.stepPreviewOctave(1)} type="button">+</button>
+                    </div>
+                  </div>
+                  <div className="perform-settings-dialog-section">
+                    <span className="perform-instrument-dialog-title">BPM</span>
+                    <div className="ui-counter">
+                      <button className="ui-counter-btn" onClick={() => handleSetSeqBpm(seqBpm - 5)} type="button">−</button>
+                      <span className="ui-counter-value" style={{ minWidth: "2.8rem" }}>{seqBpm}</span>
+                      <button className="ui-counter-btn" onClick={() => handleSetSeqBpm(seqBpm + 5)} type="button">+</button>
+                    </div>
+                    <input
+                      max={240}
+                      min={40}
+                      step={1}
+                      style={{ width: "100%", marginTop: "0.5rem" }}
+                      type="range"
+                      value={seqBpm}
+                      onChange={(e) => handleSetSeqBpm(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <div className="perform-settings-dialog-section">
+                  <span className="perform-instrument-dialog-title">
+                    {t.perform.stepSubdivision ?? "Subdivisión"}
+                    <span style={{ opacity: 0.5, fontSize: "0.75em", marginLeft: "0.5rem" }}>
+                      = {Math.round(calcStepDurationSec(seqBpm, seqStepSubdivision) * 1000)}ms/paso
+                    </span>
+                  </span>
+                  <div className="perform-instrument-dialog-tabs">
+                    {STEP_SUBDIVISION_OPTIONS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        className={`ui-pill-btn${seqStepSubdivision === value ? " ui-pill-btn-active" : ""}`}
+                        onClick={() => {
+                          setSeqStepSubdivision(value)
+                          localStorage.setItem("mimidi-seq-subdivision", String(value))
+                        }}
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="perform-settings-dialog-section">
+                  <span className="perform-instrument-dialog-title">{t.perform.steps}</span>
+                  <div className="perform-instrument-dialog-tabs">
+                    {STEP_COUNT_OPTIONS.map((sc) => (
+                      <button
+                        key={sc}
+                        className={`ui-pill-btn${melodicSequencer.stepCount === sc ? " ui-pill-btn-active" : ""}`}
+                        onClick={() => melodicSequencer.setStepCount(sc)}
+                        type="button"
+                      >
+                        {sc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {activeStepsTrack && (
+                  <div className="perform-settings-dialog-section">
+                    <span className="perform-instrument-dialog-title">{activeStepsTrack.name}</span>
+                    <div className="edit-settings-track-row">
+                      <label className="edit-settings-track-label" htmlFor="seq-track-volume">
+                        {t.common.volume}
+                      </label>
+                      <input
+                        id="seq-track-volume"
+                        max={1.5}
+                        min={0}
+                        onChange={(e) =>
+                          lab.applyUpdate((p) => updateTrackVolume(p, activeStepsTrack.id, parseFloat(e.target.value)))
+                        }
+                        step={0.01}
+                        type="range"
+                        value={activeStepsTrack.volume ?? 1}
+                      />
+                      <span className="edit-settings-track-value">
+                        {Math.round((activeStepsTrack.volume ?? 1) * 100)}%
+                      </span>
+                    </div>
+                    <div className="edit-settings-track-row">
+                      <label className="edit-settings-track-label" htmlFor="seq-track-pan">
+                        Pan
+                      </label>
+                      <input
+                        id="seq-track-pan"
+                        max={1}
+                        min={-1}
+                        onChange={(e) =>
+                          lab.applyUpdate((p) => updateTrackPan(p, activeStepsTrack.id, parseFloat(e.target.value)))
+                        }
+                        step={0.01}
+                        type="range"
+                        value={activeStepsTrack.pan ?? 0}
+                      />
+                      <span className="edit-settings-track-value">
+                        {(activeStepsTrack.pan ?? 0) === 0
+                          ? "C"
+                          : (activeStepsTrack.pan ?? 0) > 0
+                            ? `R${Math.round((activeStepsTrack.pan ?? 0) * 100)}`
+                            : `L${Math.round(Math.abs(activeStepsTrack.pan ?? 0) * 100)}`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Modo TECLADO: acordes + arpegiador */}
+            {pianoViewMode === "keys" && (
+              <>
             <div className="perform-settings-dialog-section" data-tutorial="piano-chord-section">
               <span className="perform-instrument-dialog-title">{t.perform.chordType}</span>
               <div className="perform-instrument-dialog-tabs">
@@ -2210,6 +2669,8 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                 {t.perform.arpLatch}
               </span>
             </label>
+              </>
+            )}
           </div>
         </AppDialog>
 
@@ -2301,8 +2762,8 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
       projectName={lab.project.name}
       projectTrackTimelineDuration={lab.project.trackTimelineDuration}
       plugins={lab.registeredPlugins}
-      trackCount={lab.midiTracks.length}
-      tracks={lab.midiTracks}
+      trackCount={lab.midiTracks.filter(t => t.trackType !== "steps").length}
+      tracks={lab.midiTracks.filter(t => t.trackType !== "steps")}
       volumeAutomation={lab.primaryTrack.volumeAutomation}
       volume={lab.primaryTrack.volume}
     />

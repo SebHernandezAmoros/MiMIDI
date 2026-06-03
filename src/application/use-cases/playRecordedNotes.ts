@@ -1,6 +1,6 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
-import { playSmcPadHit, PAD_SOUND_DEFAULTS, type PadSoundParams, type SmcPadSoundId } from "./playSmcPadHit"
+import { playSmcPadHit, PAD_SOUND_DEFAULTS, smcPadSounds, type PadSoundParams, type SmcPadSoundId } from "./playSmcPadHit"
 import { findAvailableMathematicalInstrument } from "../../engine/audio/instrumentCatalog"
 import {
   createPlayOptions,
@@ -77,6 +77,16 @@ export function playRecordedNotes(
           ?? { ...PAD_SOUND_DEFAULTS[soundId], ...options.padSoundSettings?.[soundId] }
         playSmcPadHit(soundId, playbackVolume, playbackPan, soundParams)
         return
+      }
+
+      // Beats del secuenciador: notas en tracks de percusión sin playbackSource explícito
+      if (scheduledNote.track.trackType === "percussion") {
+        const sound = smcPadSounds.find((s) => s.note === recordedNote.note)
+        if (sound) {
+          const soundParams = { ...PAD_SOUND_DEFAULTS[sound.id], ...options.padSoundSettings?.[sound.id] }
+          playSmcPadHit(sound.id, playbackVolume, playbackPan, soundParams)
+          return
+        }
       }
 
       const trackInstrument = findAvailableMathematicalInstrument(
