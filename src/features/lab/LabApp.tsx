@@ -2,6 +2,7 @@ import type { ChangeEvent } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import "../../App.css"
 import { resolveAppMessages, tpl, type AppLanguage } from "../../app/appI18n"
+import { getBrowserSettingsRepository } from "../../app/browserSettingsRepository"
 import {
   updatePadSoundSetting,
   compactTrackNotesStart,
@@ -90,6 +91,21 @@ import { previewOctaveOptions, type Octave } from "../../engine/midi/notes"
 import { ensureAudioReady } from "../../engine/audio/audioEngine"
 import { playNote, stopNote } from "../../application/use-cases/playNote"
 import { saveFile } from "../../application/use-cases/saveFile"
+import {
+  loadLabPadViewModeWithRepository,
+  loadLabActiveStepsTrackIdWithRepository,
+  loadLabPianoViewModeWithRepository,
+  loadLabSeqBpmWithRepository,
+  loadLabSeqSubdivisionWithRepository,
+  saveLabPadViewModeWithRepository,
+  saveLabActiveStepsTrackIdWithRepository,
+  saveLabPianoViewModeWithRepository,
+  saveLabSeqBpmWithRepository,
+  saveLabSeqSubdivisionWithRepository,
+  clearLabActiveStepsTrackIdWithRepository,
+  type LabPadViewMode,
+  type LabStepSubdivision,
+} from "../../application/use-cases/labViewPreferences"
 import { usePluginAPI } from "../../engine/plugins/pluginApi"
 import { useExternalPlugins } from "../../engine/plugins/useExternalPlugins"
 import { PluginWorkspaceHost } from "../plugins-view/PluginWorkspaceHost"
@@ -124,6 +140,7 @@ type LabAppProps = {
 
 function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settingsOpen = false, onSettingsClose }: LabAppProps) {
   const t = resolveAppMessages(language).lab
+  const settingsRepository = getBrowserSettingsRepository()
   // ── Simple local UI state ────────────────────────────────────────────────────
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
@@ -143,27 +160,23 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   const [isClipDeleteConfirmOpen, setIsClipDeleteConfirmOpen] = useState(false)
   const [activeSamplerPadId, setActiveSamplerPadId] = useState<SmcPadSoundId | null>(null)
   const [padPage, setPadPage] = useState(0)
-  const [padViewMode, setPadViewMode] = useState<"pads" | "beats">(() => {
-    const saved = localStorage.getItem("mimidi-pad-view-mode")
-    return saved === "beats" ? "beats" : "pads"
-  })
+  const [padViewMode, setPadViewMode] = useState<LabPadViewMode>(() =>
+    loadLabPadViewModeWithRepository(settingsRepository),
+  )
   const [configSoundId, setConfigSoundId] = useState<SmcPadSoundId | null>(null)
   const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false)
   const [activeStepsTrackId, setActiveStepsTrackId] = useState<string | null>(() =>
-    localStorage.getItem("mimidi-seq-active-steps-track")
+    loadLabActiveStepsTrackIdWithRepository(settingsRepository)
   )
   const [pianoViewMode, setPianoViewMode] = useState<PianoViewMode>(() => {
-    const saved = localStorage.getItem("mimidi-piano-view-mode")
-    return saved === "steps" ? "steps" : "keys"
+    return loadLabPianoViewModeWithRepository(settingsRepository)
   })
-  const [seqBpm, setSeqBpm] = useState<number>(() => {
-    const saved = Number(localStorage.getItem("mimidi-seq-bpm"))
-    return saved >= 40 && saved <= 240 ? saved : 120
-  })
-  const [seqStepSubdivision, setSeqStepSubdivision] = useState<import("../step-sequencer/useMelodicSequencer").StepSubdivision>(() => {
-    const saved = Number(localStorage.getItem("mimidi-seq-subdivision"))
-    return ([1, 2, 4, 8] as const).includes(saved as 1 | 2 | 4 | 8) ? saved as 1 | 2 | 4 | 8 : 4
-  })
+  const [seqBpm, setSeqBpm] = useState<number>(() =>
+    loadLabSeqBpmWithRepository(settingsRepository),
+  )
+  const [seqStepSubdivision, setSeqStepSubdivision] = useState<LabStepSubdivision>(() =>
+    loadLabSeqSubdivisionWithRepository(settingsRepository),
+  )
   const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
     MathematicalInstrument["category"]
   >("base")
@@ -228,6 +241,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     bpm: seqBpm,
     stepSubdivision: seqStepSubdivision,
     clipNotes: activeStepsClipNotes,
+    settingsRepository,
     onToggleStep: (row, col) => {
       if (!activeStepsTrack) return
       const note = stepSequencerNotes[stepSequencerNotes.length - 1 - row]
@@ -439,9 +453,9 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     tearDownSession()
     melodicSequencer.stop()
     setPianoViewMode("keys")
-    localStorage.setItem("mimidi-piano-view-mode", "keys")
+    saveLabPianoViewModeWithRepository(settingsRepository, "keys")
     setActiveStepsTrackId(null)
-    localStorage.removeItem("mimidi-seq-active-steps-track")
+    clearLabActiveStepsTrackIdWithRepository(settingsRepository)
     await lab.restartProject()
   }
 
@@ -479,7 +493,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
 
   function setActiveStepsTrack(id: string) {
     setActiveStepsTrackId(id)
-    localStorage.setItem("mimidi-seq-active-steps-track", id)
+    saveLabActiveStepsTrackIdWithRepository(settingsRepository, id)
   }
 
   // Auto-crear STEPS 1 si la app carga en modo steps sin pistas existentes
@@ -510,7 +524,13 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     }
     if (mode === "keys") melodicSequencer.stop()
     setPianoViewMode(mode)
-    localStorage.setItem("mimidi-piano-view-mode", mode)
+    saveLabPianoViewModeWithRepository(settingsRepository, mode)
+  }
+
+  function handleSetPadViewMode(mode: LabPadViewMode) {
+    if (mode === "pads") padBeats.stop()
+    setPadViewMode(mode)
+    saveLabPadViewModeWithRepository(settingsRepository, mode)
   }
 
   function handleAddStepsTrack() {
@@ -552,9 +572,13 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   }
 
   function handleSetSeqBpm(bpm: number) {
-    const clamped = Math.max(40, Math.min(240, bpm))
+    const clamped = saveLabSeqBpmWithRepository(settingsRepository, bpm)
     setSeqBpm(clamped)
-    localStorage.setItem("mimidi-seq-bpm", String(clamped))
+  }
+
+  function handleSetSeqSubdivision(subdivision: LabStepSubdivision) {
+    setSeqStepSubdivision(subdivision)
+    saveLabSeqSubdivisionWithRepository(settingsRepository, subdivision)
   }
 
   function openInstrumentDialog() {
@@ -1723,7 +1747,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             <div className="ui-toggle-group" role="group" aria-label="Modo de entrada" data-tutorial="pad-view-mode-toggle">
               <button
                 aria-pressed={padViewMode === "pads"}
-                onClick={() => { padBeats.stop(); setPadViewMode("pads"); localStorage.setItem("mimidi-pad-view-mode", "pads") }}
+                onClick={() => handleSetPadViewMode("pads")}
                 type="button"
               >
                 Pads
@@ -1731,7 +1755,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               <button
                 aria-pressed={padViewMode === "beats"}
                 data-tutorial="pad-view-mode-beats-btn"
-                onClick={() => { setPadViewMode("beats"); localStorage.setItem("mimidi-pad-view-mode", "beats") }}
+                onClick={() => handleSetPadViewMode("beats")}
                 type="button"
               >
                 Beats
@@ -1949,8 +1973,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                         key={value}
                         className={`ui-pill-btn${seqStepSubdivision === value ? " ui-pill-btn-active" : ""}`}
                         onClick={() => {
-                          setSeqStepSubdivision(value)
-                          localStorage.setItem("mimidi-seq-subdivision", String(value))
+                          handleSetSeqSubdivision(value)
                         }}
                         type="button"
                       >
@@ -2482,8 +2505,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                         key={value}
                         className={`ui-pill-btn${seqStepSubdivision === value ? " ui-pill-btn-active" : ""}`}
                         onClick={() => {
-                          setSeqStepSubdivision(value)
-                          localStorage.setItem("mimidi-seq-subdivision", String(value))
+                          handleSetSeqSubdivision(value)
                         }}
                         type="button"
                       >

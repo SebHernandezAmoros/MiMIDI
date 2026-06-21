@@ -1,5 +1,7 @@
 import { appMessagesByLanguage } from "../i18n"
+import { getAppLanguageFromSearchWithRepository } from "../application/use-cases/appLanguage"
 import type { AppViewId } from "./appNavigation"
+import { getBrowserSettingsRepository } from "./browserSettingsRepository"
 
 export type AppLanguage = keyof typeof appMessagesByLanguage
 
@@ -9,18 +11,10 @@ export type AppViewMessages = AppMessages["views"][AppViewId]
 export const defaultAppLanguage: AppLanguage = "es"
 
 export function getAppLanguageFromSearch(search: string): AppLanguage {
-  const searchParams = new URLSearchParams(search)
-  const requestedLanguage = searchParams.get("lang")
-
-  if (requestedLanguage === "en" || requestedLanguage === "es") {
-    localStorage.setItem("mimidi-language", requestedLanguage)
-    return requestedLanguage
-  }
-
-  const stored = localStorage.getItem("mimidi-language")
-  if (stored === "en" || stored === "es") return stored
-
-  return defaultAppLanguage
+  return getAppLanguageFromSearchWithRepository(
+    search,
+    getBrowserSettingsRepository(),
+  )
 }
 
 export function resolveAppMessages(language: AppLanguage) {

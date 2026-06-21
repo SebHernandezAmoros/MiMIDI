@@ -1,22 +1,12 @@
+import { createLocalStorageProjectRepository } from "../../infrastructure/storage/localStorageProjectRepository"
 import type { MusicalProject } from "./projectModel"
-import { parseImportedProject } from "./projectModel"
 
-export const PROJECT_STORAGE_KEY = "mimidi-project"
+export { PROJECT_STORAGE_KEY } from "../../infrastructure/storage/localStorageProjectRepository"
 
 export function loadStoredProject() {
-  const storedProject = window.localStorage.getItem(PROJECT_STORAGE_KEY)
-
-  if (!storedProject) {
-    return null
-  }
-
-  try {
-    return parseImportedProject(storedProject)
-  } catch {
-    return null
-  }
+  return createLocalStorageProjectRepository(window.localStorage).load()
 }
 
 export function saveProject(project: MusicalProject) {
-  window.localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(project))
+  createLocalStorageProjectRepository(window.localStorage).save(project)
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { playSamplerMixes } from "../../application/use-cases/playSamplerMixes"
+import { scheduleAudioClipTracks } from "../../application/use-cases/scheduleAudioClipTracks"
 import {
   getMidiTrackNotes,
   getMidiTracks,
@@ -7,13 +8,6 @@ import {
   getAudioClipTracks,
   type MusicalProject,
 } from "../../engine/project/projectModel"
-import { loadSampleBuffer } from "../../engine/audio/sampleStorage"
-import {
-  decodeAudioData,
-  ensureAudioReady,
-  scheduleAudioBuffer,
-  getAudioContextCurrentTime,
-} from "../../engine/audio/audioEngine"
 import { usePlaybackTransport } from "../transport/usePlaybackTransport"
 
 export function useLabPlayback({ project }: { project: MusicalProject }) {
@@ -102,22 +96,8 @@ export function useLabPlayback({ project }: { project: MusicalProject }) {
     )
 
     if (audioClipTracks.length > 0) {
-      void ensureAudioReady().then(async () => {
-        for (const track of audioClipTracks) {
-          const buf = await loadSampleBuffer(track.dbId)
-          if (!buf) continue
-          let audioBuffer: AudioBuffer
-          try {
-            audioBuffer = await decodeAudioData(buf)
-          } catch { continue }
-          for (const clip of track.clips) {
-            const elapsedSec = (performance.now() - startedAt) / 1000
-            const offset = Math.max(0, elapsedSec - clip.startTime)
-            const when = getAudioContextCurrentTime() + Math.max(0, clip.startTime - elapsedSec)
-            const stop = scheduleAudioBuffer(audioBuffer, when, offset)
-            audioClipStopsRef.current.push(stop)
-          }
-        }
+      void scheduleAudioClipTracks(audioClipTracks, startedAt).then((stops) => {
+        audioClipStopsRef.current.push(...stops)
       })
     }
 

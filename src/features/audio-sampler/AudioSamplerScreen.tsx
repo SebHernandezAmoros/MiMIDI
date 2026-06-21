@@ -4,10 +4,13 @@ import { Download, Eraser, Gauge, ListPlus, Mic, Play, RotateCcw, Square, Trash2
 import { AppDialog } from "../../app/components/AppDialog"
 import { resolveAppMessages, tpl, type AppViewMessages, type AppLanguage } from "../../app/appI18n"
 import { type AudioCalibration, getAudioCurrentTime, playAudioBufferLooping } from "../../engine/audio/audioEngine"
-import { NUM_SLOTS, DEFAULT_CALIBRATION, type SampleSlotMeta, loadSlotMetas, saveSlotMetas } from "../../engine/audio/sampleModel"
+import {
+  DEFAULT_SAMPLE_CALIBRATION,
+  NUM_SAMPLE_SLOTS,
+  type SampleSlotMeta,
+} from "../../application/ports/SampleSlotRepository"
+import { loadSampleSlots, saveSampleSlots } from "../../application/use-cases/sampleSlots"
 import { SEQ_DEFAULT_BPM, type SequencerPattern, syncPatternLanes, resizePatternSteps, saveSeqPattern, loadSeqPattern } from "../../engine/audio/sequencerModel"
-import { addSamplerMix, getSamplerTracks } from "../../engine/project/projectModel"
-import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { playSampleBuffer, type SamplePlayback } from "../../application/use-cases/playSampleBuffer"
 import { importSampleFile, type ImportedSampleData } from "../../application/use-cases/importSampleFile"
 import { RecordMicModal } from "./RecordMicModal"
@@ -16,6 +19,7 @@ import { deleteSampleSlot } from "../../application/use-cases/deleteSampleSlot"
 import { exportSampleSlot } from "../../application/use-cases/exportSampleSlot"
 import { exportSeqMix } from "../../application/use-cases/exportSeqMix"
 import { playSequencerStep } from "../../application/use-cases/playSequencerStep"
+import { sendSamplerMixToTimeline } from "../../application/use-cases/sendSamplerMixToTimeline"
 
 function formatDuration(seconds: number): string {
   return seconds < 10 ? `${seconds.toFixed(2)}s` : `${seconds.toFixed(1)}s`
@@ -140,11 +144,11 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     return () => window.removeEventListener("popstate", syncTab)
   }, [])
 
-  const [slots, setSlots] = useState<(SampleSlotMeta | null)[]>(loadSlotMetas)
+  const [slots, setSlots] = useState<(SampleSlotMeta | null)[]>(loadSampleSlots)
 
   useEffect(() => {
     function onStorageChange(e: StorageEvent) {
-      if (e.key === "mimidi-audio-slots") setSlots(loadSlotMetas())
+      if (e.key === "mimidi-audio-slots") setSlots(loadSampleSlots())
     }
     window.addEventListener("storage", onStorageChange)
     return () => window.removeEventListener("storage", onStorageChange)
@@ -162,7 +166,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
 
   // Sequencer state
   const [seqPattern, setSeqPattern] = useState<SequencerPattern>(() =>
-    syncPatternLanes(loadSeqPattern(), loadSlotMetas()),
+    syncPatternLanes(loadSeqPattern(), loadSampleSlots()),
   )
   const [seqIsPlaying, setSeqIsPlaying] = useState(false)
   const [seqCurrentStep, setSeqCurrentStep] = useState(-1)
@@ -192,14 +196,14 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
   const seqLoopSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map())
 
   const selectedSlot = slots[selectedIndex - 1] ?? null
-  const calibration: AudioCalibration = selectedSlot?.calibration ?? { ...DEFAULT_CALIBRATION }
+  const calibration: AudioCalibration = selectedSlot?.calibration ?? { ...DEFAULT_SAMPLE_CALIBRATION }
 
   function updateCalibration(patch: Partial<AudioCalibration>) {
     if (!selectedSlot) return
     const next = [...slots]
     next[selectedIndex - 1] = { ...selectedSlot, calibration: { ...calibration, ...patch } }
     setSlots(next)
-    saveSlotMetas(next)
+    saveSampleSlots(next)
 
     // Aplica cambios de gain y tune en vivo durante la reproducción
     const pb = stopPlaybackRef.current
@@ -331,7 +335,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
 
   function updateSlots(next: (SampleSlotMeta | null)[]) {
     setSlots(next)
-    saveSlotMetas(next)
+    saveSampleSlots(next)
   }
 
   async function handleImport(file: File) {
@@ -346,7 +350,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
         dbId: data.dbId,
         sampleRate: data.sampleRate,
         channels: data.channels,
-        calibration: { ...DEFAULT_CALIBRATION },
+        calibration: { ...DEFAULT_SAMPLE_CALIBRATION },
       }
 
       if (selectedSlot?.dbId) {
@@ -376,7 +380,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
         dbId: data.dbId,
         sampleRate: data.sampleRate,
         channels: data.channels,
-        calibration: { ...DEFAULT_CALIBRATION },
+        calibration: { ...DEFAULT_SAMPLE_CALIBRATION },
       }
       if (selectedSlot?.dbId) {
         bufferCacheRef.current.delete(selectedSlot.dbId)
@@ -483,15 +487,15 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
     const slot = slots[index - 1]
     if (!slot) return
     const next = [...slots]
-    next[index - 1] = { ...slot, calibration: { ...DEFAULT_CALIBRATION } }
+    next[index - 1] = { ...slot, calibration: { ...DEFAULT_SAMPLE_CALIBRATION } }
     setSlots(next)
-    saveSlotMetas(next)
+    saveSampleSlots(next)
   }
 
   function resetAllCalibrations() {
-    const next = slots.map(slot => slot ? { ...slot, calibration: { ...DEFAULT_CALIBRATION } } : null)
+    const next = slots.map(slot => slot ? { ...slot, calibration: { ...DEFAULT_SAMPLE_CALIBRATION } } : null)
     setSlots(next)
-    saveSlotMetas(next)
+    saveSampleSlots(next)
   }
 
   function handleSlotNav(dir: 1 | -1) {
@@ -668,16 +672,11 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
   }
 
   function sendMixToTimeline(name: string) {
-    const project = loadStoredProject()
-    if (!project) return
-    const mixCount = getSamplerTracks(project.timeline).length
-    const mixName = name.trim() || `Mix ${mixCount + 1}`
     // Con 1 paso, recalcula siempre el BPM desde la calibración actual antes de guardar
     const pattern = seqPattern.stepsPerBar === 1
       ? { ...seqPattern, bpm: calcOneShotBpm() }
       : seqPattern
-    const updated = addSamplerMix(project, pattern, mixName)
-    saveProject(updated)
+    sendSamplerMixToTimeline(pattern, name)
   }
 
   function clearSeqPattern() {
@@ -1092,7 +1091,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
           {samplerView === "muestras" && <div className="audio-sampler-panel audio-sampler-panel-slots">
             <span className="audio-sampler-panel-label">{t.tabSamples}</span>
             <div className="audio-sampler-slots">
-              {Array.from({ length: NUM_SLOTS }, (_, i) => {
+              {Array.from({ length: NUM_SAMPLE_SLOTS }, (_, i) => {
                 const index = i + 1
                 const slot = slots[i] ?? null
                 const isActive = selectedIndex === index
@@ -1209,7 +1208,7 @@ export function AudioSamplerScreen({ copy, language, settingsOpen, onSettingsClo
             <span className="ui-label-muted">{t.summaryTitle}</span>
             <div className="audio-sampler-modal-summary">
               <span className="audio-sampler-modal-summary-slots">
-                {tpl(t.slotsLabel, { current: String(filledCount), total: String(NUM_SLOTS) })}
+                {tpl(t.slotsLabel, { current: String(filledCount), total: String(NUM_SAMPLE_SLOTS) })}
               </span>
               <button
                 className="audio-sampler-cal-btn"

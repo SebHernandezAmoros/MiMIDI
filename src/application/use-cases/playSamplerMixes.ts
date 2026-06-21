@@ -1,46 +1,78 @@
 import { loadSampleAudioBuffer } from "./loadSampleAudioBuffer"
-import { loadSlotMetas } from "../../engine/audio/sampleModel"
-import { playAudioBufferCalibratedAt, getAudioCurrentTime } from "../../engine/audio/audioEngine"
+import type { SampleSlotRepository } from "../ports/SampleSlotRepository"
+import {
+  getAudioCurrentTime,
+  playAudioBufferCalibratedAt,
+} from "../../engine/audio/audioEngine"
 import type { SamplerMixTrack } from "../../engine/project/projectModel"
+import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
 
-export function playSamplerMixes(
+export type PlaySamplerMixesDependencies = {
+  sampleSlots: Pick<SampleSlotRepository, "loadSlots">
+  loadSampleAudioBuffer(dbId: string): Promise<AudioBuffer | null>
+  getAudioCurrentTime(): number
+  nowSeconds(): number
+  playAudioBufferCalibratedAt(
+    audioBuffer: AudioBuffer,
+    calibration: Parameters<typeof playAudioBufferCalibratedAt>[1],
+    when: number,
+  ): AudioBufferSourceNode
+}
+
+export type SamplerMixPlaybackController = {
+  cancel: () => void
+  done: Promise<void>
+}
+
+export function playSamplerMixesWithDependencies(
+  dependencies: PlaySamplerMixesDependencies,
   mixes: SamplerMixTrack[],
   timelineStartedAt: number,
-): { cancel: () => void } {
-  if (mixes.length === 0) return { cancel: () => {} }
+): SamplerMixPlaybackController {
+  if (mixes.length === 0) {
+    return { cancel: () => {}, done: Promise.resolve() }
+  }
 
   let cancelled = false
   const scheduledSources: AudioBufferSourceNode[] = []
-  const slots = loadSlotMetas()
+  const slots = dependencies.sampleSlots.loadSlots()
 
-  void (async () => {
+  const done = (async () => {
     for (const mix of mixes) {
       if (cancelled) return
       if (mix.muted) continue
+
       const secondsPerStep = 60 / mix.pattern.bpm / 4
 
       for (const clip of mix.clips) {
         for (const lane of mix.pattern.lanes) {
           if (cancelled) return
-          const slot = slots.find(s => s?.dbId === lane.slotDbId)
+
+          const slot = slots.find((candidate) => candidate?.dbId === lane.slotDbId)
           if (!slot) continue
 
-          const buf = await loadSampleAudioBuffer(lane.slotDbId)
-          if (!buf || cancelled) continue
+          const buffer = await dependencies.loadSampleAudioBuffer(lane.slotDbId)
+          if (!buffer || cancelled) continue
 
-          for (let i = 0; i < lane.steps.length; i++) {
-            if (!lane.steps[i].active) continue
-            const stepOffsetSec = i * secondsPerStep
-            const absoluteWhen = (timelineStartedAt / 1000) + clip.startTime + stepOffsetSec
-            const audioNow = getAudioCurrentTime()
-            const performanceNow = performance.now() / 1000
-            const when = audioNow + (absoluteWhen - performanceNow)
-            // Si el momento ya pasó por más de 500ms (realmente perdido), ignorar.
-            // Si pasó hace menos (race con el await de carga), tocar lo antes posible.
+          for (let stepIndex = 0; stepIndex < lane.steps.length; stepIndex += 1) {
+            if (!lane.steps[stepIndex].active) continue
+
+            const stepOffsetSec = stepIndex * secondsPerStep
+            const absoluteWhen =
+              timelineStartedAt / 1000 + clip.startTime + stepOffsetSec
+            const audioNow = dependencies.getAudioCurrentTime()
+            const when = audioNow + (absoluteWhen - dependencies.nowSeconds())
+
+            // Loading can race the clock; skip only events that are truly lost.
             if (when < audioNow - 0.5) continue
+
             const scheduledWhen = Math.max(when, audioNow + 0.01)
-            const node = playAudioBufferCalibratedAt(buf, slot.calibration, scheduledWhen)
-            scheduledSources.push(node)
+            const source = dependencies.playAudioBufferCalibratedAt(
+              buffer,
+              slot.calibration,
+              scheduledWhen,
+            )
+            scheduledSources.push(source)
           }
         }
       }
@@ -50,11 +82,38 @@ export function playSamplerMixes(
   return {
     cancel: () => {
       cancelled = true
-      const now = getAudioCurrentTime()
-      for (const src of scheduledSources) {
-        try { src.stop(now) } catch { /* ya terminó */ }
+      const now = dependencies.getAudioCurrentTime()
+
+      for (const source of scheduledSources) {
+        try {
+          source.stop(now)
+        } catch {
+          // Already ended.
+        }
       }
+
       scheduledSources.length = 0
     },
+    done,
   }
+}
+
+export function playSamplerMixes(
+  mixes: SamplerMixTrack[],
+  timelineStartedAt: number,
+): { cancel: () => void } {
+  const legacyDependencies = createLegacySampleUseCaseDependencies()
+  const controller = playSamplerMixesWithDependencies(
+    {
+      getAudioCurrentTime,
+      loadSampleAudioBuffer,
+      nowSeconds: () => performance.now() / 1000,
+      playAudioBufferCalibratedAt,
+      sampleSlots: legacyDependencies.sampleSlots,
+    },
+    mixes,
+    timelineStartedAt,
+  )
+
+  return { cancel: controller.cancel }
 }

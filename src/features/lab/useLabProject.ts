@@ -1,24 +1,36 @@
 import type { ChangeEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { exportProjectAudio as exportProjectAudioUseCase } from "../../application/use-cases/exportProjectAudio"
-import { exportProjectBundle } from "../../application/use-cases/exportProjectBundle"
 import { saveFile } from "../../application/use-cases/saveFile"
-import { importProjectBundle } from "../../application/use-cases/importProjectBundle"
+import { createProjectAudioExport } from "../../application/use-cases/projectAudioTransfer"
+import {
+  createProjectBundleExport,
+  importProjectBundleFile,
+} from "../../application/use-cases/projectBundleTransfer"
+import {
+  createProjectJsonExport,
+  importProjectJsonFile,
+} from "../../application/use-cases/projectJsonTransfer"
+import {
+  getProjectSessionRestoreMessage,
+  loadProjectSessionInitialProject,
+  saveProjectSession,
+} from "../../application/use-cases/projectSessionPersistence"
+import {
+  resolveInitialActiveTrackId,
+  resolveFirstProjectActiveTrackId,
+  resolvePrimaryTrack,
+  resolveSelectedRecordedNote,
+} from "../../application/use-cases/projectSelection"
 import type { ADSREnvelope } from "../../engine/audio/audioEngine"
 import type { MathematicalInstrument, MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
 import { loadSlotMetas, saveSlotMetas, NUM_SLOTS } from "../../engine/audio/sampleModel"
 import { deleteSampleBuffer } from "../../engine/audio/sampleStorage"
 import { isSmcPadRecordedNote } from "../../engine/midi/events"
 import {
-  appendPadTrack,
-  appendStepsTrack,
-  appendTrack,
   clearAllTrackNotes,
   compactTrackNotesStart,
-  createDefaultProject,
   createProjectTrack,
   duplicateMidiClip,
-  duplicateNoteInTrack,
   duplicateSamplerClip,
   getActiveClip,
   getMidiTrackNotes,
@@ -30,11 +42,8 @@ import {
   getTracksTimelineLength,
   getTrackVolumeAutomationValue,
   isTrackAudible,
-  parseImportedProject,
   removeMidiClip,
-  removeNoteFromTrack,
   removeSamplerClip,
-  removeTrack,
   renameProject,
   renameTrack,
   resetProject,
@@ -56,12 +65,43 @@ import {
   updateTrackVolumeAutomation,
   updateTrackVolume,
   type MusicalProject,
-  type ProjectTrackType,
   type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
-import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 import { findRegisteredPluginByInstrumentId, getRegisteredPluginSummaries, subscribeToPluginRegistry } from "../../engine/plugins/pluginRegistry"
 import { useProjectHistory } from "../history/useProjectHistory"
+import {
+  resolveRedoProjectHistoryAction,
+  resolveUndoProjectHistoryAction,
+} from "../project-session/projectSessionHistory"
+import {
+  resolveRecordedNoteDuplication,
+  resolveRecordedNoteRemoval,
+  resolveRecordedNoteRevertToLastCommit,
+  resolveRecordedNoteSafePatch,
+  resolveRecordedNoteUpdateBlock,
+} from "../project-session/projectSessionNoteEditing"
+import { resolveTrackCreation } from "../project-session/projectSessionTrackCreation"
+import {
+  resolveActiveTrackRemoval,
+  type ActiveTrackRemovalResolution,
+  resolveStepsTrackRemoval,
+} from "../project-session/projectSessionTrackRemoval"
+import {
+  formatAudioExportFailedMessage,
+  formatAudioExportedMessage,
+  formatBundleExportFailedMessage,
+  formatBundleExportedMessage,
+  formatBundleImportFailedMessage,
+  formatBundlePackagingMessage,
+  formatJsonExportedMessage,
+  formatJsonImportFailedMessage,
+  formatOfflineAudioUnsupportedMessage,
+  formatPluginEnabledMessage,
+  formatProjectImportedMessage,
+  formatProjectImportingMessage,
+  formatProjectRestartedMessage,
+  formatSessionClearedMessage,
+} from "../project-session/projectSessionMessages"
 
 export type LabAppMode =
   | "full"
@@ -76,15 +116,11 @@ const HISTORY_LIMIT = 20
 const EMPTY_MIDI_TRACK = createProjectTrack(0)
 
 function getInitialProject() {
-  return loadStoredProject() ?? createDefaultProject()
+  return loadProjectSessionInitialProject()
 }
 
 function getInitialProjectMessage() {
-  const storedProject = loadStoredProject()
-  if (!storedProject) return ""
-  return getMidiTracks(storedProject.timeline).some((track) => getMidiTrackNotes(track).length > 0)
-    ? `Proyecto restaurado: ${storedProject.name}.`
-    : ""
+  return getProjectSessionRestoreMessage()
 }
 
 function areProjectsEquivalent(a: MusicalProject, b: MusicalProject) {
@@ -103,10 +139,7 @@ export function useLabProject({
   timelineSnapStep,
 }: UseLabProjectOptions) {
   const [activeTrackId, setActiveTrackId] = useState(() => {
-    const project = getInitialProject()
-    const tracks = getMidiTracks(project.timeline)
-    const targetType: ProjectTrackType = mode === "sampler-only" ? "percussion" : "melodic"
-    return tracks.find((t) => t.trackType === targetType)?.id ?? tracks[0]?.id ?? "track-1"
+    return resolveInitialActiveTrackId(getInitialProject(), mode)
   })
   const [selectedRecordedNoteId, setSelectedRecordedNoteId] = useState<string | null>(null)
   const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
@@ -143,29 +176,14 @@ export function useLabProject({
   const percussionTracks = midiTracks.filter((t) => t.trackType === "percussion")
   const stepsTracks = midiTracks.filter((t) => t.trackType === "steps")
 
-  const primaryTrack = (() => {
-    if (mode === "sampler-only") {
-      return (
-        percussionTracks.find((t) => t.id === activeTrackId) ??
-        percussionTracks[0] ??
-        midiTracks[0] ??
-        EMPTY_MIDI_TRACK
-      )
-    }
-    if (mode === "perform-only") {
-      return (
-        melodicTracks.find((t) => t.id === activeTrackId) ??
-        melodicTracks[0] ??
-        EMPTY_MIDI_TRACK
-      )
-    }
-    return (
-      midiTracks.find((t) => t.id === activeTrackId) ??
-      melodicTracks[0] ??
-      midiTracks[0] ??
-      EMPTY_MIDI_TRACK
-    )
-  })()
+  const primaryTrack = resolvePrimaryTrack({
+    activeTrackId,
+    emptyTrack: EMPTY_MIDI_TRACK,
+    melodicTracks,
+    midiTracks,
+    mode,
+    percussionTracks,
+  })
 
   const allRecordedNotes = midiTracks
     .filter((t) => t.trackType !== "steps")
@@ -176,8 +194,10 @@ export function useLabProject({
   const activeClip = getActiveClip(primaryTrack)
   const noteCount = primaryTrackNotes.length
   const isPrimaryTrackAudible = isTrackAudible(primaryTrack, midiTracks)
-  const selectedRecordedNote =
-    primaryTrackNotes.find((note) => note.id === selectedRecordedNoteId) ?? null
+  const selectedRecordedNote = resolveSelectedRecordedNote(
+    primaryTrack,
+    selectedRecordedNoteId,
+  )
 
   const [pluginRegistryVersion, setPluginRegistryVersion] = useState(0)
   useEffect(() => subscribeToPluginRegistry(() => setPluginRegistryVersion((v) => v + 1)), [])
@@ -211,7 +231,7 @@ export function useLabProject({
 
   // ── Effects ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    saveProject(project)
+    saveProjectSession(project)
   }, [project])
 
   useEffect(() => {
@@ -274,25 +294,25 @@ export function useLabProject({
   // ── Track management ─────────────────────────────────────────────────────────
   function addTrack() {
     applyUpdate((currentProject) => {
-      const nextProject = appendTrack(currentProject)
-      const nextTrack = getMidiTracks(nextProject.timeline).at(-1)
-      if (nextTrack) {
-        setActiveTrackId(nextTrack.id)
-        setProjectMessage(`Pista agregada: ${nextTrack.name}.`)
-      }
-      return nextProject
+      const result = resolveTrackCreation({
+        project: currentProject,
+        trackType: "melodic",
+      })
+      setActiveTrackId(result.activeTrackId)
+      setProjectMessage(result.message)
+      return result.project
     })
   }
 
   function addPadTrack() {
     applyUpdate((currentProject) => {
-      const nextProject = appendPadTrack(currentProject)
-      const nextTrack = getMidiTracks(nextProject.timeline).at(-1)
-      if (nextTrack) {
-        setActiveTrackId(nextTrack.id)
-        setProjectMessage(`Pista agregada: ${nextTrack.name}.`)
-      }
-      return nextProject
+      const result = resolveTrackCreation({
+        project: currentProject,
+        trackType: "percussion",
+      })
+      setActiveTrackId(result.activeTrackId)
+      setProjectMessage(result.message)
+      return result.project
     })
   }
 
@@ -301,56 +321,52 @@ export function useLabProject({
   function addStepsTrack() {
     lastCreatedStepsTrackIdRef.current = null
     applyUpdate((currentProject) => {
-      const nextProject = appendStepsTrack(currentProject)
-      const nextTrack = getMidiTracks(nextProject.timeline).at(-1)
-      if (nextTrack) {
-        lastCreatedStepsTrackIdRef.current = nextTrack.id
-        setProjectMessage(`Pista agregada: ${nextTrack.name}.`)
-      }
-      return nextProject
+      const result = resolveTrackCreation({
+        project: currentProject,
+        trackType: "steps",
+      })
+      lastCreatedStepsTrackIdRef.current = result.createdTrackId
+      setProjectMessage(result.message)
+      return result.project
     })
     // El updater de setState corre síncronamente → el ref ya tiene el ID
   }
 
   function removeStepsTrack(trackId: string) {
-    const track = stepsTracks.find((t) => t.id === trackId)
-    if (!track) return
-    applyUpdate((p) => removeTrack(p, trackId))
-    setProjectMessage(`Pista eliminada: ${track.name}.`)
+    const removalResult: {
+      current: ReturnType<typeof resolveStepsTrackRemoval>
+    } = {
+      current: null,
+    }
+    applyUpdate((currentProject) => {
+      removalResult.current = resolveStepsTrackRemoval({
+        project: currentProject,
+        trackId,
+      })
+      return removalResult.current?.project ?? currentProject
+    })
+    if (!removalResult.current) return
+    setProjectMessage(removalResult.current.message)
   }
 
   function removeActiveTrack() {
     if (hasNoTracks) return
-    const isPercussion = primaryTrack.trackType === "percussion"
-    const isLastPercussionTrack = isPercussion && percussionTracks.length === 1
-    const isLastMidiTrack = midiTracks.length === 1
-    const trackName = primaryTrack.name
-    const currentIndex = midiTracks.findIndex((track) => track.id === primaryTrack.id)
-    const fallbackTrackId =
-      midiTracks[currentIndex - 1]?.id ?? midiTracks[currentIndex + 1]?.id
-    const freshPadId = `track-${midiTracks.length}`
 
+    const removalResult: { current: ActiveTrackRemovalResolution | null } = {
+      current: null,
+    }
     applyUpdate((currentProject) => {
-      const withoutTrack = removeTrack(currentProject, primaryTrack.id)
-      if (isLastPercussionTrack) return appendPadTrack(withoutTrack)
-      if (!isLastMidiTrack) return withoutTrack
-      return { ...withoutTrack, timeline: [createProjectTrack(1), ...withoutTrack.timeline] }
+      removalResult.current = resolveActiveTrackRemoval({
+        activeTrackId: primaryTrack.id,
+        project: currentProject,
+      })
+      return removalResult.current?.project ?? currentProject
     })
-    setActiveTrackId(
-      isLastPercussionTrack
-        ? freshPadId
-        : isLastMidiTrack
-          ? "track-1"
-          : (fallbackTrackId ?? ""),
-    )
+
+    if (!removalResult.current) return
+    setActiveTrackId(removalResult.current.activeTrackId)
     setSelectedRecordedNoteId(null)
-    setProjectMessage(
-      isLastPercussionTrack
-        ? `${trackName} eliminada. Pad 1 listo para usar.`
-        : isLastMidiTrack
-          ? `${trackName} eliminada. Pista vacia lista para grabar.`
-          : `Pista eliminada: ${trackName}.`,
-    )
+    setProjectMessage(removalResult.current.message)
   }
 
   function confirmRemoveActiveTrack() {
@@ -393,7 +409,7 @@ export function useLabProject({
     const pluginName =
       registeredPlugins.find((plugin) => plugin.id === pluginId)?.name ?? pluginId
     applyUpdate((p) => updateProjectPluginEnabled(p, pluginId, enabled))
-    setProjectMessage(enabled ? `Plugin activado: ${pluginName}.` : `Plugin desactivado: ${pluginName}.`)
+    setProjectMessage(formatPluginEnabledMessage(pluginName, enabled))
   }
 
   function updatePrimaryTrackEnvelope(parameter: keyof ADSREnvelope, value: number) {
@@ -433,9 +449,24 @@ export function useLabProject({
   }
 
   function removeRecordedNote(noteId: string) {
-    applyUpdate((p) => removeNoteFromTrack(p, primaryTrack.id, noteId))
-    if (selectedRecordedNoteId === noteId) setSelectedRecordedNoteId(null)
-    setProjectMessage(`Nota eliminada de ${primaryTrack.name}.`)
+    const removalResult: {
+      current: ReturnType<typeof resolveRecordedNoteRemoval> | null
+    } = {
+      current: null,
+    }
+    applyUpdate((currentProject) => {
+      removalResult.current = resolveRecordedNoteRemoval({
+        noteId,
+        project: currentProject,
+        selectedRecordedNoteId,
+        trackId: primaryTrack.id,
+        trackName: primaryTrack.name,
+      })
+      return removalResult.current.project
+    })
+    if (!removalResult.current) return
+    setSelectedRecordedNoteId(removalResult.current.selectedRecordedNoteId)
+    setProjectMessage(removalResult.current.message)
   }
 
   function updateRecordedNote(
@@ -446,18 +477,21 @@ export function useLabProject({
     const noteToUpdate = primaryTrackNotes.find((note) => note.id === noteId)
     if (!noteToUpdate) return
 
-    if (typeof patch.duration === "number" && isSmcPadRecordedNote(noteToUpdate)) {
-      if (historyMode === "commit") {
-        setProjectMessage("Los golpes SMC Pad se pueden mover, pero no redimensionar.")
-      }
+    const updateBlock = resolveRecordedNoteUpdateBlock({
+      historyMode,
+      isDurationUpdate: typeof patch.duration === "number",
+      isSmcPadNote: isSmcPadRecordedNote(noteToUpdate),
+    })
+    if (updateBlock.blocked) {
+      if (updateBlock.message) setProjectMessage(updateBlock.message)
       return
     }
 
-    const quantize = (value: number) =>
-      timelineSnapEnabled ? Math.round(value / timelineSnapStep) * timelineSnapStep : value
-    const safePatch: Partial<{ startTime: number; duration: number }> = {}
-    if (typeof patch.startTime === "number") safePatch.startTime = Math.max(0, quantize(patch.startTime))
-    if (typeof patch.duration === "number") safePatch.duration = Math.max(0.01, quantize(patch.duration))
+    const safePatch = resolveRecordedNoteSafePatch({
+      patch,
+      timelineSnapEnabled,
+      timelineSnapStep,
+    })
 
     if (historyMode === "transient") {
       applyTransientUpdate((p) => updateNoteInTrack(p, primaryTrack.id, noteId, safePatch))
@@ -468,61 +502,38 @@ export function useLabProject({
 
   function duplicateSelectedRecordedNote() {
     if (!selectedRecordedNote) return
-    applyUpdate((p) =>
-      duplicateNoteInTrack(
-        p,
-        primaryTrack.id,
-        selectedRecordedNote.id,
-        timelineSnapEnabled ? timelineSnapStep : 0.05,
-      ),
-    )
-    setProjectMessage(`Nota duplicada en ${primaryTrack.name}.`)
+    const duplicationResult: {
+      current: ReturnType<typeof resolveRecordedNoteDuplication> | null
+    } = {
+      current: null,
+    }
+    applyUpdate((currentProject) => {
+      duplicationResult.current = resolveRecordedNoteDuplication({
+        noteId: selectedRecordedNote.id,
+        offsetSeconds: timelineSnapEnabled ? timelineSnapStep : 0.05,
+        project: currentProject,
+        trackId: primaryTrack.id,
+        trackName: primaryTrack.name,
+      })
+      return duplicationResult.current.project
+    })
+    if (!duplicationResult.current) return
+    setProjectMessage(duplicationResult.current.message)
   }
 
   function revertSelectedNoteToLastCommit() {
-    if (!selectedRecordedNoteId) return
-    const candidateIndex = [...undoStack]
-      .map((snapshot) => ({ snapshot }))
-      .reverse()
-      .find(({ snapshot }) => {
-        const snapshotTrack = getMidiTracks(snapshot.timeline).find(
-          (track) => track.id === primaryTrack.id,
-        )
-        const snapshotNote = snapshotTrack
-          ? getMidiTrackNotes(snapshotTrack).find((note) => note.id === selectedRecordedNoteId)
-          : undefined
-        return (
-          snapshotNote &&
-          selectedRecordedNote &&
-          (snapshotNote.startTime !== selectedRecordedNote.startTime ||
-            snapshotNote.duration !== selectedRecordedNote.duration)
-        )
-      })
-
-    if (!candidateIndex) {
-      setProjectMessage("No hay un commit anterior para esta nota.")
-      return
+    if (!selectedRecordedNote) return
+    const revertResult = resolveRecordedNoteRevertToLastCommit({
+      currentNote: selectedRecordedNote,
+      project,
+      snapshots: undoStack,
+      trackId: primaryTrack.id,
+      trackName: primaryTrack.name,
+    })
+    if (revertResult.applied) {
+      applyUpdate(() => revertResult.project)
     }
-
-    const snapshotTrack = getMidiTracks(candidateIndex.snapshot.timeline).find(
-      (track) => track.id === primaryTrack.id,
-    )
-    const snapshotNote = snapshotTrack
-      ? getMidiTrackNotes(snapshotTrack).find((note) => note.id === selectedRecordedNoteId)
-      : undefined
-
-    if (!snapshotNote) {
-      setProjectMessage("No se encontro version anterior para esta nota.")
-      return
-    }
-
-    applyUpdate((p) =>
-      updateNoteInTrack(p, primaryTrack.id, selectedRecordedNoteId, {
-        startTime: snapshotNote.startTime,
-        duration: snapshotNote.duration,
-      }),
-    )
-    setProjectMessage(`Nota revertida en ${primaryTrack.name}.`)
+    setProjectMessage(revertResult.message)
   }
 
   function updateSelectedNoteStartTime(value: number) {
@@ -532,8 +543,13 @@ export function useLabProject({
 
   function updateSelectedNoteDuration(value: number) {
     if (!selectedRecordedNote) return
-    if (isSmcPadRecordedNote(selectedRecordedNote)) {
-      setProjectMessage("Los golpes SMC Pad se pueden mover, pero no redimensionar.")
+    const updateBlock = resolveRecordedNoteUpdateBlock({
+      historyMode: "commit",
+      isDurationUpdate: true,
+      isSmcPadNote: isSmcPadRecordedNote(selectedRecordedNote),
+    })
+    if (updateBlock.blocked) {
+      if (updateBlock.message) setProjectMessage(updateBlock.message)
       return
     }
     updateRecordedNote(selectedRecordedNote.id, { duration: Number.isFinite(value) ? value : 0.01 })
@@ -662,33 +678,25 @@ export function useLabProject({
 
   // ── Undo / Redo ──────────────────────────────────────────────────────────────
   function undoProjectEdit() {
-    const previousProject = undo()
-    if (!previousProject) {
-      setProjectMessage("No hay cambios anteriores para deshacer.")
+    const result = resolveUndoProjectHistoryAction(undo(), activeTrackId)
+    if (!result.applied) {
+      setProjectMessage(result.message)
       return
     }
     setSelectedRecordedNoteId(null)
-    setActiveTrackId(
-      getMidiTracks(previousProject.timeline).find((track) => track.id === activeTrackId)?.id ??
-        getMidiTracks(previousProject.timeline)[0]?.id ??
-        "track-1",
-    )
-    setProjectMessage("Deshacer aplicado.")
+    setActiveTrackId(result.activeTrackId)
+    setProjectMessage(result.message)
   }
 
   function redoProjectEdit() {
-    const nextProject = redo()
-    if (!nextProject) {
-      setProjectMessage("No hay cambios posteriores para rehacer.")
+    const result = resolveRedoProjectHistoryAction(redo(), activeTrackId)
+    if (!result.applied) {
+      setProjectMessage(result.message)
       return
     }
     setSelectedRecordedNoteId(null)
-    setActiveTrackId(
-      getMidiTracks(nextProject.timeline).find((track) => track.id === activeTrackId)?.id ??
-        getMidiTracks(nextProject.timeline)[0]?.id ??
-        "track-1",
-    )
-    setProjectMessage("Rehacer aplicado.")
+    setActiveTrackId(result.activeTrackId)
+    setProjectMessage(result.message)
   }
 
   useEffect(() => {
@@ -700,7 +708,7 @@ export function useLabProject({
   function clearSession() {
     applyUpdate((p) => clearAllTrackNotes(p))
     setSelectedRecordedNoteId(null)
-    setProjectMessage("Notas limpiadas. Pistas y nombre conservados.")
+    setProjectMessage(formatSessionClearedMessage())
   }
 
   async function clearSamplerSlots() {
@@ -716,18 +724,14 @@ export function useLabProject({
     applyUpdate((p) => resetProject(p))
     setActiveTrackId("track-1")
     setSelectedRecordedNoteId(null)
-    setProjectMessage("Proyecto reiniciado desde cero.")
+    setProjectMessage(formatProjectRestartedMessage())
   }
 
   // ── Import / Export ──────────────────────────────────────────────────────────
   async function exportProject() {
-    const projectJson = JSON.stringify(project, null, 2)
-    const blob = new Blob([projectJson], { type: "application/json" })
-    const suggestedName = `${project.name.replace(/\s+/g, "-").toLowerCase()}.json`
-    await saveFile(blob, suggestedName, [
-      { description: "Proyecto MiMIDI", accept: { "application/json": [".json"] } },
-    ])
-    setProjectMessage("Proyecto exportado a JSON.")
+    const { blob, fileName, types } = createProjectJsonExport(project)
+    await saveFile(blob, fileName, types)
+    setProjectMessage(formatJsonExportedMessage())
   }
 
   async function exportProjectAudio(masterVolume: number) {
@@ -735,23 +739,20 @@ export function useLabProject({
     if (isExportingAudio) return
 
     if (typeof OfflineAudioContext === "undefined") {
-      setProjectMessage("Este navegador no soporta exportacion offline de audio.")
+      setProjectMessage(formatOfflineAudioUnsupportedMessage())
       return
     }
 
     setIsExportingAudio(true)
     try {
-      const { blob, duration, fileName } = await exportProjectAudioUseCase(project, {
-        bitDepth: 32,
-        float: true,
+      const { blob, duration, fileName, types } = await createProjectAudioExport(
+        project,
         masterVolume,
-      })
-      await saveFile(blob, fileName, [
-        { description: "Audio WAV", accept: { "audio/wav": [".wav"] } },
-      ])
-      setProjectMessage(`Audio exportado a WAV (${duration.toFixed(2)}s).`)
+      )
+      await saveFile(blob, fileName, types)
+      setProjectMessage(formatAudioExportedMessage(duration))
     } catch {
-      setProjectMessage("No se pudo exportar el audio del proyecto.")
+      setProjectMessage(formatAudioExportFailedMessage())
     } finally {
       setIsExportingAudio(false)
     }
@@ -759,15 +760,12 @@ export function useLabProject({
 
   async function exportBundle() {
     try {
-      setProjectMessage("Empaquetando proyecto...")
-      const blob = await exportProjectBundle(project)
-      const suggestedName = `${project.name.replace(/\s+/g, "-").toLowerCase()}.mimidi`
-      await saveFile(blob, suggestedName, [
-        { description: "Bundle MiMIDI", accept: { "application/octet-stream": [".mimidi"] } },
-      ])
-      setProjectMessage("Proyecto guardado como .mimidi (incluye muestras).")
+      setProjectMessage(formatBundlePackagingMessage())
+      const { blob, fileName, types } = await createProjectBundleExport(project)
+      await saveFile(blob, fileName, types)
+      setProjectMessage(formatBundleExportedMessage())
     } catch {
-      setProjectMessage("No se pudo exportar el bundle.")
+      setProjectMessage(formatBundleExportFailedMessage())
     }
   }
 
@@ -775,14 +773,14 @@ export function useLabProject({
     const file = event.target.files?.[0]
     if (!file) return
     try {
-      setProjectMessage("Importando proyecto...")
-      const importedProject = await importProjectBundle(file)
+      setProjectMessage(formatProjectImportingMessage())
+      const importedProject = await importProjectBundleFile(file)
       replaceState(importedProject)
-      setActiveTrackId(getMidiTracks(importedProject.timeline)[0]?.id ?? "track-1")
+      setActiveTrackId(resolveFirstProjectActiveTrackId(importedProject))
       setSelectedRecordedNoteId(null)
-      setProjectMessage(`Proyecto importado: ${importedProject.name}.`)
+      setProjectMessage(formatProjectImportedMessage(importedProject.name))
     } catch {
-      setProjectMessage("No se pudo importar el archivo .mimidi.")
+      setProjectMessage(formatBundleImportFailedMessage())
     } finally {
       event.target.value = ""
     }
@@ -792,14 +790,13 @@ export function useLabProject({
     const file = event.target.files?.[0]
     if (!file) return
     try {
-      const projectJson = await file.text()
-      const importedProject = parseImportedProject(projectJson)
+      const importedProject = await importProjectJsonFile(file)
       replaceState(importedProject)
-      setActiveTrackId(getMidiTracks(importedProject.timeline)[0]?.id ?? "track-1")
+      setActiveTrackId(resolveFirstProjectActiveTrackId(importedProject))
       setSelectedRecordedNoteId(null)
-      setProjectMessage(`Proyecto importado: ${importedProject.name}.`)
+      setProjectMessage(formatProjectImportedMessage(importedProject.name))
     } catch {
-      setProjectMessage("No se pudo importar el JSON del proyecto.")
+      setProjectMessage(formatJsonImportFailedMessage())
     } finally {
       event.target.value = ""
     }

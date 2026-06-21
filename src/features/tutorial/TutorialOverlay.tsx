@@ -1,9 +1,11 @@
 import { createPortal } from "react-dom"
 import { useEffect, useLayoutEffect, useState } from "react"
 import { navigateTo } from "../../app/navigation"
+import { loadAppSettingsWithRepository } from "../../application/use-cases/appSettings"
 import { BASIC_TUTORIAL_STEPS, BASIC_TOTAL_STEPS, type BasicTutorialStep } from "./tutorialSteps"
 import { tutorialBasicTexts, type TutorialLangTexts } from "./tutorialTexts"
 import type { AppLanguage } from "../../app/appI18n"
+import { createLocalStorageSettingsRepository } from "../../infrastructure/storage/localStorageSettingsRepository"
 import "./TutorialOverlay.css"
 
 type TutorialOverlayProps = {
@@ -30,7 +32,9 @@ export function TutorialOverlay({
   customTexts,
 }: TutorialOverlayProps) {
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null)
-  const isDark = localStorage.getItem("mimidi-dark-mode") === "true"
+  const isDark = loadAppSettingsWithRepository(
+    createLocalStorageSettingsRepository(localStorage),
+  ).darkMode
 
   const resolvedSteps = steps ?? BASIC_TUTORIAL_STEPS
   const resolvedTotalSteps = totalSteps ?? BASIC_TOTAL_STEPS

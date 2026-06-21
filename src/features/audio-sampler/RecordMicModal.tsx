@@ -6,7 +6,7 @@ import { resolveAppMessages, type AppLanguage } from "../../app/appI18n"
 import { startMicRecording, type MicRecorderSession } from "../../application/use-cases/recordMicSample"
 import type { ImportedSampleData } from "../../application/use-cases/importSampleFile"
 import { playSampleBuffer, type SamplePlayback } from "../../application/use-cases/playSampleBuffer"
-import { DEFAULT_CALIBRATION } from "../../engine/audio/sampleModel"
+import { DEFAULT_SAMPLE_CALIBRATION } from "../../application/ports/SampleSlotRepository"
 
 type RecordMicModalProps = {
   open: boolean
@@ -65,7 +65,7 @@ export function RecordMicModal({ open, slotIndex, language, onSave, onClose }: R
     if (isPreviewPlaying) { stopPreview(); return }
     if (!recordedData) return
     stopPreview()
-    const pb = playSampleBuffer(recordedData.audioBuffer, { ...DEFAULT_CALIBRATION })
+    const pb = playSampleBuffer(recordedData.audioBuffer, { ...DEFAULT_SAMPLE_CALIBRATION })
     previewRef.current = pb
     setIsPreviewPlaying(true)
     previewTimerRef.current = window.setTimeout(() => {

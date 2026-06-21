@@ -1,5 +1,6 @@
-import { decodeAudioData } from "../../engine/audio/audioEngine"
-import { saveSampleBuffer } from "../../engine/audio/sampleStorage"
+import type { SampleRepository } from "../ports/SampleRepository"
+import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+export { createSampleDbId } from "./sampleIds"
 
 export type ImportedSampleData = {
   audioBuffer: AudioBuffer
@@ -10,11 +11,21 @@ export type ImportedSampleData = {
   channels: number
 }
 
-export async function importSampleFile(file: File): Promise<ImportedSampleData> {
+export type ImportSampleFileDependencies = {
+  samples: Pick<SampleRepository, "save">
+  decodeAudioData(data: ArrayBuffer): Promise<AudioBuffer>
+  createSampleId(): string
+}
+
+export async function importSampleFileWithDependencies(
+  dependencies: ImportSampleFileDependencies,
+  file: File,
+): Promise<ImportedSampleData> {
   const arrayBuffer = await file.arrayBuffer()
-  const audioBuffer = await decodeAudioData(arrayBuffer)
-  const dbId = `sample-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  await saveSampleBuffer(dbId, arrayBuffer)
+  const audioBuffer = await dependencies.decodeAudioData(arrayBuffer)
+  const dbId = dependencies.createSampleId()
+
+  await dependencies.samples.save(dbId, arrayBuffer)
 
   return {
     audioBuffer,
@@ -24,4 +35,11 @@ export async function importSampleFile(file: File): Promise<ImportedSampleData> 
     sampleRate: audioBuffer.sampleRate,
     channels: audioBuffer.numberOfChannels,
   }
+}
+
+export async function importSampleFile(file: File): Promise<ImportedSampleData> {
+  return importSampleFileWithDependencies(
+    createLegacySampleUseCaseDependencies(),
+    file,
+  )
 }

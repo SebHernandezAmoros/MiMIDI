@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { playNote } from "../../application/use-cases/playNote"
 import type { PlayNoteOptions } from "../../application/use-cases/playNote"
+import type { SettingsRepository } from "../../application/ports/SettingsRepository"
+import {
+  LAB_STEP_COUNT_OPTIONS,
+  loadLabStepCountWithRepository,
+  saveLabStepCountWithRepository,
+  type LabStepCount,
+} from "../../application/use-cases/labViewPreferences"
 import type { MidiRecordedNote } from "../../engine/midi/events"
 import type { MusicalNote } from "../../engine/midi/notes"
 
-export type StepCount = 4 | 8 | 12 | 16 | 24 | 32 | 64
-export const STEP_COUNT_OPTIONS: StepCount[] = [4, 8, 12, 16, 24, 32, 64]
+export type StepCount = LabStepCount
+export const STEP_COUNT_OPTIONS: StepCount[] = [...LAB_STEP_COUNT_OPTIONS]
 const MAX_STEPS = 64
 
 // Divisor de subdivisión: 1=negra(1/4), 2=corchea(1/8), 4=semicorchea(1/16), 8=fusa(1/32)
@@ -17,20 +24,8 @@ export const STEP_SUBDIVISION_OPTIONS: { value: StepSubdivision; label: string }
   { value: 8, label: "1/32" },
 ]
 
-const STEPS_KEY = "mimidi-seq-steps"
-
 function makeGrid(rows: number): boolean[][] {
   return Array.from({ length: rows }, () => Array<boolean>(MAX_STEPS).fill(false))
-}
-
-const VALID_STEP_COUNTS = new Set<number>(STEP_COUNT_OPTIONS)
-
-function loadStepCount(): StepCount {
-  try {
-    const n = Number(localStorage.getItem(STEPS_KEY))
-    if (VALID_STEP_COUNTS.has(n)) return n as StepCount
-  } catch {}
-  return 16
 }
 
 /** Duración de un paso en segundos dada la subdivisión y el BPM. */
@@ -46,6 +41,7 @@ export function useMelodicSequencer({
   clipNotes,
   onToggleStep,
   onClearAll,
+  settingsRepository,
 }: {
   notes: MusicalNote[]
   playOptions: PlayNoteOptions
@@ -54,8 +50,11 @@ export function useMelodicSequencer({
   clipNotes: MidiRecordedNote[]
   onToggleStep: (row: number, col: number) => void
   onClearAll: () => void
+  settingsRepository: SettingsRepository
 }) {
-  const [stepCount, setStepCountState] = useState<StepCount>(() => loadStepCount())
+  const [stepCount, setStepCountState] = useState<StepCount>(() =>
+    loadLabStepCountWithRepository(settingsRepository),
+  )
   const [activeStep, setActiveStep] = useState<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -94,8 +93,8 @@ export function useMelodicSequencer({
   useEffect(() => { subdivisionRef.current = stepSubdivision }, [stepSubdivision])
 
   useEffect(() => {
-    try { localStorage.setItem(STEPS_KEY, String(stepCount)) } catch {}
-  }, [stepCount])
+    saveLabStepCountWithRepository(settingsRepository, stepCount)
+  }, [settingsRepository, stepCount])
 
   const stop = useCallback(() => {
     if (intervalRef.current) {

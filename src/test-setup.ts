@@ -1,3 +1,19 @@
-// Archivo de setup global de vitest.
-// Aquí van mocks que aplican a TODOS los tests del proyecto.
-// Los mocks específicos de un módulo van dentro del propio archivo de test.
+// Global Vitest setup.
+// Keep broad browser API shims here; module-specific mocks belong in each test.
+
+if (!window.matchMedia) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    }),
+    writable: true,
+  })
+}

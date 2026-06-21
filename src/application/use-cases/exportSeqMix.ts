@@ -1,6 +1,6 @@
 import { encodeAudioBufferToWav } from "../../engine/audio/wavEncoder"
 import type { SequencerPattern } from "../../engine/audio/sequencerModel"
-import type { SampleSlotMeta } from "../../engine/audio/sampleModel"
+import type { SampleSlotMeta } from "../ports/SampleSlotRepository"
 
 export async function exportSeqMix(
   pattern: SequencerPattern,

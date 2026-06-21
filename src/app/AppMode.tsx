@@ -31,6 +31,13 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { setMasterVolume } from "../engine/audio/audioEngine"
+import {
+  loadAppSettingsWithRepository,
+  saveDarkModeWithRepository,
+  saveMasterVolumeWithRepository,
+  saveShowKeyLabelsWithRepository,
+} from "../application/use-cases/appSettings"
+import { getBrowserSettingsRepository } from "./browserSettingsRepository"
 
 type AppModeProps = {
   activeLanguage: AppLanguage
@@ -124,25 +131,32 @@ export function AppMode({
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const isPWA = typeof window !== "undefined" &&
     window.matchMedia("(display-mode: standalone)").matches
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("mimidi-dark-mode") === "true")
+  const settingsRepository = getBrowserSettingsRepository()
+  const [darkMode, setDarkMode] = useState(() =>
+    loadAppSettingsWithRepository(settingsRepository).darkMode,
+  )
   const [isViewSettingsOpen, setIsViewSettingsOpen] = useState(false)
-  const [showKeyLabels, setShowKeyLabels] = useState(() => {
-    const stored = localStorage.getItem("mimidi-show-key-labels")
-    return stored === null ? true : stored === "true"
-  })
-  const [masterVolume, setMasterVolumeState] = useState(() => {
-    const stored = localStorage.getItem("mimidi-master-volume")
-    return stored !== null ? parseFloat(stored) : 0.8
-  })
+  const [showKeyLabels, setShowKeyLabels] = useState(() =>
+    loadAppSettingsWithRepository(settingsRepository).showKeyLabels,
+  )
+  const [masterVolume, setMasterVolumeState] = useState(() =>
+    loadAppSettingsWithRepository(settingsRepository).masterVolume,
+  )
 
   useEffect(() => {
     setMasterVolume(masterVolume)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => { localStorage.setItem("mimidi-dark-mode", String(darkMode)) }, [darkMode])
-  useEffect(() => { localStorage.setItem("mimidi-show-key-labels", String(showKeyLabels)) }, [showKeyLabels])
-  useEffect(() => { localStorage.setItem("mimidi-master-volume", String(masterVolume)) }, [masterVolume])
+  useEffect(() => {
+    saveDarkModeWithRepository(settingsRepository, darkMode)
+  }, [darkMode, settingsRepository])
+  useEffect(() => {
+    saveShowKeyLabelsWithRepository(settingsRepository, showKeyLabels)
+  }, [settingsRepository, showKeyLabels])
+  useEffect(() => {
+    saveMasterVolumeWithRepository(settingsRepository, masterVolume)
+  }, [masterVolume, settingsRepository])
 
   function handleDarkModeChange(v: boolean) { setDarkMode(v) }
   function handleShowKeyLabelsChange(v: boolean) { setShowKeyLabels(v) }

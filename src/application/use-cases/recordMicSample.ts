@@ -1,10 +1,42 @@
-import { decodeAudioData } from "../../engine/audio/audioEngine"
-import { saveSampleBuffer } from "../../engine/audio/sampleStorage"
+import type { SampleRepository } from "../ports/SampleRepository"
 import type { ImportedSampleData } from "./importSampleFile"
+import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
 
 export type MicRecorderSession = {
   stop: () => Promise<ImportedSampleData>
   cancel: () => void
+}
+
+export type FinalizeMicRecordingDependencies = {
+  samples: Pick<SampleRepository, "save">
+  decodeAudioData(data: ArrayBuffer): Promise<AudioBuffer>
+  createSampleId(): string
+  now(): Date
+}
+
+export async function finalizeMicRecordingWithDependencies(
+  dependencies: FinalizeMicRecordingDependencies,
+  blob: Blob,
+): Promise<ImportedSampleData> {
+  const arrayBuffer = await blob.arrayBuffer()
+  const audioBuffer = await dependencies.decodeAudioData(arrayBuffer)
+  const dbId = dependencies.createSampleId()
+
+  await dependencies.samples.save(dbId, arrayBuffer)
+
+  const recordedAt = dependencies.now()
+  const hh = recordedAt.getHours().toString().padStart(2, "0")
+  const mm = recordedAt.getMinutes().toString().padStart(2, "0")
+  const ss = recordedAt.getSeconds().toString().padStart(2, "0")
+
+  return {
+    audioBuffer,
+    dbId,
+    name: `rec-${hh}${mm}${ss}`,
+    duration: audioBuffer.duration,
+    sampleRate: audioBuffer.sampleRate,
+    channels: audioBuffer.numberOfChannels,
+  }
 }
 
 export async function startMicRecording(): Promise<MicRecorderSession> {
@@ -29,25 +61,12 @@ export async function startMicRecording(): Promise<MicRecorderSession> {
     const resolve = stopResolve
     const reject = stopReject
     const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
-    blob
-      .arrayBuffer()
-      .then((arrayBuffer) => decodeAudioData(arrayBuffer).then((audioBuffer) => ({ arrayBuffer, audioBuffer })))
-      .then(async ({ arrayBuffer, audioBuffer }) => {
-        const dbId = `sample-${Date.now()}-${Math.random().toString(36).slice(2)}`
-        await saveSampleBuffer(dbId, arrayBuffer)
-        const now = new Date()
-        const hh = now.getHours().toString().padStart(2, "0")
-        const mm = now.getMinutes().toString().padStart(2, "0")
-        const ss = now.getSeconds().toString().padStart(2, "0")
-        resolve({
-          audioBuffer,
-          dbId,
-          name: `rec-${hh}${mm}${ss}`,
-          duration: audioBuffer.duration,
-          sampleRate: audioBuffer.sampleRate,
-          channels: audioBuffer.numberOfChannels,
-        })
-      })
+
+    finalizeMicRecordingWithDependencies(
+      createLegacySampleUseCaseDependencies(),
+      blob,
+    )
+      .then(resolve)
       .catch(reject)
   }
 

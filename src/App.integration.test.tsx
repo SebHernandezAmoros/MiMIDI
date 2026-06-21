@@ -364,7 +364,7 @@ describe("App integration: timeline history", () => {
 
     expect(screen.getByRole("button", { name: "Piano" })).toBeTruthy()
     expect(screen.getByLabelText("Workspace Perform")).toBeTruthy()
-    expect(screen.getByLabelText("Modo del piano")).toBeTruthy()
+    expect(screen.getByText("Modo del piano")).toBeTruthy()
     expect(screen.getByLabelText("Controles de grabación")).toBeTruthy()
     expect(screen.getByLabelText("Octava visible activa")).toBeTruthy()
   })
