@@ -10,6 +10,7 @@ import {
   createProjectJsonExport,
   importProjectJsonFile,
 } from "../../application/use-cases/projectJsonTransfer"
+import { clearSampleSlots } from "../../application/use-cases/sampleSlots"
 import {
   getProjectSessionRestoreMessage,
   loadProjectSessionInitialProject,
@@ -23,8 +24,6 @@ import {
 } from "../../application/use-cases/projectSelection"
 import type { ADSREnvelope } from "../../engine/audio/audioEngine"
 import type { MathematicalInstrument, MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
-import { loadSlotMetas, saveSlotMetas, NUM_SLOTS } from "../../engine/audio/sampleModel"
-import { deleteSampleBuffer } from "../../engine/audio/sampleStorage"
 import { isSmcPadRecordedNote } from "../../engine/midi/events"
 import {
   clearAllTrackNotes,
@@ -711,16 +710,8 @@ export function useLabProject({
     setProjectMessage(formatSessionClearedMessage())
   }
 
-  async function clearSamplerSlots() {
-    const slots = loadSlotMetas()
-    for (const slot of slots) {
-      if (slot) await deleteSampleBuffer(slot.dbId)
-    }
-    saveSlotMetas(Array<null>(NUM_SLOTS).fill(null))
-  }
-
   async function restartProject() {
-    await clearSamplerSlots()
+    await clearSampleSlots()
     applyUpdate((p) => resetProject(p))
     setActiveTrackId("track-1")
     setSelectedRecordedNoteId(null)

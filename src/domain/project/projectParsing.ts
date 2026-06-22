@@ -3,7 +3,7 @@ import type { MathematicalInstrumentId } from "../../engine/audio/mathematicalIn
 import type { SequencerPattern } from "../../engine/audio/sequencerModel"
 import type { MidiRecordedNote, PadSoundParams, SmcPadSoundId } from "../../engine/midi/events"
 import type { MusicalNote } from "../../engine/midi/notes"
-import type { MiMIDIPluginStateMap } from "../../engine/plugins/pluginModel"
+import type { MiMIDIPluginStateMap } from "../plugins/pluginContracts"
 import {
   createDefaultPluginStates,
   isKnownPluginId,

@@ -2,7 +2,7 @@ import type { ADSREnvelope } from "../../engine/audio/audioEngine"
 import type { MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
 import type { SequencerPattern } from "../../engine/audio/sequencerModel"
 import type { MidiRecordedNote, PadSoundParams, SmcPadSoundId } from "../../engine/midi/events"
-import type { MiMIDIPluginStateMap } from "../../engine/plugins/pluginModel"
+import type { MiMIDIPluginStateMap } from "../plugins/pluginContracts"
 
 export type TrackVolumeAutomationPoint = {
   time: number

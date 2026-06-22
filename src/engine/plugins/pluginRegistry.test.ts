@@ -100,6 +100,23 @@ describe("pluginRegistry", () => {
     expect(b?.instrumentCount).toBe(1)
   })
 
+  it("getRegisteredPluginSummaries exposes workspace availability without leaking UI definitions", () => {
+    const PluginWorkspace = () => null
+    const withWorkspace: MiMIDIPluginDefinition = {
+      ...pluginA,
+      id: "test-pack-with-workspace",
+      workspace: { component: PluginWorkspace },
+      toolSlots: { "piano-toolbar": PluginWorkspace },
+    }
+
+    const summaries = getRegisteredPluginSummaries(undefined, [withWorkspace])
+    const summary = summaries[0]
+
+    expect(summary?.hasWorkspace).toBe(true)
+    expect("workspace" in summary!).toBe(false)
+    expect("toolSlots" in summary!).toBe(false)
+  })
+
   it("deduplicates instruments with the same id across multiple plugins", () => {
     const withDupe: MiMIDIPluginDefinition[] = [
       pluginA,

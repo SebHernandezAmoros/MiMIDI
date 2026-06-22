@@ -3,7 +3,7 @@ import {
   type MathematicalInstrument,
   type MathematicalInstrumentId,
 } from "./mathematicalInstruments"
-import type { MiMIDIPluginStateMap } from "../plugins/pluginModel"
+import type { MiMIDIPluginStateMap } from "../../domain/plugins/pluginContracts"
 import { getPluginInstruments } from "../plugins/pluginRegistry"
 
 function sortInstrumentCategories(

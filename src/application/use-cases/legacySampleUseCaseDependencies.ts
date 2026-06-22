@@ -30,3 +30,15 @@ export function createLegacySampleUseCaseDependencies() {
     },
   }
 }
+
+export function createLegacySampleSlotCleanupDependencies() {
+  return {
+    sampleSlots: {
+      loadSlots: loadSlotMetas,
+      saveSlots: saveSlotMetas,
+    },
+    samples: {
+      delete: deleteSampleBuffer,
+    },
+  }
+}

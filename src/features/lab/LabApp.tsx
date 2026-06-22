@@ -4,6 +4,11 @@ import "../../App.css"
 import { resolveAppMessages, tpl, type AppLanguage } from "../../app/appI18n"
 import { getBrowserSettingsRepository } from "../../app/browserSettingsRepository"
 import {
+  loadPluginClip,
+  processPluginAudioOutput,
+  storePluginClip,
+} from "../../application/use-cases/pluginAudioOutputs"
+import {
   updatePadSoundSetting,
   compactTrackNotesStart,
   getMidiTracks,
@@ -23,9 +28,6 @@ import {
   updateTrackPan,
   type MusicalProject,
 } from "../../engine/project/projectModel"
-import { saveSampleBuffer, loadSampleBuffer } from "../../engine/audio/sampleStorage"
-import { decodeAudioData } from "../../engine/audio/audioEngine"
-import { loadSlotMetas, saveSlotMetas, DEFAULT_CALIBRATION } from "../../engine/audio/sampleModel"
 import {
   Play,
   Square,
@@ -362,49 +364,21 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
       if (output.type === "midi") {
         lab.applyUpdate(p => appendTrackWithNotes(p, output.name, output.instrumentId, output.notes))
       } else if (output.type === "audio") {
-        if (output.destination === "sampler") {
-          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-          void output.blob.arrayBuffer().then(async buf => {
-            if (!output.dbId) await saveSampleBuffer(dbId, buf)
-            try {
-              const audioBuffer = await decodeAudioData(buf)
-              const slots = loadSlotMetas()
-              const emptyIdx = slots.findIndex(s => s === null)
-              if (emptyIdx !== -1) {
-                const next = [...slots]
-                next[emptyIdx] = {
-                  index: emptyIdx + 1,
-                  name: output.name,
-                  duration: audioBuffer.duration,
-                  dbId,
-                  sampleRate: audioBuffer.sampleRate,
-                  channels: audioBuffer.numberOfChannels,
-                  calibration: { ...DEFAULT_CALIBRATION },
-                }
-                saveSlotMetas(next)
-                window.dispatchEvent(new StorageEvent("storage", {
-                  key: "mimidi-audio-slots",
-                  newValue: JSON.stringify(next),
-                  storageArea: localStorage,
-                }))
-              } else {
-                void saveFile(new Blob([buf], { type: "audio/webm" }), `${output.name}.webm`, [
-                  { description: "Audio WebM", accept: { "audio/webm": [".webm"] } },
-                ])
-              }
-            } catch { /* decode failed */ }
-          })
-        } else {
-          const dbId = output.dbId ?? `plugin-audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-          if (output.dbId) {
-            lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
-          } else {
-            void output.blob.arrayBuffer().then(async buf => {
-              await saveSampleBuffer(dbId, buf)
-              lab.applyUpdate(p => addAudioClipTrack(p, { name: output.name, dbId, duration: output.duration }))
-            })
+        void processPluginAudioOutput(output).then(result => {
+          if (!result) return
+          if (result.type === "project-track") {
+            lab.applyUpdate(p => addAudioClipTrack(p, result))
+            return
           }
-        }
+          if (result.type === "sampler-slot") {
+            window.dispatchEvent(new StorageEvent("storage", {
+              key: "mimidi-audio-slots",
+              storageArea: localStorage,
+            }))
+            return
+          }
+          void saveFile(result.blob, result.fileName, result.types)
+        })
       }
     },
     notify: (message) => {
@@ -412,17 +386,8 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
       setPluginToast(message)
       pluginToastTimerRef.current = setTimeout(() => setPluginToast(""), 3500)
     },
-    storeClip: async (blob, _name, _duration) => {
-      const dbId = `plugin-clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-      const buf = await blob.arrayBuffer()
-      await saveSampleBuffer(dbId, buf)
-      return dbId
-    },
-    loadClip: async (dbId) => {
-      const buf = await loadSampleBuffer(dbId)
-      if (!buf) return null
-      return new Blob([buf], { type: "audio/webm" })
-    },
+    storeClip: (blob) => storePluginClip(blob),
+    loadClip: (dbId) => loadPluginClip(dbId),
   })
 
   // ── Coordinators: sequences that span multiple hooks ─────────────────────────
@@ -1612,7 +1577,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                     <X size={14} />
                   </button>
                 )}
-                {plugin.workspace && onOpenPlugin ? (
+                {plugin.hasWorkspace && onOpenPlugin ? (
                   <button
                     aria-label={`Abrir ${plugin.name}`}
                     className="ui-list-arrow ui-list-arrow-btn"
@@ -1622,7 +1587,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                     ›
                   </button>
                 ) : (
-                  <span className="ui-list-arrow" aria-hidden="true" style={{ opacity: plugin.workspace ? 1 : 0.2 }}>
+                  <span className="ui-list-arrow" aria-hidden="true" style={{ opacity: plugin.hasWorkspace ? 1 : 0.2 }}>
                     ›
                   </span>
                 )}

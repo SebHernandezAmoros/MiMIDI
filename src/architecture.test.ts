@@ -30,7 +30,7 @@ function readProjectFile(projectPath: string): string {
 describe("architecture boundaries", () => {
   it("keeps engine-to-app imports limited to documented legacy exceptions", () => {
     const allowed = new Set([
-      "src/engine/plugins/pluginModel.ts",
+      "src/engine/plugins/pluginHostModel.ts",
     ])
     const violations = listSourceFiles(join(SRC_ROOT, "engine"))
       .map(toProjectPath)
@@ -43,8 +43,8 @@ describe("architecture boundaries", () => {
   it("keeps React imports in engine limited to documented legacy exceptions", () => {
     const allowed = new Set([
       "src/engine/plugins/pluginApi.ts",
+      "src/engine/plugins/pluginHostModel.ts",
       "src/engine/plugins/pluginLoader.ts",
-      "src/engine/plugins/pluginModel.ts",
       "src/engine/plugins/useExternalPlugins.ts",
     ])
     const violations = listSourceFiles(join(SRC_ROOT, "engine"))
@@ -61,6 +61,31 @@ describe("architecture boundaries", () => {
       .filter((file) => /from ["']react["']/.test(readProjectFile(file)))
 
     expect(violations).toEqual([])
+  })
+
+  it("keeps project domain independent from plugin UI model", () => {
+    const violations = listSourceFiles(join(SRC_ROOT, "domain", "project"))
+      .map(toProjectPath)
+      .filter((file) => readProjectFile(file).includes("engine/plugins/pluginModel"))
+
+    expect(violations).toEqual([])
+  })
+
+  it("keeps registered plugin summaries as DTOs without plugin UI definitions", () => {
+    const pluginRegistry = readProjectFile("src/engine/plugins/pluginRegistry.ts")
+
+    expect(pluginRegistry).not.toContain(
+      "RegisteredPluginSummary = MiMIDIPluginDefinition",
+    )
+    expect(pluginRegistry).not.toContain("...p,")
+  })
+
+  it("keeps pluginModel as a compatibility facade without direct UI imports", () => {
+    const pluginModel = readProjectFile("src/engine/plugins/pluginModel.ts")
+
+    expect(pluginModel).not.toContain('from "react"')
+    expect(pluginModel).not.toContain("../../app/appI18n")
+    expect(pluginModel).not.toContain("React.ComponentType")
   })
 
   it("keeps application storage legacy imports limited to documented migration exceptions", () => {
@@ -80,10 +105,7 @@ describe("architecture boundaries", () => {
   })
 
   it("keeps feature storage legacy imports limited to documented migration exceptions", () => {
-    const allowed = new Set([
-      "src/features/lab/LabApp.tsx",
-      "src/features/lab/useLabProject.ts",
-    ])
+    const allowed = new Set<string>()
     const legacyStorageImport =
       /from ["']\.\.\/\.\.\/engine\/(audio\/(sampleModel|sampleStorage)|project\/projectStorage)["']/
     const violations = listSourceFiles(join(SRC_ROOT, "features"))

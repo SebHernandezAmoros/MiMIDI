@@ -9,7 +9,7 @@ import type {
   MathematicalInstrument,
   MathematicalInstrumentId,
 } from "../../engine/audio/mathematicalInstruments"
-import type { MiMIDIPluginStateMap } from "../../engine/plugins/pluginModel"
+import type { MiMIDIPluginStateMap } from "../../domain/plugins/pluginContracts"
 
 export function useLabInstrumentCatalog(
   selectedInstrumentId: MathematicalInstrumentId,

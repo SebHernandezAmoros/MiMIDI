@@ -4,13 +4,20 @@ import { deleteSampleSlotWithRepository } from "../deleteSampleSlot"
 import { importSampleFileWithDependencies } from "../importSampleFile"
 import { loadSampleAudioBufferWithDependencies } from "../loadSampleAudioBuffer"
 import { playSamplerMixesWithDependencies } from "../playSamplerMixes"
+import {
+  loadPluginClipWithDependencies,
+  processPluginAudioOutputWithDependencies,
+  storePluginClipWithDependencies,
+} from "../pluginAudioOutputs"
 import { finalizeMicRecordingWithDependencies } from "../recordMicSample"
 import { scheduleAudioClipTracksWithDependencies } from "../scheduleAudioClipTracks"
 import { sendSamplerMixToTimelineWithRepository } from "../sendSamplerMixToTimeline"
 import {
+  clearSampleSlotsWithRepositories,
   loadSampleSlotsWithRepository,
   saveSampleSlotsWithRepository,
 } from "../sampleSlots"
+import { NUM_SAMPLE_SLOTS } from "../../ports/SampleSlotRepository"
 import { createDefaultProject } from "../../../engine/project/projectModel"
 import type { ProjectRepository } from "../../ports/ProjectRepository"
 
@@ -59,6 +66,265 @@ describe("sample use-cases", () => {
     saveSampleSlotsWithRepository(repository, slots)
 
     expect(repository.saveSlots).toHaveBeenCalledWith(slots)
+  })
+
+  it("clears sample slots and deletes the stored buffers for occupied slots", async () => {
+    const samples = createSampleRepository()
+    const sampleSlots = {
+      loadSlots: vi.fn().mockReturnValue([
+        {
+          calibration: {
+            fadeIn: 0,
+            fadeOut: 0,
+            gain: 1,
+            trimEnd: 1,
+            trimStart: 0,
+            tune: 0,
+          },
+          channels: 1,
+          dbId: "slot-kick",
+          duration: 1,
+          index: 0,
+          name: "Kick",
+          sampleRate: 44100,
+        },
+        null,
+        {
+          calibration: {
+            fadeIn: 0,
+            fadeOut: 0,
+            gain: 1,
+            trimEnd: 1,
+            trimStart: 0,
+            tune: 0,
+          },
+          channels: 1,
+          dbId: "slot-snare",
+          duration: 1,
+          index: 2,
+          name: "Snare",
+          sampleRate: 44100,
+        },
+      ]),
+      saveSlots: vi.fn(),
+    }
+
+    await clearSampleSlotsWithRepositories({ sampleSlots, samples })
+
+    expect(samples.delete).toHaveBeenCalledTimes(2)
+    expect(samples.delete).toHaveBeenNthCalledWith(1, "slot-kick")
+    expect(samples.delete).toHaveBeenNthCalledWith(2, "slot-snare")
+    expect(sampleSlots.saveSlots).toHaveBeenCalledWith(
+      Array<null>(NUM_SAMPLE_SLOTS).fill(null),
+    )
+  })
+
+  it("stores plugin clips and returns the generated db id", async () => {
+    const data = new TextEncoder().encode("plugin clip").buffer
+    const blob = {
+      arrayBuffer: vi.fn().mockResolvedValue(data),
+    } as unknown as Blob
+    const samples = createSampleRepository()
+
+    const dbId = await storePluginClipWithDependencies(
+      {
+        createClipId: vi.fn().mockReturnValue("plugin-clip-fixed"),
+        samples,
+      },
+      blob,
+    )
+
+    expect(dbId).toBe("plugin-clip-fixed")
+    expect(samples.save).toHaveBeenCalledWith("plugin-clip-fixed", data)
+  })
+
+  it("loads plugin clips as WebM blobs", async () => {
+    const data = new TextEncoder().encode("plugin clip").buffer
+    const samples = createSampleRepository({
+      load: vi.fn().mockResolvedValue(data),
+    })
+
+    const blob = await loadPluginClipWithDependencies({ samples }, "clip-1")
+
+    expect(samples.load).toHaveBeenCalledWith("clip-1")
+    expect(blob).toBeInstanceOf(Blob)
+    expect(blob?.type).toBe("audio/webm")
+    expect(await blob?.arrayBuffer()).toEqual(data)
+  })
+
+  it("returns null when a plugin clip is missing", async () => {
+    const samples = createSampleRepository({
+      load: vi.fn().mockResolvedValue(null),
+    })
+
+    await expect(
+      loadPluginClipWithDependencies({ samples }, "missing"),
+    ).resolves.toBeNull()
+  })
+
+  it("sends plugin audio outputs to the project without duplicating stored blobs", async () => {
+    const blob = {
+      arrayBuffer: vi.fn(),
+    } as unknown as Blob
+    const samples = createSampleRepository()
+
+    const result = await processPluginAudioOutputWithDependencies(
+      {
+        createAudioId: vi.fn().mockReturnValue("unused"),
+        decodeAudioData: vi.fn(),
+        sampleSlots: { loadSlots: vi.fn(), saveSlots: vi.fn() },
+        samples,
+      },
+      {
+        blob,
+        dbId: "existing-plugin-audio",
+        destination: "project",
+        duration: 2,
+        name: "Plugin take",
+        type: "audio",
+      },
+    )
+
+    expect(blob.arrayBuffer).not.toHaveBeenCalled()
+    expect(samples.save).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      dbId: "existing-plugin-audio",
+      duration: 2,
+      name: "Plugin take",
+      type: "project-track",
+    })
+  })
+
+  it("saves plugin audio outputs before sending new audio to the project", async () => {
+    const data = new TextEncoder().encode("project audio").buffer
+    const blob = {
+      arrayBuffer: vi.fn().mockResolvedValue(data),
+    } as unknown as Blob
+    const samples = createSampleRepository()
+
+    const result = await processPluginAudioOutputWithDependencies(
+      {
+        createAudioId: vi.fn().mockReturnValue("new-plugin-audio"),
+        decodeAudioData: vi.fn(),
+        sampleSlots: { loadSlots: vi.fn(), saveSlots: vi.fn() },
+        samples,
+      },
+      {
+        blob,
+        destination: "project",
+        duration: 2,
+        name: "Plugin take",
+        type: "audio",
+      },
+    )
+
+    expect(samples.save).toHaveBeenCalledWith("new-plugin-audio", data)
+    expect(result).toMatchObject({
+      dbId: "new-plugin-audio",
+      type: "project-track",
+    })
+  })
+
+  it("places plugin audio outputs in the first empty sampler slot", async () => {
+    const data = new TextEncoder().encode("sampler audio").buffer
+    const blob = {
+      arrayBuffer: vi.fn().mockResolvedValue(data),
+    } as unknown as Blob
+    const audioBuffer = {
+      duration: 1.5,
+      numberOfChannels: 2,
+      sampleRate: 48000,
+    } as AudioBuffer
+    const samples = createSampleRepository()
+    const sampleSlots = {
+      loadSlots: vi.fn().mockReturnValue([null, null]),
+      saveSlots: vi.fn(),
+    }
+
+    const result = await processPluginAudioOutputWithDependencies(
+      {
+        createAudioId: vi.fn().mockReturnValue("sampler-plugin-audio"),
+        decodeAudioData: vi.fn().mockResolvedValue(audioBuffer),
+        sampleSlots,
+        samples,
+      },
+      {
+        blob,
+        destination: "sampler",
+        duration: 1.5,
+        name: "Sampler take",
+        type: "audio",
+      },
+    )
+
+    expect(samples.save).toHaveBeenCalledWith("sampler-plugin-audio", data)
+    expect(sampleSlots.saveSlots).toHaveBeenCalledWith([
+      expect.objectContaining({
+        channels: 2,
+        dbId: "sampler-plugin-audio",
+        duration: 1.5,
+        index: 1,
+        name: "Sampler take",
+        sampleRate: 48000,
+      }),
+      null,
+    ])
+    expect(result).toEqual({ type: "sampler-slot" })
+  })
+
+  it("returns a download when plugin audio targets the sampler and no slot is empty", async () => {
+    const data = new TextEncoder().encode("sampler audio").buffer
+    const blob = {
+      arrayBuffer: vi.fn().mockResolvedValue(data),
+    } as unknown as Blob
+    const samples = createSampleRepository()
+    const sampleSlots = {
+      loadSlots: vi.fn().mockReturnValue([
+        {
+          calibration: {
+            fadeIn: 0,
+            fadeOut: 0,
+            gain: 1,
+            trimEnd: 1,
+            trimStart: 0,
+            tune: 0,
+          },
+          channels: 1,
+          dbId: "occupied",
+          duration: 1,
+          index: 1,
+          name: "Occupied",
+          sampleRate: 44100,
+        },
+      ]),
+      saveSlots: vi.fn(),
+    }
+
+    const result = await processPluginAudioOutputWithDependencies(
+      {
+        createAudioId: vi.fn().mockReturnValue("sampler-plugin-audio"),
+        decodeAudioData: vi.fn().mockResolvedValue({
+          duration: 1,
+          numberOfChannels: 1,
+          sampleRate: 44100,
+        } as AudioBuffer),
+        sampleSlots,
+        samples,
+      },
+      {
+        blob,
+        destination: "sampler",
+        duration: 1,
+        name: "Sampler take",
+        type: "audio",
+      },
+    )
+
+    expect(sampleSlots.saveSlots).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      fileName: "Sampler take.webm",
+      type: "download",
+    })
   })
 
   it("adds sampler mixes to the stored project through a project repository", () => {
