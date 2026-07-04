@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import type { ADSREnvelope } from "../../engine/audio/audioEngine"
+import type { ADSREnvelope } from "../../engine/audio/audioTypes"
 import type { MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
 import {
   createMidiRecordedNote,

@@ -143,3 +143,19 @@ export function clearLabActiveStepsTrackIdWithRepository(
 ): void {
   repository.remove(LAB_VIEW_PREFERENCE_KEYS.seqActiveStepsTrack)
 }
+
+export function resetLabProjectViewPreferencesWithRepository(
+  repository: SettingsRepository,
+  {
+    clearActiveStepsTrack,
+    resetPianoViewMode,
+  }: {
+    clearActiveStepsTrack: () => void
+    resetPianoViewMode: () => void
+  },
+): void {
+  resetPianoViewMode()
+  saveLabPianoViewModeWithRepository(repository, "keys")
+  clearActiveStepsTrack()
+  clearLabActiveStepsTrackIdWithRepository(repository)
+}

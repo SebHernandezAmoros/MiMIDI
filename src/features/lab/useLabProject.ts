@@ -1,4 +1,3 @@
-import type { ChangeEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { saveFile } from "../../application/use-cases/saveFile"
 import { createProjectAudioExport } from "../../application/use-cases/projectAudioTransfer"
@@ -17,68 +16,17 @@ import {
   saveProjectSession,
 } from "../../application/use-cases/projectSessionPersistence"
 import {
-  resolveInitialActiveTrackId,
-  resolveFirstProjectActiveTrackId,
   resolvePrimaryTrack,
   resolveSelectedRecordedNote,
 } from "../../application/use-cases/projectSelection"
-import type { ADSREnvelope } from "../../engine/audio/audioEngine"
 import type { MathematicalInstrument, MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
-import { isSmcPadRecordedNote } from "../../engine/midi/events"
 import {
-  clearAllTrackNotes,
-  compactTrackNotesStart,
   createProjectTrack,
-  duplicateMidiClip,
-  duplicateSamplerClip,
-  getActiveClip,
-  getMidiTrackNotes,
   getMidiTracks,
-  getProjectTrackTimelineLength,
-  getSamplerTracks,
-  getTrackNoteTimelineContentLength,
-  getTrackNoteTimelineLength,
-  getTracksTimelineLength,
-  getTrackVolumeAutomationValue,
-  isTrackAudible,
-  removeMidiClip,
-  removeSamplerClip,
-  renameProject,
-  renameTrack,
   resetProject,
-  updateAudioClipStartTime,
-  updateAudioClipTrackMuted,
-  updateMidiClipStartTime,
-  updateNoteInTrack,
   updateProjectPluginEnabled,
-  updateProjectTrackTimelineDuration,
-  updateSamplerClipStartTime,
-  updateSamplerTrackMuted,
-  updateSamplerTrackSolo,
-  updateTrackEnvelope,
-  updateTrackInstrument,
-  updateTrackMuted,
-  updateTrackNoteTimelineDuration,
-  updateTrackPan,
-  updateTrackSolo,
-  updateTrackVolumeAutomation,
-  updateTrackVolume,
-  type MusicalProject,
-  type TrackVolumeAutomation,
 } from "../../engine/project/projectModel"
 import { findRegisteredPluginByInstrumentId, getRegisteredPluginSummaries, subscribeToPluginRegistry } from "../../engine/plugins/pluginRegistry"
-import { useProjectHistory } from "../history/useProjectHistory"
-import {
-  resolveRedoProjectHistoryAction,
-  resolveUndoProjectHistoryAction,
-} from "../project-session/projectSessionHistory"
-import {
-  resolveRecordedNoteDuplication,
-  resolveRecordedNoteRemoval,
-  resolveRecordedNoteRevertToLastCommit,
-  resolveRecordedNoteSafePatch,
-  resolveRecordedNoteUpdateBlock,
-} from "../project-session/projectSessionNoteEditing"
 import { resolveTrackCreation } from "../project-session/projectSessionTrackCreation"
 import {
   resolveActiveTrackRemoval,
@@ -86,21 +34,31 @@ import {
   resolveStepsTrackRemoval,
 } from "../project-session/projectSessionTrackRemoval"
 import {
-  formatAudioExportFailedMessage,
-  formatAudioExportedMessage,
-  formatBundleExportFailedMessage,
-  formatBundleExportedMessage,
-  formatBundleImportFailedMessage,
-  formatBundlePackagingMessage,
-  formatJsonExportedMessage,
-  formatJsonImportFailedMessage,
-  formatOfflineAudioUnsupportedMessage,
   formatPluginEnabledMessage,
-  formatProjectImportedMessage,
-  formatProjectImportingMessage,
-  formatProjectRestartedMessage,
-  formatSessionClearedMessage,
 } from "../project-session/projectSessionMessages"
+import { resolveInstrumentIdByCategory } from "../project-session/projectSessionInstrumentSelection"
+import { resolveActiveTrackIdAfterTrackListChange } from "../project-session/projectSessionTrackSelection"
+import { useProjectAudioClipTrackMixEditing } from "../project-session/useProjectAudioClipTrackMixEditing"
+import { useProjectAudioTransfer } from "../project-session/useProjectAudioTransfer"
+import { useProjectClipDuplication } from "../project-session/useProjectClipDuplication"
+import { useProjectClipRemoval } from "../project-session/useProjectClipRemoval"
+import { useProjectClipStartTimeEditing } from "../project-session/useProjectClipStartTimeEditing"
+import { useProjectBundleTransfer } from "../project-session/useProjectBundleTransfer"
+import { useProjectHistoryController } from "../project-session/useProjectHistoryController"
+import { useProjectJsonTransfer } from "../project-session/useProjectJsonTransfer"
+import { useProjectMetadataEditing } from "../project-session/useProjectMetadataEditing"
+import { useProjectMessages } from "../project-session/useProjectMessages"
+import { useProjectNoteEditing } from "../project-session/useProjectNoteEditing"
+import { useProjectPrimaryTrackMixEditing } from "../project-session/useProjectPrimaryTrackMixEditing"
+import { useProjectPrimaryTrackSoundEditing } from "../project-session/useProjectPrimaryTrackSoundEditing"
+import { useProjectPersistenceSync } from "../project-session/useProjectPersistenceSync"
+import { useProjectSelection } from "../project-session/useProjectSelection"
+import { useProjectSessionLifecycle } from "../project-session/useProjectSessionLifecycle"
+import { useProjectSamplerTrackMixEditing } from "../project-session/useProjectSamplerTrackMixEditing"
+import { useProjectSessionState } from "../project-session/useProjectSessionState"
+import { useProjectTrackSelection } from "../project-session/useProjectTrackSelection"
+import { useProjectTimelineDurationEditing } from "../project-session/useProjectTimelineDurationEditing"
+import { useProjectTimelineReadModel } from "../project-session/useProjectTimelineReadModel"
 
 export type LabAppMode =
   | "full"
@@ -111,7 +69,6 @@ export type LabAppMode =
   | "plugin-workspace"
   | "sampler-only"
 
-const HISTORY_LIMIT = 20
 const EMPTY_MIDI_TRACK = createProjectTrack(0)
 
 function getInitialProject() {
@@ -120,10 +77,6 @@ function getInitialProject() {
 
 function getInitialProjectMessage() {
   return getProjectSessionRestoreMessage()
-}
-
-function areProjectsEquivalent(a: MusicalProject, b: MusicalProject) {
-  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 type UseLabProjectOptions = {
@@ -137,18 +90,24 @@ export function useLabProject({
   timelineSnapEnabled,
   timelineSnapStep,
 }: UseLabProjectOptions) {
-  const [activeTrackId, setActiveTrackId] = useState(() => {
-    return resolveInitialActiveTrackId(getInitialProject(), mode)
+  const {
+    activeTrackId,
+    selectedRecordedNoteId,
+    setActiveTrackId,
+    setSelectedRecordedNoteId,
+  } = useProjectSelection({
+    loadInitialProject: getInitialProject,
+    mode,
   })
-  const [selectedRecordedNoteId, setSelectedRecordedNoteId] = useState<string | null>(null)
-  const [projectMessage, setProjectMessage] = useState(getInitialProjectMessage)
-  const [isExportingAudio, setIsExportingAudio] = useState(false)
+  const { projectMessage, setProjectMessage } = useProjectMessages(
+    getInitialProjectMessage,
+  )
   const [isTrackRemovalConfirmOpen, setIsTrackRemovalConfirmOpen] = useState(false)
   const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false)
   const [isNewProjectConfirmOpen, setIsNewProjectConfirmOpen] = useState(false)
 
   const {
-    state: project,
+    project,
     undoStack,
     canUndo,
     canRedo,
@@ -158,10 +117,7 @@ export function useLabProject({
     undo,
     redo,
     replaceState,
-  } = useProjectHistory<MusicalProject>(getInitialProject(), {
-    isEqual: areProjectsEquivalent,
-    limit: HISTORY_LIMIT,
-  })
+  } = useProjectSessionState(getInitialProject())
 
   const undoActionRef = useRef<() => void>(() => {})
   const redoActionRef = useRef<() => void>(() => {})
@@ -184,15 +140,20 @@ export function useLabProject({
     percussionTracks,
   })
 
-  const allRecordedNotes = midiTracks
-    .filter((t) => t.trackType !== "steps")
-    .flatMap((track) => getMidiTrackNotes(track))
-  const projectTrackTimelineLength = getProjectTrackTimelineLength(project)
-  const primaryTrackNoteTimelineLength = getTrackNoteTimelineLength(primaryTrack)
-  const primaryTrackNotes = getMidiTrackNotes(primaryTrack)
-  const activeClip = getActiveClip(primaryTrack)
-  const noteCount = primaryTrackNotes.length
-  const isPrimaryTrackAudible = isTrackAudible(primaryTrack, midiTracks)
+  const {
+    activeClip,
+    allRecordedNotes,
+    getTrackAutomationVolumeAtTime,
+    isPrimaryTrackAudible,
+    noteCount,
+    primaryTrackNoteTimelineLength,
+    primaryTrackNotes,
+    projectTrackTimelineLength,
+  } = useProjectTimelineReadModel({
+    midiTracks,
+    primaryTrack,
+    project,
+  })
   const selectedRecordedNote = resolveSelectedRecordedNote(
     primaryTrack,
     selectedRecordedNoteId,
@@ -207,37 +168,21 @@ export function useLabProject({
     [project.pluginStates, pluginRegistryVersion],
   )
 
-  let selectedNoteHistoryStatus: "modificada" | "sin-cambios" | null = null
-  if (selectedRecordedNoteId && selectedRecordedNote) {
-    const latestSnapshot = undoStack.at(-1)
-    if (!latestSnapshot) {
-      selectedNoteHistoryStatus = "sin-cambios"
-    } else {
-      const snapshotTrack = getMidiTracks(latestSnapshot.timeline).find(
-        (t) => t.id === primaryTrack.id,
-      )
-      const snapshotNote = snapshotTrack
-        ? getMidiTrackNotes(snapshotTrack).find((n) => n.id === selectedRecordedNoteId)
-        : undefined
-      selectedNoteHistoryStatus =
-        !snapshotNote ||
-        snapshotNote.startTime !== selectedRecordedNote.startTime ||
-        snapshotNote.duration !== selectedRecordedNote.duration
-          ? "modificada"
-          : "sin-cambios"
-    }
-  }
-
   // ── Effects ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    saveProjectSession(project)
-  }, [project])
+  useProjectPersistenceSync({
+    project,
+    saveProjectSession,
+  })
 
   useEffect(() => {
     const tracks = getMidiTracks(project.timeline)
-    if (tracks.length > 0 && !tracks.some((t) => t.id === activeTrackId)) {
+    const nextActiveTrackId = resolveActiveTrackIdAfterTrackListChange({
+      currentTrackId: activeTrackId,
+      tracks,
+    })
+    if (nextActiveTrackId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveTrackId(tracks[0].id)
+      setActiveTrackId(nextActiveTrackId)
     }
   }, [project.timeline, activeTrackId])
 
@@ -268,27 +213,16 @@ export function useLabProject({
   }, [])
 
   // ── Utility ─────────────────────────────────────────────────────────────────
-  function getTrackAutomationVolumeAtTime(time: number) {
-    return getTrackVolumeAutomationValue(primaryTrack.volumeAutomation, time)
-  }
-
   // ── Track selection ──────────────────────────────────────────────────────────
-  function switchActiveTrack(trackId: string) {
-    setActiveTrackId(trackId)
-    setSelectedRecordedNoteId(null)
-  }
-
-  function switchTrackByOffset(offset: -1 | 1) {
-    const tracks = mode === "perform-only" ? melodicTracks : midiTracks
-    const currentIndex = tracks.findIndex((track) => track.id === primaryTrack.id)
-    if (currentIndex < 0) {
-      if (tracks[0]) switchActiveTrack(tracks[0].id)
-      return
-    }
-    const nextTrack = tracks[currentIndex + offset]
-    if (!nextTrack) return
-    switchActiveTrack(nextTrack.id)
-  }
+  const {
+    switchActiveTrack,
+    switchTrackByOffset,
+  } = useProjectTrackSelection({
+    currentTrackId: primaryTrack.id,
+    setActiveTrackId,
+    setSelectedRecordedNoteId,
+    tracks: mode === "perform-only" ? melodicTracks : midiTracks,
+  })
 
   // ── Track management ─────────────────────────────────────────────────────────
   function addTrack() {
@@ -383,25 +317,21 @@ export function useLabProject({
   }
 
   // ── Track properties ─────────────────────────────────────────────────────────
-  function updateProjectName(name: string) {
-    applyUpdate((p) => renameProject(p, name.trim() || "MiMIDI Project"))
-  }
-
-  function updateTrackName(name: string) {
-    applyUpdate((p) => renameTrack(p, primaryTrack.id, name.trim() || "Track 1"))
-  }
-
-  function updateTrackInstrumentId(instrumentId: MathematicalInstrumentId) {
-    applyUpdate((p) => updateTrackInstrument(p, primaryTrack.id, instrumentId))
-  }
+  const {
+    updateProjectName,
+    updateTrackName,
+  } = useProjectMetadataEditing({
+    applyUpdate,
+    primaryTrack,
+  })
 
   function updateTrackInstrumentCategory(
     category: MathematicalInstrument["category"],
     availableInstruments: MathematicalInstrument[],
   ) {
-    const nextInstrument = availableInstruments.find((i) => i.category === category)
-    if (!nextInstrument) return
-    updateTrackInstrumentId(nextInstrument.id)
+    const instrumentId = resolveInstrumentIdByCategory(category, availableInstruments)
+    if (!instrumentId) return
+    updateTrackInstrumentId(instrumentId)
   }
 
   function updatePluginEnabled(pluginId: string, enabled: boolean) {
@@ -411,292 +341,109 @@ export function useLabProject({
     setProjectMessage(formatPluginEnabledMessage(pluginName, enabled))
   }
 
-  function updatePrimaryTrackEnvelope(parameter: keyof ADSREnvelope, value: number) {
-    if (!Number.isFinite(value)) return
-    const nextValue =
-      parameter === "sustain"
-        ? Math.min(Math.max(value, 0), 1)
-        : Math.min(Math.max(value, 0.001), 2)
-    applyUpdate((p) => updateTrackEnvelope(p, primaryTrack.id, { [parameter]: nextValue }))
-  }
+  const {
+    togglePrimaryTrackMuted,
+    togglePrimaryTrackSolo,
+    updatePrimaryTrackPan,
+    updatePrimaryTrackVolume,
+    updatePrimaryTrackVolumeAutomation,
+  } = useProjectPrimaryTrackMixEditing({
+    applyUpdate,
+    primaryTrack,
+  })
 
-  function updatePrimaryTrackVolume(value: number) {
-    if (!Number.isFinite(value)) return
-    applyUpdate((p) => updateTrackVolume(p, primaryTrack.id, Math.min(Math.max(value, 0), 1.5)))
-  }
-
-  function updatePrimaryTrackPan(value: number) {
-    if (!Number.isFinite(value)) return
-    applyUpdate((p) => updateTrackPan(p, primaryTrack.id, value))
-  }
-
-  function togglePrimaryTrackMuted() {
-    applyUpdate((p) => updateTrackMuted(p, primaryTrack.id, !primaryTrack.muted))
-  }
-
-  function togglePrimaryTrackSolo() {
-    applyUpdate((p) => updateTrackSolo(p, primaryTrack.id, !primaryTrack.solo))
-  }
-
-  function updatePrimaryTrackVolumeAutomation(automation: TrackVolumeAutomation) {
-    applyUpdate((p) => updateTrackVolumeAutomation(p, primaryTrack.id, automation))
-  }
+  const {
+    updatePrimaryTrackEnvelope,
+    updateTrackInstrumentId,
+  } = useProjectPrimaryTrackSoundEditing({
+    applyUpdate,
+    primaryTrack,
+  })
 
   // ── Note editing ─────────────────────────────────────────────────────────────
-  function selectRecordedNote(noteId: string) {
-    setSelectedRecordedNoteId(noteId)
-  }
-
-  function removeRecordedNote(noteId: string) {
-    const removalResult: {
-      current: ReturnType<typeof resolveRecordedNoteRemoval> | null
-    } = {
-      current: null,
-    }
-    applyUpdate((currentProject) => {
-      removalResult.current = resolveRecordedNoteRemoval({
-        noteId,
-        project: currentProject,
-        selectedRecordedNoteId,
-        trackId: primaryTrack.id,
-        trackName: primaryTrack.name,
-      })
-      return removalResult.current.project
-    })
-    if (!removalResult.current) return
-    setSelectedRecordedNoteId(removalResult.current.selectedRecordedNoteId)
-    setProjectMessage(removalResult.current.message)
-  }
-
-  function updateRecordedNote(
-    noteId: string,
-    patch: Partial<{ startTime: number; duration: number }>,
-    historyMode: "transient" | "commit" = "commit",
-  ) {
-    const noteToUpdate = primaryTrackNotes.find((note) => note.id === noteId)
-    if (!noteToUpdate) return
-
-    const updateBlock = resolveRecordedNoteUpdateBlock({
-      historyMode,
-      isDurationUpdate: typeof patch.duration === "number",
-      isSmcPadNote: isSmcPadRecordedNote(noteToUpdate),
-    })
-    if (updateBlock.blocked) {
-      if (updateBlock.message) setProjectMessage(updateBlock.message)
-      return
-    }
-
-    const safePatch = resolveRecordedNoteSafePatch({
-      patch,
-      timelineSnapEnabled,
-      timelineSnapStep,
-    })
-
-    if (historyMode === "transient") {
-      applyTransientUpdate((p) => updateNoteInTrack(p, primaryTrack.id, noteId, safePatch))
-      return
-    }
-    commitTransientUpdate((p) => updateNoteInTrack(p, primaryTrack.id, noteId, safePatch))
-  }
-
-  function duplicateSelectedRecordedNote() {
-    if (!selectedRecordedNote) return
-    const duplicationResult: {
-      current: ReturnType<typeof resolveRecordedNoteDuplication> | null
-    } = {
-      current: null,
-    }
-    applyUpdate((currentProject) => {
-      duplicationResult.current = resolveRecordedNoteDuplication({
-        noteId: selectedRecordedNote.id,
-        offsetSeconds: timelineSnapEnabled ? timelineSnapStep : 0.05,
-        project: currentProject,
-        trackId: primaryTrack.id,
-        trackName: primaryTrack.name,
-      })
-      return duplicationResult.current.project
-    })
-    if (!duplicationResult.current) return
-    setProjectMessage(duplicationResult.current.message)
-  }
-
-  function revertSelectedNoteToLastCommit() {
-    if (!selectedRecordedNote) return
-    const revertResult = resolveRecordedNoteRevertToLastCommit({
-      currentNote: selectedRecordedNote,
-      project,
-      snapshots: undoStack,
-      trackId: primaryTrack.id,
-      trackName: primaryTrack.name,
-    })
-    if (revertResult.applied) {
-      applyUpdate(() => revertResult.project)
-    }
-    setProjectMessage(revertResult.message)
-  }
-
-  function updateSelectedNoteStartTime(value: number) {
-    if (!selectedRecordedNote) return
-    updateRecordedNote(selectedRecordedNote.id, { startTime: Number.isFinite(value) ? value : 0 })
-  }
-
-  function updateSelectedNoteDuration(value: number) {
-    if (!selectedRecordedNote) return
-    const updateBlock = resolveRecordedNoteUpdateBlock({
-      historyMode: "commit",
-      isDurationUpdate: true,
-      isSmcPadNote: isSmcPadRecordedNote(selectedRecordedNote),
-    })
-    if (updateBlock.blocked) {
-      if (updateBlock.message) setProjectMessage(updateBlock.message)
-      return
-    }
-    updateRecordedNote(selectedRecordedNote.id, { duration: Number.isFinite(value) ? value : 0.01 })
-  }
+  const {
+    duplicateSelectedRecordedNote,
+    removeRecordedNote,
+    revertSelectedNoteToLastCommit,
+    selectRecordedNote,
+    selectedNoteHistoryStatus,
+    updateRecordedNote,
+    updateSelectedNoteDuration,
+    updateSelectedNoteStartTime,
+  } = useProjectNoteEditing({
+    applyTransientUpdate,
+    applyUpdate,
+    commitTransientUpdate,
+    primaryTrack,
+    primaryTrackNotes,
+    project,
+    selectedRecordedNote,
+    selectedRecordedNoteId,
+    setProjectMessage,
+    setSelectedRecordedNoteId,
+    timelineSnapEnabled,
+    timelineSnapStep,
+    undoStack,
+  })
 
   // ── Clip handlers ────────────────────────────────────────────────────────────
-  function updateMidiClipStartTimeHandler(
-    trackId: string,
-    clipId: string,
-    startTime: number,
-    historyMode: "transient" | "commit" = "commit",
-  ) {
-    const quantize = (value: number) =>
-      timelineSnapEnabled ? Math.round(value / timelineSnapStep) * timelineSnapStep : value
-    const safeStartTime = Math.max(0, quantize(startTime))
-    if (historyMode === "transient") {
-      applyTransientUpdate((p) => updateMidiClipStartTime(p, trackId, clipId, safeStartTime))
-      return
-    }
-    commitTransientUpdate((p) => updateMidiClipStartTime(p, trackId, clipId, safeStartTime))
-  }
+  const {
+    updateAudioClipStartTimeHandler,
+    updateMidiClipStartTimeHandler,
+    updateSamplerClipStartTimeHandler,
+  } = useProjectClipStartTimeEditing({
+    applyTransientUpdate,
+    commitTransientUpdate,
+    timelineSnapEnabled,
+    timelineSnapStep,
+  })
 
-  function updateSamplerClipStartTimeHandler(
-    trackId: string,
-    clipId: string,
-    startTime: number,
-    historyMode: "transient" | "commit" = "commit",
-  ) {
-    const snapped = timelineSnapEnabled
-      ? Math.max(0, Math.round(startTime / timelineSnapStep) * timelineSnapStep)
-      : Math.max(0, startTime)
-    if (historyMode === "transient") {
-      applyTransientUpdate((p) => updateSamplerClipStartTime(p, trackId, clipId, snapped))
-    } else {
-      commitTransientUpdate((p) => updateSamplerClipStartTime(p, trackId, clipId, snapped))
-    }
-  }
+  const {
+    duplicateMidiClipHandler,
+    duplicateSamplerClipHandler,
+  } = useProjectClipDuplication({ applyUpdate })
 
-  function duplicateMidiClipHandler(trackId: string, clipId: string) {
-    applyUpdate((p) => duplicateMidiClip(p, trackId, clipId))
-  }
+  const {
+    removeMidiClipHandler,
+    removeSamplerClipHandler,
+  } = useProjectClipRemoval({ applyUpdate })
 
-  function duplicateSamplerClipHandler(trackId: string, clipId: string) {
-    applyUpdate((p) => duplicateSamplerClip(p, trackId, clipId))
-  }
+  const {
+    updateAudioClipTrackMutedHandler,
+  } = useProjectAudioClipTrackMixEditing({ applyUpdate })
 
-  function removeMidiClipHandler(trackId: string, clipId: string) {
-    applyUpdate((p) => removeMidiClip(p, trackId, clipId))
-  }
-
-  function removeSamplerClipHandler(trackId: string, clipId: string) {
-    applyUpdate((p) => removeSamplerClip(p, trackId, clipId))
-  }
-
-  function updateAudioClipStartTimeHandler(
-    trackId: string,
-    clipId: string,
-    startTime: number,
-    historyMode: "transient" | "commit" = "commit",
-  ) {
-    const snapped = timelineSnapEnabled
-      ? Math.max(0, Math.round(startTime / timelineSnapStep) * timelineSnapStep)
-      : Math.max(0, startTime)
-    if (historyMode === "transient") {
-      applyTransientUpdate((p) => updateAudioClipStartTime(p, trackId, clipId, snapped))
-    } else {
-      commitTransientUpdate((p) => updateAudioClipStartTime(p, trackId, clipId, snapped))
-    }
-  }
-
-  function updateAudioClipTrackMutedHandler(trackId: string, muted: boolean) {
-    applyUpdate((p) => updateAudioClipTrackMuted(p, trackId, muted))
-  }
-
-  function updateSamplerTrackMutedHandler(trackId: string, muted: boolean) {
-    applyUpdate((p) => updateSamplerTrackMuted(p, trackId, muted))
-  }
-
-  function updateSamplerTrackSoloHandler(trackId: string, solo: boolean) {
-    applyUpdate((p) => updateSamplerTrackSolo(p, trackId, solo))
-  }
+  const {
+    updateSamplerTrackMutedHandler,
+    updateSamplerTrackSoloHandler,
+  } = useProjectSamplerTrackMixEditing({ applyUpdate })
 
   // ── Timeline duration ────────────────────────────────────────────────────────
-  function updateProjectTrackTimelineDurationValue(value: number) {
-    if (!Number.isFinite(value)) return
-    applyUpdate((p) => updateProjectTrackTimelineDuration(p, value))
-  }
-
-  function resetProjectTrackTimelineDuration() {
-    applyUpdate((p) => updateProjectTrackTimelineDuration(p, getTracksTimelineLength(p.timeline)))
-    setProjectMessage("Duracion del timeline ajustada al contenido.")
-  }
-
-  function updatePrimaryTrackNoteTimelineDurationValue(value: number) {
-    if (!Number.isFinite(value)) return
-    applyUpdate((p) => updateTrackNoteTimelineDuration(p, primaryTrack.id, value))
-  }
-
-  function resetPrimaryTrackNoteTimelineDuration() {
-    applyUpdate((p) =>
-      updateTrackNoteTimelineDuration(p, primaryTrack.id, (() => {
-        const currentTrack =
-          getMidiTracks(p.timeline).find((track) => track.id === primaryTrack.id) ?? primaryTrack
-        return getTrackNoteTimelineContentLength(currentTrack)
-      })()),
-    )
-    setProjectMessage(`Duracion del timeline de notas ajustada al contenido de ${primaryTrack.name}.`)
-  }
-
-  function compactPrimaryTrackNoteTimelineStart() {
-    if (!activeClip || activeClip.notes.length === 0) {
-      setProjectMessage(`No hay notas en ${primaryTrack.name} para compactar.`)
-      return
-    }
-    const earliestStartTime = activeClip.notes.reduce(
-      (min, note) => Math.min(min, note.startTime),
-      Number.POSITIVE_INFINITY,
-    )
-    if (!Number.isFinite(earliestStartTime) || earliestStartTime <= 0) {
-      setProjectMessage(`Las notas de ${primaryTrack.name} ya empiezan en 0s.`)
-      return
-    }
-    applyUpdate((p) => compactTrackNotesStart(p, primaryTrack.id))
-    setProjectMessage(`Inicio del timeline de notas compactado en ${primaryTrack.name}.`)
-  }
+  const {
+    compactPrimaryTrackNoteTimelineStart,
+    resetPrimaryTrackNoteTimelineDuration,
+    resetProjectTrackTimelineDuration,
+    updatePrimaryTrackNoteTimelineDurationValue,
+    updateProjectTrackTimelineDurationValue,
+  } = useProjectTimelineDurationEditing({
+    applyUpdate,
+    primaryTrackId: primaryTrack.id,
+    primaryTrackName: primaryTrack.name,
+    primaryTrackNotes,
+    setProjectMessage,
+  })
 
   // ── Undo / Redo ──────────────────────────────────────────────────────────────
-  function undoProjectEdit() {
-    const result = resolveUndoProjectHistoryAction(undo(), activeTrackId)
-    if (!result.applied) {
-      setProjectMessage(result.message)
-      return
-    }
-    setSelectedRecordedNoteId(null)
-    setActiveTrackId(result.activeTrackId)
-    setProjectMessage(result.message)
-  }
-
-  function redoProjectEdit() {
-    const result = resolveRedoProjectHistoryAction(redo(), activeTrackId)
-    if (!result.applied) {
-      setProjectMessage(result.message)
-      return
-    }
-    setSelectedRecordedNoteId(null)
-    setActiveTrackId(result.activeTrackId)
-    setProjectMessage(result.message)
-  }
+  const {
+    redoProjectEdit,
+    undoProjectEdit,
+  } = useProjectHistoryController({
+    activeTrackId,
+    redo,
+    setActiveTrackId,
+    setProjectMessage,
+    setSelectedRecordedNoteId,
+    undo,
+  })
 
   useEffect(() => {
     undoActionRef.current = undoProjectEdit
@@ -704,94 +451,64 @@ export function useLabProject({
   })
 
   // ── Session management ───────────────────────────────────────────────────────
-  function clearSession() {
-    applyUpdate((p) => clearAllTrackNotes(p))
-    setSelectedRecordedNoteId(null)
-    setProjectMessage(formatSessionClearedMessage())
-  }
-
-  async function restartProject() {
-    await clearSampleSlots()
-    applyUpdate((p) => resetProject(p))
-    setActiveTrackId("track-1")
-    setSelectedRecordedNoteId(null)
-    setProjectMessage(formatProjectRestartedMessage())
-  }
+  const {
+    clearSession,
+    restartProject,
+  } = useProjectSessionLifecycle({
+    applyUpdate,
+    clearSampleSlots,
+    resetProject,
+    setActiveTrackId,
+    setProjectMessage,
+    setSelectedRecordedNoteId,
+  })
 
   // ── Import / Export ──────────────────────────────────────────────────────────
-  async function exportProject() {
-    const { blob, fileName, types } = createProjectJsonExport(project)
-    await saveFile(blob, fileName, types)
-    setProjectMessage(formatJsonExportedMessage())
-  }
+  const {
+    exportProject,
+    importProjectFile,
+  } = useProjectJsonTransfer({
+    dependencies: {
+      createProjectJsonExport,
+      importProjectJsonFile,
+      saveFile,
+    },
+    project,
+    replaceState,
+    setActiveTrackId,
+    setProjectMessage,
+    setSelectedRecordedNoteId,
+  })
+  const {
+    exportBundle,
+    importBundle,
+  } = useProjectBundleTransfer({
+    dependencies: {
+      createProjectBundleExport,
+      importProjectBundleFile,
+      saveFile,
+    },
+    project,
+    replaceState,
+    setActiveTrackId,
+    setProjectMessage,
+    setSelectedRecordedNoteId,
+  })
 
-  async function exportProjectAudio(masterVolume: number) {
-    if (allRecordedNotes.length === 0 && getSamplerTracks(project.timeline).length === 0) return
-    if (isExportingAudio) return
-
-    if (typeof OfflineAudioContext === "undefined") {
-      setProjectMessage(formatOfflineAudioUnsupportedMessage())
-      return
-    }
-
-    setIsExportingAudio(true)
-    try {
-      const { blob, duration, fileName, types } = await createProjectAudioExport(
-        project,
-        masterVolume,
-      )
-      await saveFile(blob, fileName, types)
-      setProjectMessage(formatAudioExportedMessage(duration))
-    } catch {
-      setProjectMessage(formatAudioExportFailedMessage())
-    } finally {
-      setIsExportingAudio(false)
-    }
-  }
-
-  async function exportBundle() {
-    try {
-      setProjectMessage(formatBundlePackagingMessage())
-      const { blob, fileName, types } = await createProjectBundleExport(project)
-      await saveFile(blob, fileName, types)
-      setProjectMessage(formatBundleExportedMessage())
-    } catch {
-      setProjectMessage(formatBundleExportFailedMessage())
-    }
-  }
-
-  async function importBundle(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    try {
-      setProjectMessage(formatProjectImportingMessage())
-      const importedProject = await importProjectBundleFile(file)
-      replaceState(importedProject)
-      setActiveTrackId(resolveFirstProjectActiveTrackId(importedProject))
-      setSelectedRecordedNoteId(null)
-      setProjectMessage(formatProjectImportedMessage(importedProject.name))
-    } catch {
-      setProjectMessage(formatBundleImportFailedMessage())
-    } finally {
-      event.target.value = ""
-    }
-  }
-
-  async function importProjectFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    try {
-      const importedProject = await importProjectJsonFile(file)
-      replaceState(importedProject)
-      setActiveTrackId(resolveFirstProjectActiveTrackId(importedProject))
-      setSelectedRecordedNoteId(null)
-      setProjectMessage(formatProjectImportedMessage(importedProject.name))
-    } catch {
-      setProjectMessage(formatJsonImportFailedMessage())
-    } finally {
-      event.target.value = ""
-    }
-  }
+  const {
+    isExportingAudio,
+    exportProjectAudio,
+  } = useProjectAudioTransfer({
+    dependencies: {
+      createProjectAudioExport,
+      isOfflineAudioSupported: () =>
+        typeof OfflineAudioContext !== "undefined",
+      saveFile,
+    },
+    hasRecordedNotes: allRecordedNotes.length > 0,
+    project,
+    setProjectMessage,
+  })
 
   // ── Expose findRegisteredPluginByInstrumentId for instrument catalog ──────────
   function getPluginForInstrument(instrumentId: MathematicalInstrumentId) {

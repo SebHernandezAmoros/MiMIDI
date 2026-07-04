@@ -3,7 +3,7 @@ import type {
   AudioLfo,
   AudioWaveform,
   PlayFrequencyOptions,
-} from "./audioEngine"
+} from "./audioTypes"
 
 export type MathematicalInstrumentId = string
 

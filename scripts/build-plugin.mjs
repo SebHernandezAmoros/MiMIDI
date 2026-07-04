@@ -21,6 +21,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "fs"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
 import { zipSync, strToU8 } from "fflate"
+import { createPluginEsbuildOptions } from "./pluginBuildOptions.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, "..")
@@ -53,18 +54,9 @@ console.log(cssFiles.length ? `CSS: ${cssFiles.join(", ")}` : "CSS: ninguno")
 mkdirSync(join(DEMO_DIR, pluginId), { recursive: true })
 
 await esbuild.build({
+  ...createPluginEsbuildOptions({ combinedCss }),
   entryPoints: [join(srcDir, "index.mimod.ts")],
-  bundle: true,
-  format: "esm",
   outfile: tmpBundlePath,
-  minify: false,
-  jsx: "automatic",
-  alias: {
-    react: join(__dirname, "react-shim.js"),
-    "react/jsx-runtime": join(__dirname, "react-jsx-runtime-shim.js"),
-  },
-  define: { __PLUGIN_CSS__: JSON.stringify(combinedCss) },
-  keepNames: true,
   banner: {
     js: [
       `// ─── MiMIDI Plugin Bundle ────────────────────────────────────────────────────`,

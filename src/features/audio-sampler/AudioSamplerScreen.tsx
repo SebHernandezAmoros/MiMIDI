@@ -3,7 +3,8 @@ import "./AudioSamplerScreen.css"
 import { Download, Eraser, Gauge, ListPlus, Mic, Play, RotateCcw, Square, Trash2, Upload } from "lucide-react"
 import { AppDialog } from "../../app/components/AppDialog"
 import { resolveAppMessages, tpl, type AppViewMessages, type AppLanguage } from "../../app/appI18n"
-import { type AudioCalibration, getAudioCurrentTime, playAudioBufferLooping } from "../../engine/audio/audioEngine"
+import type { AudioCalibration } from "../../engine/audio/audioTypes"
+import { getAudioCurrentTime, playAudioBufferLooping } from "../../engine/audio/audioEngine"
 import {
   DEFAULT_SAMPLE_CALIBRATION,
   NUM_SAMPLE_SLOTS,

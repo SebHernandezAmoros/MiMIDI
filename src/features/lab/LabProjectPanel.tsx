@@ -1,4 +1,4 @@
-import type { ADSREnvelope } from "../../engine/audio/audioEngine"
+import type { ADSREnvelope } from "../../engine/audio/audioTypes"
 import type {
   MathematicalInstrument,
   MathematicalInstrumentId,

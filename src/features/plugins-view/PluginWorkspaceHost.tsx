@@ -2,7 +2,7 @@ import { useEffect } from "react"
 import { ChevronLeft } from "lucide-react"
 import { navigateTo } from "../../app/navigation"
 import { getRegisteredPlugins } from "../../engine/plugins/pluginRegistry"
-import type { MiMIDIPluginAPI } from "../../engine/plugins/pluginModel"
+import type { MiMIDIPluginAPI } from "../../plugin-host/pluginHostModel"
 import type { AppLanguage } from "../../app/appI18n"
 import { AppErrorBoundary } from "../../app/components/AppErrorBoundary"
 

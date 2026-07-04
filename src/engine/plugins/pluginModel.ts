@@ -1,12 +1,3 @@
-import type {
-  PluginDefinitionCore,
-} from "../../domain/plugins/pluginContracts"
-import type {
-  PluginToolSlotDefinition,
-  PluginWorkspaceDefinition,
-  ToolSlotId,
-} from "./pluginHostModel"
-
 export type {
   InstrumentPluginContribution,
   MiMIDIPluginId,
@@ -18,14 +9,10 @@ export type {
 } from "../../domain/plugins/pluginContracts"
 export type {
   MiMIDIPluginAPI,
+  MiMIDIPluginDefinition,
   PluginToolSlotDefinition,
   PluginToolSlotProps,
   PluginWorkspaceDefinition,
   PluginWorkspaceProps,
   ToolSlotId,
-} from "./pluginHostModel"
-
-export type MiMIDIPluginDefinition = PluginDefinitionCore & {
-  workspace?: PluginWorkspaceDefinition
-  toolSlots?: Partial<Record<ToolSlotId, PluginToolSlotDefinition>>
-}
+} from "../../plugin-host/pluginHostModel"

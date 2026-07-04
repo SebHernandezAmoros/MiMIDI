@@ -16,6 +16,8 @@ import { ProjectScreen } from "../features/project-view/ProjectScreen"
 import { SamplerScreen } from "../features/sampler/SamplerScreen"
 import { AudioSamplerScreen } from "../features/audio-sampler/AudioSamplerScreen"
 import { SettingsScreen } from "../features/settings-view/SettingsScreen"
+import { PluginsCatalogComposition } from "./PluginsCatalogComposition"
+import { ProjectViewComposition } from "./ProjectViewComposition"
 import {
   AudioWaveform,
   Download,
@@ -38,6 +40,7 @@ import {
   saveShowKeyLabelsWithRepository,
 } from "../application/use-cases/appSettings"
 import { getBrowserSettingsRepository } from "./browserSettingsRepository"
+import LabApp from "../features/lab/LabApp"
 
 type AppModeProps = {
   activeLanguage: AppLanguage
@@ -71,9 +74,39 @@ function resolveScreen(
     case "piano":
       return <PerformScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
     case "project":
-      return <ProjectScreen copy={viewCopy} language={activeLanguage} />
+      return (
+        <ProjectScreen
+          copy={viewCopy}
+          language={activeLanguage}
+          projectContent={
+            <ProjectViewComposition
+              language={activeLanguage}
+              masterVolume={masterVolume}
+            />
+          }
+        />
+      )
     case "plugins":
-      return <PluginsScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
+      return (
+        <PluginsScreen
+          copy={viewCopy}
+          language={activeLanguage}
+          pluginsContent={
+            <PluginsCatalogComposition
+              language={activeLanguage}
+              onOpenPlugin={(id) => navigateTo(`/?view=plugins&pluginId=${id}`)}
+            />
+          }
+          renderPluginWorkspace={(pluginId) => (
+            <LabApp
+              language={activeLanguage}
+              mode="plugin-workspace"
+              pluginId={pluginId}
+            />
+          )}
+          {...viewSettings}
+        />
+      )
     case "settings":
       return (
         <SettingsScreen

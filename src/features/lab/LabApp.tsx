@@ -37,8 +37,6 @@ import {
   Copy,
   RotateCcw,
   Check,
-  Upload,
-  Folder,
   VolumeX,
   Minus,
   Plus,
@@ -46,7 +44,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Download,
 } from "lucide-react"
 import {
   getInstrumentCategoryDescription,
@@ -104,15 +101,28 @@ import {
   saveLabPianoViewModeWithRepository,
   saveLabSeqBpmWithRepository,
   saveLabSeqSubdivisionWithRepository,
-  clearLabActiveStepsTrackIdWithRepository,
+  resetLabProjectViewPreferencesWithRepository,
   type LabPadViewMode,
   type LabStepSubdivision,
 } from "../../application/use-cases/labViewPreferences"
-import { usePluginAPI } from "../../engine/plugins/pluginApi"
-import { useExternalPlugins } from "../../engine/plugins/useExternalPlugins"
-import { PluginWorkspaceHost } from "../plugins-view/PluginWorkspaceHost"
+import { usePluginAPI } from "../../plugin-host/pluginApi"
+import { useExternalPlugins } from "../plugins-view/useExternalPlugins"
 import { PluginSlot } from "../plugins-view/PluginSlot"
-import type { PluginOutput } from "../../engine/plugins/pluginModel"
+import { PluginWorkspaceView } from "../plugins-view/PluginWorkspaceView"
+import { PluginsCatalogList } from "../plugins-view/PluginsCatalogList"
+import {
+  PluginsCatalogDevelopmentTools,
+  PluginsCatalogImportToolbar,
+} from "../plugins-view/PluginsCatalogToolbar"
+import {
+  installPluginCatalogFile,
+  installPluginCatalogFolder,
+  uninstallPluginCatalogEntry,
+} from "../plugins-view/pluginCatalogActions"
+import { createProjectFeatureComposition } from "../project-view/projectFeatureComposition"
+import { createProjectFeatureFileImportHandlers } from "../project-view/projectFeatureFileImportHandlers"
+import { LocalizedProjectFeatureView } from "../project-view/LocalizedProjectFeatureView"
+import type { PluginOutput } from "../../domain/plugins/pluginContracts"
 
 const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
   kick: "ui-smc-btn-kick",
@@ -417,21 +427,11 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   async function handleRestartProject() {
     tearDownSession()
     melodicSequencer.stop()
-    setPianoViewMode("keys")
-    saveLabPianoViewModeWithRepository(settingsRepository, "keys")
-    setActiveStepsTrackId(null)
-    clearLabActiveStepsTrackIdWithRepository(settingsRepository)
+    resetLabProjectViewPreferencesWithRepository(settingsRepository, {
+      clearActiveStepsTrack: () => setActiveStepsTrackId(null),
+      resetPianoViewMode: () => setPianoViewMode("keys"),
+    })
     await lab.restartProject()
-  }
-
-  async function handleImportProjectFile(e: React.ChangeEvent<HTMLInputElement>) {
-    tearDownSession()
-    await lab.importProjectFile(e)
-  }
-
-  async function handleImportBundle(e: React.ChangeEvent<HTMLInputElement>) {
-    tearDownSession()
-    await lab.importBundle(e)
   }
 
   function handleExportProjectAudio() {
@@ -1287,167 +1287,56 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   // ────────────────────────────────────────────────────────────────────────────
   // ── project workspace ────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
-  const projectWorkspace = (
-    <section className="app-mock-screen" aria-label={t.project.currentProject}>
-      <input
-        accept=".json,application/json"
-        hidden
-        onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportProjectFile(e)}
-        ref={lab.importInputRef}
-        type="file"
-      />
-      <input
-        accept=".mimidi"
-        hidden
-        onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportBundle(e)}
-        ref={lab.importBundleRef}
-        type="file"
-      />
-      <div className="project-compact-body">
-        <div className="project-compact-name-row">
-          <label className="project-compact-label" htmlFor="project-view-name">
-            {t.project.projectLabel}
-          </label>
-          <input
-            className="project-compact-name-input"
-            data-tutorial="project-name-input"
-            id="project-view-name"
-            onChange={(e) => lab.updateProjectName(e.target.value)}
-            placeholder={t.project.projectName}
-            type="text"
-            value={lab.project.name}
-          />
-          <p className="project-compact-stats">
-            {getMidiTracks(lab.project.timeline).filter(t => t.trackType !== "steps").length} {t.project.tracksLabel}
-            {" · "}
-            {getSamplerTracks(lab.project.timeline).length} mix
-            {getSamplerTracks(lab.project.timeline).length !== 1 ? "es" : ""}
-            {" · "}
-            {lab.allRecordedNotes.length} {t.project.notesLabel}
-          </p>
-        </div>
-
-        <div className="project-compact-divider" />
-
-        <div className="project-compact-grid">
-          <button
-            className="project-export-btn project-export-btn-play project-compact-btn-wide"
-            disabled={
-              lab.allRecordedNotes.length === 0 &&
-              getSamplerTracks(lab.project.timeline).length === 0 &&
-              !labPlayback.playbackTransport.isPlaying &&
-              !labPlayback.isMixOnlyPlaying
-            }
-            onClick={() =>
-              labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying
-                ? labPlayback.stopAll()
-                : labPlayback.playAll(lab.project, true)
-            }
-            type="button"
-          >
-            {labPlayback.playbackTransport.isPlaying || labPlayback.isMixOnlyPlaying ? (
-              <>
-                <Square size={13} /> {t.common.stop}
-              </>
-            ) : (
-              <>
-                <Play size={13} /> {t.common.play}
-              </>
-            )}
-          </button>
-          <button
-            className="project-export-btn project-export-btn-primary project-compact-btn-wide"
-            data-tutorial="export-wav-button"
-            disabled={
-              (lab.allRecordedNotes.length === 0 &&
-                getSamplerTracks(lab.project.timeline).length === 0) ||
-              lab.isExportingAudio
-            }
-            onClick={handleExportProjectAudio}
-            type="button"
-          >
-            <Download size={13} />
-            {lab.isExportingAudio ? t.common.exporting : t.common.exportWav}
-          </button>
-          <button
-            className="project-export-btn project-compact-btn-wide"
-            onClick={() => void lab.exportBundle()}
-            type="button"
-          >
-            <Folder size={13} /> {t.common.export}
-          </button>
-          <button
-            className="project-export-btn project-compact-btn-wide"
-            onClick={() => lab.importBundleRef.current?.click()}
-            type="button"
-          >
-            <Upload size={13} /> {t.common.import}
-          </button>
-          <button
-            className="project-export-btn project-export-btn-reset project-compact-btn-wide project-compact-btn-full"
-            onClick={() => lab.setIsNewProjectConfirmOpen(true)}
-            type="button"
-          >
-            {t.project.newProject}
-          </button>
-        </div>
-      </div>
-    </section>
-  )
-
+  const projectFeatureContract = createProjectFeatureComposition({
+    dependencies: {
+      exportBundle: lab.exportBundle,
+      exportWav: handleExportProjectAudio,
+      openBundleImport: () => lab.importBundleRef.current?.click(),
+      playProject: () => labPlayback.playAll(lab.project, true),
+      restartProject: handleRestartProject,
+      setConfirmOpen: lab.setIsNewProjectConfirmOpen,
+      stopPlayback: labPlayback.stopAll,
+      updateProjectName: lab.updateProjectName,
+    },
+    project: lab.project,
+    status: {
+      isExportingAudio: lab.isExportingAudio,
+      isMixOnlyPlaying: labPlayback.isMixOnlyPlaying,
+      isNewProjectConfirmOpen: lab.isNewProjectConfirmOpen,
+      isPlaying: labPlayback.playbackTransport.isPlaying,
+    },
+  })
+  const projectFeatureFileImportHandlers =
+    createProjectFeatureFileImportHandlers({
+      importBundle: lab.importBundle,
+      importProjectFile: lab.importProjectFile,
+      tearDownSession,
+    })
   if (mode === "project-only") {
     return (
-      <>
-        {projectWorkspace}
-        <AppDialog
-          actions={
-            <>
-              <button onClick={() => lab.setIsNewProjectConfirmOpen(false)} type="button">
-                {t.common.cancel}
-              </button>
-              <button
-                onClick={() => {
-                  lab.setIsNewProjectConfirmOpen(false)
-                  void handleRestartProject()
-                }}
-                type="button"
-              >
-                {t.dialogs.continueWithout}
-              </button>
-              <button
-                className="app-dialog-confirm"
-                onClick={() => {
-                  lab.setIsNewProjectConfirmOpen(false)
-                  void lab.exportBundle()
-                  void handleRestartProject()
-                }}
-                type="button"
-              >
-                {t.dialogs.saveAndContinue}
-              </button>
-            </>
-          }
-          description={t.dialogs.newProjectMsg}
-          onClose={() => lab.setIsNewProjectConfirmOpen(false)}
-          open={lab.isNewProjectConfirmOpen}
-          title={t.dialogs.newProjectTitle}
-        />
-      </>
+      <LocalizedProjectFeatureView
+        fileInputs={{
+          bundleInputRef: lab.importBundleRef,
+          jsonInputRef: lab.importInputRef,
+          onBundleChange: (event) =>
+            void projectFeatureFileImportHandlers.importBundle(event),
+          onJsonChange: (event) =>
+            void projectFeatureFileImportHandlers.importProjectFile(event),
+        }}
+        language={language}
+        projectFeature={projectFeatureContract}
+      />
     )
   }
 
   if (mode === "plugin-workspace") {
     return (
-      <>
-        <PluginWorkspaceHost
-          api={pluginApi}
-          language={language}
-          pluginId={pluginId ?? ""}
-        />
-        {pluginToast && (
-          <div role="status" className="plugin-toast">{pluginToast}</div>
-        )}
-      </>
+      <PluginWorkspaceView
+        api={pluginApi}
+        language={language}
+        notification={pluginToast}
+        pluginId={pluginId ?? ""}
+      />
     )
   }
 
@@ -1455,168 +1344,58 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   // ── plugins-only ─────────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
   if (mode === "plugins-only") {
-    const mimodInputRef = { current: null as HTMLInputElement | null }
-    const supportsDirectoryPicker = "showDirectoryPicker" in window
+    const pluginCatalogActionDependencies = {
+      installFromFile: externalPlugins.installFromFile,
+      installFromFolder: externalPlugins.installFromFolder,
+      logError: (context: string, error: unknown) =>
+        console.error(context, error),
+      setPluginEnabled: (pluginId: string, enabled: boolean | undefined) => {
+        lab.applyUpdate((p) => {
+          if (enabled === undefined) {
+            const { [pluginId]: _, ...rest } = p.pluginStates
+            return { ...p, pluginStates: rest }
+          }
+          return {
+            ...p,
+            pluginStates: { ...p.pluginStates, [pluginId]: enabled },
+          }
+        })
+      },
+      showError: (message: string) => alert(message),
+      uninstall: externalPlugins.uninstall,
+    }
 
-    function handleMimodFile(e: React.ChangeEvent<HTMLInputElement>) {
-      const file = e.target.files?.[0]
-      if (!file) return
-      e.target.value = ""
-      void externalPlugins.installFromFile(file).then((manifest) => {
-        lab.applyUpdate((p) => ({
-          ...p,
-          pluginStates: { ...p.pluginStates, [manifest.id]: true },
-        }))
-      }).catch((err: unknown) => {
-        console.error("[IMPORT .mimod]", err)
-        alert(`No se pudo instalar el plugin:\n${err instanceof Error ? err.message : String(err)}`)
-      })
+    function handleMimodFile(file: File) {
+      void installPluginCatalogFile(file, pluginCatalogActionDependencies)
     }
 
     function handlePluginFolder() {
-      void externalPlugins.installFromFolder().then((manifest) => {
-        lab.applyUpdate((p) => ({
-          ...p,
-          pluginStates: { ...p.pluginStates, [manifest.id]: true },
-        }))
-      }).catch((err: unknown) => {
-        if (err instanceof Error && err.name === "AbortError") return
-        console.error("[PLUGIN FOLDER]", err)
-        alert(`No se pudo cargar el plugin:\n${err instanceof Error ? err.message : String(err)}`)
-      })
+      void installPluginCatalogFolder(pluginCatalogActionDependencies)
     }
 
     return (
       <section className="app-mock-screen" aria-label={t.project.pluginsSection}>
-        <input
-          accept=".mimod"
-          hidden
-          ref={mimodInputRef}
-          type="file"
-          onChange={handleMimodFile}
-        />
-        <header className="app-mock-toolbar">
-          <div className="app-mock-toolbar-actions">
-            <button
-              className="ui-pill-btn"
-              type="button"
-              onClick={() => mimodInputRef.current?.click()}
-            >
-              <Upload size={14} />
-              IMPORT .mimod
-            </button>
-            <a
-              className="ui-pill-btn"
-              download="mimidi-plugin-sdk.d.ts"
-              href="/mimidi-plugin-sdk.d.ts"
-              style={{ textDecoration: "none" }}
-            >
-              <Download size={14} />
-              SDK .d.ts
-            </a>
-          </div>
-        </header>
-        <div className="app-plugin-list" aria-label={t.project.pluginList}>
-          {externalPlugins.isRestoring && (
-            <p style={{ padding: "0.75rem 1rem", opacity: 0.5, fontSize: "0.8rem" }}>
-              Restaurando plugins...
-            </p>
-          )}
-          {lab.registeredPlugins.map((plugin) => {
-            const words = plugin.name.trim().split(/\s+/)
-            const shortLabel =
-              words.length === 1
-                ? plugin.name.slice(0, 2).toUpperCase()
-                : words.slice(0, 2).map((w) => w[0]).join("").toUpperCase()
-            const isExt = plugin.isExternal
-            const extEntry = externalPlugins.entries.find((e) => e.id === plugin.id)
-            const isDev = extEntry?.isDev ?? false
-            return (
-              <article className={`ui-list-row${isExt ? " ui-list-row-ext" : ""}`} key={plugin.id}>
-                <span
-                  className="ui-badge"
-                  aria-hidden="true"
-                  title={isDev ? "Plugin de desarrollo (no persistido)" : isExt ? "Plugin externo (.mimod)" : "Plugin interno"}
-                >
-                  {shortLabel}
-                </span>
-                <div className="ui-plugin-copy">
-                  <strong>{plugin.name}</strong>
-                  <span>
-                    {plugin.version} · {plugin.description}
-                    {isDev && <em style={{ opacity: 0.6 }}> · dev</em>}
-                    {isExt && !isDev && <em style={{ opacity: 0.6 }}> · externo</em>}
-                  </span>
-                </div>
-                {plugin.instrumentCount > 0 && (
-                  <label
-                    className="ui-toggle"
-                    aria-label={tpl(plugin.enabled ? t.project.disablePlugin : t.project.enablePlugin, { name: plugin.name })}
-                  >
-                    <input
-                      checked={plugin.enabled}
-                      onChange={() => lab.updatePluginEnabled(plugin.id, !plugin.enabled)}
-                      type="checkbox"
-                    />
-                    <span />
-                  </label>
-                )}
-                {isExt && (
-                  <button
-                    aria-label={`Desinstalar ${plugin.name}`}
-                    className="ui-icon-btn ui-icon-btn-danger"
-                    title="Desinstalar plugin externo"
-                    type="button"
-                    onClick={() => void externalPlugins.uninstall(plugin.id).then(() => {
-                      lab.applyUpdate((p) => {
-                        const { [plugin.id]: _, ...rest } = p.pluginStates
-                        return { ...p, pluginStates: rest }
-                      })
-                    })}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-                {plugin.hasWorkspace && onOpenPlugin ? (
-                  <button
-                    aria-label={`Abrir ${plugin.name}`}
-                    className="ui-list-arrow ui-list-arrow-btn"
-                    onClick={() => onOpenPlugin(plugin.id)}
-                    type="button"
-                  >
-                    ›
-                  </button>
-                ) : (
-                  <span className="ui-list-arrow" aria-hidden="true" style={{ opacity: plugin.hasWorkspace ? 1 : 0.2 }}>
-                    ›
-                  </span>
-                )}
-              </article>
+        <PluginsCatalogImportToolbar onMimodFile={handleMimodFile} />
+        <PluginsCatalogList
+          externalPluginEntries={externalPlugins.entries}
+          isRestoring={externalPlugins.isRestoring}
+          language={language}
+          onOpenPlugin={onOpenPlugin}
+          onPluginEnabledChange={lab.updatePluginEnabled}
+          onPluginUninstall={(pluginId) => {
+            void uninstallPluginCatalogEntry(
+              pluginId,
+              pluginCatalogActionDependencies,
             )
-          })}
-        </div>
+          }}
+          plugins={lab.registeredPlugins}
+        />
 
         {/* ── Dev tools ──────────────────────────────────────────────────── */}
-        <details className="app-devtools-section">
-          <summary className="app-devtools-summary">
-            Herramientas para desarrolladores
-          </summary>
-          <div className="app-devtools-body">
-            <p className="app-devtools-warn">
-              Solo disponible en Chrome y Edge. Carga un plugin desde una carpeta local sin empaquetar (.mimod).
-            </p>
-            <button
-              className="ui-pill-btn"
-              disabled={!supportsDirectoryPicker}
-              title={supportsDirectoryPicker ? "Cargar plugin desde directorio de desarrollo" : "Solo disponible en Chrome y Edge"}
-              type="button"
-              onClick={handlePluginFolder}
-            >
-              <Folder size={14} />
-              PLUGIN FOLDER
-            </button>
-          </div>
-        </details>
+        <PluginsCatalogDevelopmentTools
+          onPluginFolder={handlePluginFolder}
+          supportsDirectoryPicker={"showDirectoryPicker" in window}
+        />
       </section>
     )
   }
@@ -2762,7 +2541,9 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
           <input
             accept=".json,application/json"
             hidden
-            onChange={(e: ChangeEvent<HTMLInputElement>) => void handleImportProjectFile(e)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              void projectFeatureFileImportHandlers.importProjectFile(e)
+            }
             ref={lab.importInputRef}
             type="file"
           />

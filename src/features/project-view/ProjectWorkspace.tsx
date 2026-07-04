@@ -1,18 +1,21 @@
-import LabApp from "../lab/LabApp"
-import type { AppLanguage } from "../../app/appI18n"
+import type { ReactNode } from "react"
 
 type ProjectWorkspaceProps = {
   body: string
+  projectContent: ReactNode
   title: string
-  language?: AppLanguage
 }
 
-export function ProjectWorkspace({ body, title, language }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({
+  body,
+  projectContent,
+  title,
+}: ProjectWorkspaceProps) {
   void body
   void title
   return (
     <section className="app-mock-screen" aria-label="Workspace Project">
-      <LabApp language={language} mode="project-only" />
+      {projectContent}
     </section>
   )
 }

@@ -9,6 +9,7 @@ import {
   loadLabPianoViewModeWithRepository,
   loadLabSeqBpmWithRepository,
   loadLabSeqSubdivisionWithRepository,
+  resetLabProjectViewPreferencesWithRepository,
   saveLabStepCountWithRepository,
   saveLabPadViewModeWithRepository,
   saveLabPianoViewModeWithRepository,
@@ -206,6 +207,41 @@ describe("lab view preferences use-cases", () => {
     expect(repository.setString).toHaveBeenCalledWith(
       "mimidi-seq-active-steps-track",
       "track-123",
+    )
+    expect(repository.remove).toHaveBeenCalledWith(
+      "mimidi-seq-active-steps-track",
+    )
+  })
+
+  it("resets project view preferences and visible state in the current order", () => {
+    const calls: string[] = []
+    const repository = createSettingsRepository({
+      remove: vi.fn(() => {
+        calls.push("remove-active-steps-track")
+      }),
+      setString: vi.fn(() => {
+        calls.push("save-piano-view-mode")
+      }),
+    })
+
+    resetLabProjectViewPreferencesWithRepository(repository, {
+      clearActiveStepsTrack: () => {
+        calls.push("clear-active-steps-track")
+      },
+      resetPianoViewMode: () => {
+        calls.push("reset-piano-view-mode")
+      },
+    })
+
+    expect(calls).toEqual([
+      "reset-piano-view-mode",
+      "save-piano-view-mode",
+      "clear-active-steps-track",
+      "remove-active-steps-track",
+    ])
+    expect(repository.setString).toHaveBeenCalledWith(
+      "mimidi-piano-view-mode",
+      "keys",
     )
     expect(repository.remove).toHaveBeenCalledWith(
       "mimidi-seq-active-steps-track",

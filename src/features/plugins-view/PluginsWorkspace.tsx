@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { navigateTo } from "../../app/navigation"
-import LabApp from "../lab/LabApp"
-import type { AppLanguage } from "../../app/appI18n"
 import { AppErrorBoundary } from "../../app/components/AppErrorBoundary"
 
 type PluginsWorkspaceProps = {
   body: string
-  language?: AppLanguage
+  pluginsContent: ReactNode
+  renderPluginWorkspace: (pluginId: string) => ReactNode
   title: string
 }
 
-export function PluginsWorkspace({ body, language, title }: PluginsWorkspaceProps) {
+export function PluginsWorkspace({
+  body,
+  pluginsContent,
+  renderPluginWorkspace,
+  title,
+}: PluginsWorkspaceProps) {
   void body
   void title
 
@@ -41,20 +45,10 @@ export function PluginsWorkspace({ body, language, title }: PluginsWorkspaceProp
           </button>
         </div>
       )}>
-        <LabApp
-          language={language}
-          mode="plugin-workspace"
-          pluginId={pluginId}
-        />
+        {renderPluginWorkspace(pluginId)}
       </AppErrorBoundary>
     )
   }
 
-  return (
-    <LabApp
-      language={language}
-      mode="plugins-only"
-      onOpenPlugin={(id) => navigateTo(`/?view=plugins&pluginId=${id}`)}
-    />
-  )
+  return pluginsContent
 }

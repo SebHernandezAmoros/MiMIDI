@@ -1,4 +1,4 @@
-import type { ADSREnvelope } from "../../engine/audio/audioEngine"
+import type { ADSREnvelope } from "../../engine/audio/audioTypes"
 import type { MathematicalInstrumentId } from "../../engine/audio/mathematicalInstruments"
 import { isMidiTrack } from "./timelineQueries"
 import type {

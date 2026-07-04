@@ -1,11 +1,11 @@
 import type { MathematicalInstrument } from "../audio/mathematicalInstruments"
 import { internalPlugins } from "./internalPlugins"
-import type { PluginDefinitionCore } from "../../domain/plugins/pluginContracts"
 import type {
-  MiMIDIPluginDefinition,
   MiMIDIPluginId,
   MiMIDIPluginStateMap,
-} from "./pluginModel"
+  PluginDefinitionCore,
+} from "../../domain/plugins/pluginContracts"
+import type { MiMIDIPluginDefinition } from "../../plugin-host/pluginHostModel"
 
 export type RegisteredPluginSummary = PluginDefinitionCore & {
   enabled: boolean

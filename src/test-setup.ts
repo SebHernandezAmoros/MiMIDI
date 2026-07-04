@@ -1,7 +1,7 @@
 // Global Vitest setup.
 // Keep broad browser API shims here; module-specific mocks belong in each test.
 
-if (!window.matchMedia) {
+if (typeof window !== "undefined" && !window.matchMedia) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: (query: string) => ({

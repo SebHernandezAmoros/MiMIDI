@@ -2,9 +2,11 @@ import {
   playFrequency,
   startFrequency,
   stopVoice,
-  type PlayFrequencyOptions,
-  type VoiceId,
 } from "../../engine/audio/audioEngine"
+import type {
+  PlayFrequencyOptions,
+  VoiceId,
+} from "../../engine/audio/audioTypes"
 import { noteToFrequency, type MusicalNote } from "../../engine/midi/notes"
 
 export type PlayNoteOptions = PlayFrequencyOptions

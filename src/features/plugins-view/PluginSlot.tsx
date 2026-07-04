@@ -1,5 +1,6 @@
 import { getRegisteredPlugins } from "../../engine/plugins/pluginRegistry"
-import type { MiMIDIPluginAPI, MiMIDIPluginStateMap, ToolSlotId } from "../../engine/plugins/pluginModel"
+import type { MiMIDIPluginStateMap } from "../../domain/plugins/pluginContracts"
+import type { MiMIDIPluginAPI, ToolSlotId } from "../../plugin-host/pluginHostModel"
 import type { AppLanguage } from "../../app/appI18n"
 
 type PluginSlotProps = {

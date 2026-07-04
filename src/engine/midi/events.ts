@@ -1,12 +1,11 @@
-import type { ADSREnvelope } from "../audio/audioEngine"
+import type { ADSREnvelope } from "../audio/audioTypes"
 import type { MusicalNote } from "./notes"
 import type { MathematicalInstrumentId } from "../audio/mathematicalInstruments"
+import type { SmcPadSoundId } from "../../domain/midi/smcPadTypes"
 
 export type MidiNoteEventType = "note-on" | "note-off"
 
-export type SmcPadSoundId =
-  | "kick" | "snare" | "hat" | "clap" | "tom" | "cowbell" | "rimshot" | "shaker"
-  | "open-hat" | "crash" | "ride" | "floor-tom" | "hi-tom" | "conga" | "woodblock" | "sub"
+export type { SmcPadSoundId } from "../../domain/midi/smcPadTypes"
 
 export type PadSoundParams = {
   volume: number

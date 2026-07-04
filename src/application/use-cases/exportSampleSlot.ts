@@ -1,4 +1,4 @@
-import { type AudioCalibration } from "../../engine/audio/audioEngine"
+import type { AudioCalibration } from "../../engine/audio/audioTypes"
 import { encodeAudioBufferToWav } from "../../engine/audio/wavEncoder"
 
 export async function exportSampleSlot(

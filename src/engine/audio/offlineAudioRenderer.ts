@@ -4,7 +4,7 @@ import type {
   AudioCalibration,
   AudioLfo,
   AudioWaveform,
-} from "./audioEngine"
+} from "./audioTypes"
 import {
   type MathematicalInstrument,
 } from "./mathematicalInstruments"
