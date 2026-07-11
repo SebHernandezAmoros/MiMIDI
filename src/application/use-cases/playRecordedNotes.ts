@@ -8,10 +8,10 @@ import {
 import {
   getMidiTracks,
   getTrackVolumeAutomationValue,
-  getScheduledTrackNotes,
   isTrackAudible,
   type MusicalProject,
 } from "../../engine/project/projectModel"
+import { getTrackScheduler } from "./trackSchedulers"
 
 export type PlaybackHandle = {
   cancel: () => void
@@ -30,7 +30,15 @@ export function playRecordedNotes(
   options: PlayRecordedNotesOptions = {},
 ): PlaybackHandle {
   const { fromZero = false, onComplete, ...playOverrides } = options
-  const scheduledNotes = getScheduledTrackNotes(project)
+  const scheduledNotes = getMidiTracks(project.timeline).flatMap((track) => {
+    const scheduler = getTrackScheduler(track)
+
+    if (scheduler.kind !== "midi") {
+      return []
+    }
+
+    return scheduler.getScheduledNotes(track)
+  })
 
   if (scheduledNotes.length === 0) {
     onComplete?.()

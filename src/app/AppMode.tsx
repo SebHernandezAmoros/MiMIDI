@@ -17,7 +17,11 @@ import { SamplerScreen } from "../features/sampler/SamplerScreen"
 import { AudioSamplerScreen } from "../features/audio-sampler/AudioSamplerScreen"
 import { SettingsScreen } from "../features/settings-view/SettingsScreen"
 import { PluginsCatalogComposition } from "./PluginsCatalogComposition"
+import { PluginWorkspaceComposition } from "./PluginWorkspaceComposition"
 import { ProjectViewComposition } from "./ProjectViewComposition"
+import { EditViewComposition } from "./EditViewComposition"
+import { PerformViewComposition } from "./PerformViewComposition"
+import { SamplerViewComposition } from "./SamplerViewComposition"
 import {
   AudioWaveform,
   Download,
@@ -40,7 +44,6 @@ import {
   saveShowKeyLabelsWithRepository,
 } from "../application/use-cases/appSettings"
 import { getBrowserSettingsRepository } from "./browserSettingsRepository"
-import LabApp from "../features/lab/LabApp"
 
 type AppModeProps = {
   activeLanguage: AppLanguage
@@ -72,7 +75,19 @@ function resolveScreen(
 
   switch (activeView) {
     case "piano":
-      return <PerformScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
+      return (
+        <PerformScreen
+          copy={viewCopy}
+          language={activeLanguage}
+          performContent={
+            <PerformViewComposition
+              language={activeLanguage}
+              {...viewSettings}
+            />
+          }
+          {...viewSettings}
+        />
+      )
     case "project":
       return (
         <ProjectScreen
@@ -98,9 +113,8 @@ function resolveScreen(
             />
           }
           renderPluginWorkspace={(pluginId) => (
-            <LabApp
+            <PluginWorkspaceComposition
               language={activeLanguage}
-              mode="plugin-workspace"
               pluginId={pluginId}
             />
           )}
@@ -125,12 +139,36 @@ function resolveScreen(
         />
       )
     case "pad":
-      return <SamplerScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
+      return (
+        <SamplerScreen
+          copy={viewCopy}
+          language={activeLanguage}
+          samplerContent={
+            <SamplerViewComposition
+              language={activeLanguage}
+              {...viewSettings}
+            />
+          }
+          {...viewSettings}
+        />
+      )
     case "sampler":
       return <AudioSamplerScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
     case "edit":
     default:
-      return <EditScreen copy={viewCopy} language={activeLanguage} {...viewSettings} />
+      return (
+        <EditScreen
+          copy={viewCopy}
+          editContent={
+            <EditViewComposition
+              language={activeLanguage}
+              {...viewSettings}
+            />
+          }
+          language={activeLanguage}
+          {...viewSettings}
+        />
+      )
   }
 }
 

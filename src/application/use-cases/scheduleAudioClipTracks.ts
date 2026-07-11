@@ -3,7 +3,8 @@ import {
   getAudioContextCurrentTime,
   scheduleAudioBuffer,
 } from "../../engine/audio/audioEngine"
-import type { AudioClipTrack } from "../../engine/project/projectModel"
+import type { AudioClipTrack } from "../../domain/project/projectTypes"
+import { getTrackScheduler } from "./trackSchedulers"
 import { loadSampleAudioBuffer } from "./loadSampleAudioBuffer"
 
 export type ScheduleAudioClipTracksDependencies = {
@@ -34,21 +35,19 @@ export async function scheduleAudioClipTracksWithDependencies(
   const stops: Array<() => void> = []
 
   for (const track of activeTracks) {
-    const audioBuffer = await dependencies.loadSampleAudioBuffer(track.dbId)
+    const scheduler = getTrackScheduler(track)
 
-    if (!audioBuffer) {
+    if (scheduler.kind !== "audio-clip") {
       continue
     }
 
-    for (const clip of track.clips) {
-      const elapsedSec = (dependencies.nowMs() - startedAtMs) / 1000
-      const offset = Math.max(0, elapsedSec - clip.startTime)
-      const when =
-        dependencies.getAudioCurrentTime() +
-        Math.max(0, clip.startTime - elapsedSec)
-
-      stops.push(dependencies.scheduleAudioBuffer(audioBuffer, when, offset))
-    }
+    stops.push(
+      ...(await scheduler.schedule(
+        dependencies,
+        track,
+        startedAtMs,
+      )),
+    )
   }
 
   return stops

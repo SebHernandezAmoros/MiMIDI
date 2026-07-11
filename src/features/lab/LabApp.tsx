@@ -1,8 +1,9 @@
 import type { ChangeEvent } from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import "../../App.css"
 import { resolveAppMessages, tpl, type AppLanguage } from "../../app/appI18n"
 import { getBrowserSettingsRepository } from "../../app/browserSettingsRepository"
+import { useProjectPerformanceComposition } from "../../app/useProjectPerformanceComposition"
 import {
   loadPluginClip,
   processPluginAudioOutput,
@@ -10,20 +11,16 @@ import {
 } from "../../application/use-cases/pluginAudioOutputs"
 import {
   updatePadSoundSetting,
-  compactTrackNotesStart,
   getMidiTracks,
-  getMidiTrackNotes,
   getSamplerTracks,
   getAudioClipTracks,
   renameSamplerMix,
   removeSamplerMix,
   removeTrack,
   renameTrack,
-  appendTrackWithNotes,
   bakeOrReplaceTrackNotes,
   resetTrackClips,
   toggleStepNoteInTrack,
-  addAudioClipTrack,
   updateTrackVolume,
   updateTrackPan,
   type MusicalProject,
@@ -50,7 +47,6 @@ import {
   getInstrumentCategoryLabel,
   type MathematicalInstrument,
 } from "../../engine/audio/mathematicalInstruments"
-import { useLabInstrumentCatalog } from "./useLabInstrumentCatalog"
 import {
   isSmcPadRecordedNote,
 } from "../../engine/midi/events"
@@ -74,7 +70,6 @@ import { LabActions } from "./LabActions"
 import { LabNoteEditor } from "./LabNoteEditor"
 import { LabProjectPanel } from "./LabProjectPanel"
 import { LabSoundControls } from "./LabSoundControls"
-import { useLabRecordingSession } from "./useLabRecordingSession"
 import {
   getSmcPadSoundDescriptor,
   PAD_SOUND_DEFAULTS,
@@ -85,7 +80,6 @@ import {
 import type { LabAppMode } from "./useLabProject"
 import { useLabProject } from "./useLabProject"
 import { useLabPlayback } from "./useLabPlayback"
-import { useLabPerform } from "./useLabPerform"
 import { previewOctaveOptions, type Octave } from "../../engine/midi/notes"
 import { ensureAudioReady } from "../../engine/audio/audioEngine"
 import { playNote, stopNote } from "../../application/use-cases/playNote"
@@ -105,10 +99,16 @@ import {
   type LabPadViewMode,
   type LabStepSubdivision,
 } from "../../application/use-cases/labViewPreferences"
-import { usePluginAPI } from "../../plugin-host/pluginApi"
 import { useExternalPlugins } from "../plugins-view/useExternalPlugins"
 import { PluginSlot } from "../plugins-view/PluginSlot"
 import { PluginWorkspaceView } from "../plugins-view/PluginWorkspaceView"
+import { usePluginWorkspaceNotification } from "../plugins-view/usePluginWorkspaceNotification"
+import { handlePluginWorkspaceOutput } from "../plugins-view/pluginWorkspaceOutputs"
+import { getPluginWorkspaceTracks } from "../plugins-view/pluginWorkspaceTracks"
+import { getPluginWorkspaceBpm } from "../plugins-view/pluginWorkspaceTempo"
+import { usePluginWorkspaceNotePreview } from "../plugins-view/usePluginWorkspaceNotePreview"
+import { createPluginWorkspaceClipStorage } from "../plugins-view/pluginWorkspaceClipStorage"
+import { usePluginWorkspaceAPI } from "../plugins-view/usePluginWorkspaceAPI"
 import { PluginsCatalogList } from "../plugins-view/PluginsCatalogList"
 import {
   PluginsCatalogDevelopmentTools,
@@ -122,7 +122,9 @@ import {
 import { createProjectFeatureComposition } from "../project-view/projectFeatureComposition"
 import { createProjectFeatureFileImportHandlers } from "../project-view/projectFeatureFileImportHandlers"
 import { LocalizedProjectFeatureView } from "../project-view/LocalizedProjectFeatureView"
-import type { PluginOutput } from "../../domain/plugins/pluginContracts"
+import { EditTimelineToolbar } from "../edit/EditTimelineToolbar"
+import { EditTrackNameInput } from "../edit/EditTrackNameInput"
+import { useEditTimelineView } from "../edit/useEditTimelineView"
 
 const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
   kick: "ui-smc-btn-kick",
@@ -135,10 +137,6 @@ const PAD_ACCENT_MAP: Partial<Record<SmcPadSoundId, string>> = {
 
 function getPadBtnClass(id: SmcPadSoundId): string {
   return PAD_ACCENT_MAP[id] ?? "ui-smc-btn-perc"
-}
-
-function getPerformanceTimestamp() {
-  return performance.now()
 }
 
 type LabAppProps = {
@@ -156,10 +154,6 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   // ── Simple local UI state ────────────────────────────────────────────────────
   const [timelineSnapEnabled, setTimelineSnapEnabled] = useState(false)
   const [timelineSnapStep, setTimelineSnapStep] = useState(0.1)
-  const [timelineView, setTimelineView] = useState<"notes" | "tracks">(() => {
-    const v = new URLSearchParams(window.location.search).get("timelineView")
-    return v === "tracks" ? "tracks" : "notes"
-  })
   const [, setIsTimelineDragging] = useState(false)
   const [isTrackLaneFocused, setIsTrackLaneFocused] = useState(false)
   const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
@@ -192,48 +186,19 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   const [instrumentDialogCategory, setInstrumentDialogCategory] = useState<
     MathematicalInstrument["category"]
   >("base")
-  const [pluginToast, setPluginToast] = useState("")
-  const pluginToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pluginVoicesRef = useRef<Map<string, ReturnType<typeof playNote>>>(new Map())
+  const pluginWorkspaceNotification = usePluginWorkspaceNotification()
 
   // ── Core hooks ───────────────────────────────────────────────────────────────
   const lab = useLabProject({ mode, timelineSnapEnabled, timelineSnapStep })
 
   const labPlayback = useLabPlayback({ project: lab.project })
 
-  const instrumentCatalog = useLabInstrumentCatalog(
-    lab.primaryTrack.instrumentId,
-    lab.project.pluginStates,
-  )
-
-  const labRecording = useLabRecordingSession({
-    getPerformanceTimestamp,
-    getTrackAutomationVolumeAtTime: (time) => lab.getTrackAutomationVolumeAtTime(time),
-    onProjectUpdate: lab.applyUpdate,
-    onStopRecording: useCallback(() => {
-      lab.applyUpdate((p) => {
-        const track = getMidiTracks(p.timeline).find((t) => t.id === lab.primaryTrack.id)
-        if (!track || getMidiTrackNotes(track).length === 0) return p
-        return compactTrackNotesStart(p, lab.primaryTrack.id)
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lab.applyUpdate, lab.primaryTrack.id]),
-    onUpdateMessage: lab.setProjectMessage,
-    primaryTrack: lab.primaryTrack,
-  })
-
-  const labPerform = useLabPerform({
-    primaryTrack: lab.primaryTrack,
-    isPrimaryTrackAudible: lab.isPrimaryTrackAudible,
-    selectedInstrument: instrumentCatalog.selectedInstrument,
-    getCurrentRecordTime: labRecording.getCurrentRecordTime,
-    recordNotesToActiveTrack: labRecording.recordNotesToActiveTrack,
-    recordNotesAtTime: labRecording.recordNotesAtTime,
-    registerMidiEvent: labRecording.registerMidiEvent,
-    recordingState: labRecording.recordingState,
-    applyUpdate: lab.applyUpdate,
-    setProjectMessage: lab.setProjectMessage,
-    project: lab.project,
+  const {
+    instrumentCatalog,
+    performance: labPerform,
+    recording: labRecording,
+  } = useProjectPerformanceComposition({
+    projectSession: lab,
   })
 
   // Busca por ID; si no existe aún (recarga, proyecto nuevo), cae al primero
@@ -317,87 +282,64 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     })
 
   // ── Timeline view effects ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (lab.hasNoTracks && timelineView === "notes") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTimelineView("tracks")
-    }
-  }, [lab.hasNoTracks, timelineView])
-
-  useEffect(() => {
-    function syncTimelineView() {
-      const v = new URLSearchParams(window.location.search).get("timelineView")
-      if (v === "tracks" || v === "notes") setTimelineView(v)
-    }
-    window.addEventListener("popstate", syncTimelineView)
-    return () => window.removeEventListener("popstate", syncTimelineView)
+  const clearTrackLaneFocus = useCallback(() => {
+    setIsTrackLaneFocused(false)
+    setSelectedClipId(null)
   }, [])
-
-  useEffect(() => {
-    if (timelineView !== "tracks") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsTrackLaneFocused(false)
-      setSelectedClipId(null)
-    }
-  }, [timelineView])
+  const { timelineView, setTimelineView } = useEditTimelineView({
+    hasNoTracks: lab.hasNoTracks,
+    onLeaveTracksView: clearTrackLaneFocus,
+  })
 
   // ── Plugin hooks (must be before any early return) ──────────────────────────
   const externalPlugins = useExternalPlugins()
+  const pluginNotePreview = usePluginWorkspaceNotePreview({
+    instruments: instrumentCatalog.availableInstruments,
+    startVoice: (note, duration, options) =>
+      playNote(note as Parameters<typeof playNote>[0], duration, options),
+    stopVoice: stopNote,
+  })
+  const pluginClipStorage = createPluginWorkspaceClipStorage({
+    loadClip: loadPluginClip,
+    storeClip: storePluginClip,
+  })
 
-  const pluginApi = usePluginAPI({
-    isPlaying: labPlayback.playbackTransport.isPlaying,
-    isRecording: labRecording.recordingState === "recording",
-    bpm: getSamplerTracks(lab.project.timeline)[0]?.pattern.bpm ?? 120,
-    playNote: (note, instrumentId, duration) => {
-      const inst = instrumentCatalog.availableInstruments.find(i => i.id === instrumentId)
-      const voiceId = playNote(note as Parameters<typeof playNote>[0], duration, {
-        waveform: inst?.waveform,
-        envelope: inst?.envelope,
-        volume: inst?.volume,
-      })
-      pluginVoicesRef.current.set(note, voiceId)
+  const pluginApi = usePluginWorkspaceAPI({
+    audio: {
+      playNote: pluginNotePreview.playNote,
+      stopNote: pluginNotePreview.stopNote,
+      triggerPad: (padId, velocity = 1) =>
+        labPerform.triggerSmcPad(padId as SmcPadSoundId, velocity),
     },
-    stopNote: (note) => {
-      const voiceId = pluginVoicesRef.current.get(note)
-      if (voiceId !== undefined) { stopNote(voiceId); pluginVoicesRef.current.delete(note) }
+    notify: pluginWorkspaceNotification.notify,
+    project: {
+      bpm: getPluginWorkspaceBpm(lab.project.timeline),
+      getTracks: () => getPluginWorkspaceTracks(lab.project.timeline),
     },
-    triggerPad: (padId, velocity = 1) => labPerform.triggerSmcPad(padId as SmcPadSoundId, velocity),
-    getTracks: () =>
-      getMidiTracks(lab.project.timeline)
-        .filter(tr => tr.trackType !== "steps")
-        .map(tr => ({
-          id: tr.id,
-          name: tr.name,
-          type: tr.trackType === "melodic" ? "melodic" as const : "percussion" as const,
-        })),
-    receivePluginOutput: (output: PluginOutput) => {
-      if (output.type === "midi") {
-        lab.applyUpdate(p => appendTrackWithNotes(p, output.name, output.instrumentId, output.notes))
-      } else if (output.type === "audio") {
-        void processPluginAudioOutput(output).then(result => {
-          if (!result) return
-          if (result.type === "project-track") {
-            lab.applyUpdate(p => addAudioClipTrack(p, result))
-            return
-          }
-          if (result.type === "sampler-slot") {
-            window.dispatchEvent(new StorageEvent("storage", {
-              key: "mimidi-audio-slots",
-              storageArea: localStorage,
-            }))
-            return
-          }
-          void saveFile(result.blob, result.fileName, result.types)
-        })
-      }
+    session: {
+      loadClip: pluginClipStorage.loadClip,
+      receivePluginOutput: (output) => {
+        void handlePluginWorkspaceOutput(
+          {
+            applyProjectUpdate: lab.applyUpdate,
+            notifySamplerSlotsChanged: () => {
+              window.dispatchEvent(new StorageEvent("storage", {
+                key: "mimidi-audio-slots",
+                storageArea: localStorage,
+              }))
+            },
+            processAudioOutput: processPluginAudioOutput,
+            saveFile,
+          },
+          output,
+        )
+      },
+      storeClip: pluginClipStorage.storeClip,
     },
-    notify: (message) => {
-      if (pluginToastTimerRef.current) clearTimeout(pluginToastTimerRef.current)
-      setPluginToast(message)
-      pluginToastTimerRef.current = setTimeout(() => setPluginToast(""), 3500)
+    transport: {
+      isPlaying: labPlayback.playbackTransport.isPlaying,
+      isRecording: labRecording.recordingState === "recording",
     },
-    storeClip: (blob) => storePluginClip(blob),
-    loadClip: (dbId) => loadPluginClip(dbId),
   })
 
   // ── Coordinators: sequences that span multiple hooks ─────────────────────────
@@ -592,6 +534,106 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   const isNoteEditMode =
     mode === "edit-only" && timelineView === "notes" && !!lab.selectedRecordedNote
 
+  const editTrackNameControl = timelineView === "tracks"
+    ? (() => {
+        const activeSamplerTrack = selectedLaneId
+          ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedLaneId)
+          : null
+        const activeAudioTrack = !activeSamplerTrack && selectedLaneId
+          ? getAudioClipTracks(lab.project.timeline).find((t) => t.id === selectedLaneId)
+          : null
+        return activeSamplerTrack ? (
+          <EditTrackNameInput
+            key={activeSamplerTrack.id}
+            label={t.toolbar.mixName}
+            name={activeSamplerTrack.name}
+            onNameCommit={(value) => {
+              const name = value.trim()
+              if (name) lab.applyUpdate((p) => renameSamplerMix(p, activeSamplerTrack.id, name))
+            }}
+          />
+        ) : activeAudioTrack ? (
+          <EditTrackNameInput
+            key={activeAudioTrack.id}
+            label={t.toolbar.activeTrackName}
+            name={activeAudioTrack.name}
+            onNameCommit={(value) => {
+              const name = value.trim()
+              if (name) lab.applyUpdate((p) => renameTrack(p, activeAudioTrack.id, name))
+            }}
+          />
+        ) : lab.hasNoTracks ? (
+          <button
+            className="ui-icon-btn"
+            onClick={lab.addTrack}
+            style={{ fontSize: "0.8rem", padding: "0.25rem 0.75rem", borderRadius: "999px" }}
+            title={t.toolbar.addMidiTrackTitle}
+            type="button"
+          >
+            {t.toolbar.addMidiTrack}
+          </button>
+        ) : (
+          <EditTrackNameInput
+            key={lab.primaryTrack.id}
+            label={t.toolbar.activeTrackName}
+            name={lab.primaryTrack.name}
+            onNameCommit={lab.updateTrackName}
+          />
+        )
+      })()
+    : null
+
+  const editNoteControls =
+    mode === "edit-only" && timelineView === "notes" && lab.selectedRecordedNote ? (
+      <>
+        <span className="edit-note-chip">{lab.selectedRecordedNote.note}</span>
+        <input
+          aria-label={t.toolbar.noteStart}
+          className="edit-note-input"
+          min="0"
+          step="0.01"
+          type="number"
+          value={lab.selectedRecordedNote.startTime.toFixed(2)}
+          onChange={(e) => lab.updateSelectedNoteStartTime(Number(e.target.value))}
+        />
+        <input
+          aria-label={t.toolbar.noteDuration}
+          className="edit-note-input"
+          disabled={isSmcPadRecordedNote(lab.selectedRecordedNote)}
+          min="0.01"
+          step="0.01"
+          type="number"
+          value={lab.selectedRecordedNote.duration.toFixed(2)}
+          onChange={(e) => lab.updateSelectedNoteDuration(Number(e.target.value))}
+        />
+        <button
+          className="ui-icon-btn"
+          onClick={lab.duplicateSelectedRecordedNote}
+          title={t.toolbar.duplicateNote}
+          type="button"
+        >
+          <Copy size={15} />
+        </button>
+        <button
+          className="ui-icon-btn"
+          onClick={lab.revertSelectedNoteToLastCommit}
+          title={t.toolbar.revertNote}
+          type="button"
+        >
+          <RotateCcw size={15} />
+        </button>
+        <button
+          aria-label={t.toolbar.confirmEdit}
+          className="ui-icon-btn"
+          onClick={() => lab.setSelectedRecordedNoteId(null)}
+          title={t.common.done}
+          type="button"
+        >
+          <Check size={16} />
+        </button>
+      </>
+    ) : null
+
   // ────────────────────────────────────────────────────────────────────────────
   // ── edit-only workspace ──────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
@@ -599,155 +641,21 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     <section className="timeline-workspace" aria-label={t.toolbar.timelineWorkspace}>
       <header className="app-mock-toolbar">
         <div className="app-mock-toolbar-controls">
-          {!isNoteEditMode && (
-            <>
-              <div className="ui-toggle-group" role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}>
-                <button
-                  aria-pressed={timelineView === "notes"}
-                  disabled={lab.hasNoTracks}
-                  onClick={() => setTimelineView("notes")}
-                  title={lab.hasNoTracks ? t.toolbar.addMidiTrackDisabled : undefined}
-                  type="button"
-                >
-                  {t.toolbar.viewNotes}
-                </button>
-                <button
-                  aria-pressed={timelineView === "tracks"}
-                  data-tutorial="view-tracks-tab"
-                  onClick={() => setTimelineView("tracks")}
-                  type="button"
-                >
-                  {t.toolbar.viewTracks}
-                </button>
-              </div>
-              <span aria-hidden="true" className="perform-mode-transport-divider" />
-            </>
-          )}
-          {timelineView === "notes" && !isNoteEditMode && (
-            <select
-              aria-label={t.toolbar.selectTrack}
-              className="ui-select"
-              value={lab.primaryTrack.id}
-              onChange={(e) => switchActiveTrack(e.target.value)}
-            >
-              {lab.midiTracks.filter(t => t.trackType !== "steps").map((track) => (
-                <option key={track.id} value={track.id}>
-                  {track.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {timelineView === "tracks" &&
-            (() => {
-              const activeSamplerTrack = selectedLaneId
-                ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedLaneId)
-                : null
-              const activeAudioTrack = !activeSamplerTrack && selectedLaneId
-                ? getAudioClipTracks(lab.project.timeline).find((t) => t.id === selectedLaneId)
-                : null
-              return activeSamplerTrack ? (
-                <input
-                  aria-label={t.toolbar.mixName}
-                  className="edit-note-input edit-track-name-input"
-                  defaultValue={activeSamplerTrack.name}
-                  key={activeSamplerTrack.id}
-                  onBlur={(e) => {
-                    const name = e.target.value.trim()
-                    if (name) lab.applyUpdate((p) => renameSamplerMix(p, activeSamplerTrack.id, name))
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur()
-                  }}
-                  type="text"
-                />
-              ) : activeAudioTrack ? (
-                <input
-                  aria-label={t.toolbar.activeTrackName}
-                  className="edit-note-input edit-track-name-input"
-                  defaultValue={activeAudioTrack.name}
-                  key={activeAudioTrack.id}
-                  onBlur={(e) => {
-                    const name = e.target.value.trim()
-                    if (name) lab.applyUpdate((p) => renameTrack(p, activeAudioTrack.id, name))
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur()
-                  }}
-                  type="text"
-                />
-              ) : lab.hasNoTracks ? (
-                <button
-                  className="ui-icon-btn"
-                  onClick={lab.addTrack}
-                  style={{ fontSize: "0.8rem", padding: "0.25rem 0.75rem", borderRadius: "999px" }}
-                  title={t.toolbar.addMidiTrackTitle}
-                  type="button"
-                >
-                  {t.toolbar.addMidiTrack}
-                </button>
-              ) : (
-                <input
-                  aria-label={t.toolbar.activeTrackName}
-                  className="edit-note-input edit-track-name-input"
-                  defaultValue={lab.primaryTrack.name}
-                  key={lab.primaryTrack.id}
-                  onBlur={(e) => lab.updateTrackName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur()
-                  }}
-                  type="text"
-                />
-              )
-            })()}
-          {mode === "edit-only" && timelineView === "notes" && lab.selectedRecordedNote && (
-            <>
-              <span className="edit-note-chip">{lab.selectedRecordedNote.note}</span>
-              <input
-                aria-label={t.toolbar.noteStart}
-                className="edit-note-input"
-                min="0"
-                step="0.01"
-                type="number"
-                value={lab.selectedRecordedNote.startTime.toFixed(2)}
-                onChange={(e) => lab.updateSelectedNoteStartTime(Number(e.target.value))}
-              />
-              <input
-                aria-label={t.toolbar.noteDuration}
-                className="edit-note-input"
-                disabled={isSmcPadRecordedNote(lab.selectedRecordedNote)}
-                min="0.01"
-                step="0.01"
-                type="number"
-                value={lab.selectedRecordedNote.duration.toFixed(2)}
-                onChange={(e) => lab.updateSelectedNoteDuration(Number(e.target.value))}
-              />
-              <button
-                className="ui-icon-btn"
-                onClick={lab.duplicateSelectedRecordedNote}
-                title={t.toolbar.duplicateNote}
-                type="button"
-              >
-                <Copy size={15} />
-              </button>
-              <button
-                className="ui-icon-btn"
-                onClick={lab.revertSelectedNoteToLastCommit}
-                title={t.toolbar.revertNote}
-                type="button"
-              >
-                <RotateCcw size={15} />
-              </button>
-              <button
-                aria-label={t.toolbar.confirmEdit}
-                className="ui-icon-btn"
-                onClick={() => lab.setSelectedRecordedNoteId(null)}
-                title={t.common.done}
-                type="button"
-              >
-                <Check size={16} />
-              </button>
-            </>
-          )}
+          <EditTimelineToolbar
+            activeTrackId={lab.primaryTrack.id}
+            activeTrackSelectLabel={t.toolbar.selectTrack}
+            addMidiTrackDisabledTitle={t.toolbar.addMidiTrackDisabled}
+            hasNoTracks={lab.hasNoTracks}
+            isNoteEditMode={isNoteEditMode}
+            noteEditControls={editNoteControls}
+            notesLabel={t.toolbar.viewNotes}
+            onTimelineViewChange={setTimelineView}
+            onTrackChange={switchActiveTrack}
+            timelineView={timelineView}
+            trackNameControl={editTrackNameControl}
+            tracks={lab.midiTracks.filter(t => t.trackType !== "steps")}
+            tracksLabel={t.toolbar.viewTracks}
+          />
           {!isNoteEditMode && (
             <>
               <span aria-hidden="true" className="perform-mode-transport-divider" />
@@ -1334,7 +1242,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
       <PluginWorkspaceView
         api={pluginApi}
         language={language}
-        notification={pluginToast}
+        notification={pluginWorkspaceNotification.notification}
         pluginId={pluginId ?? ""}
       />
     )

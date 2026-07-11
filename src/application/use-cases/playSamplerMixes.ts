@@ -4,8 +4,9 @@ import {
   getAudioCurrentTime,
   playAudioBufferCalibratedAt,
 } from "../../engine/audio/audioEngine"
-import type { SamplerMixTrack } from "../../engine/project/projectModel"
+import type { SamplerMixTrack } from "../../domain/project/projectTypes"
 import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { getTrackScheduler } from "./trackSchedulers"
 
 export type PlaySamplerMixesDependencies = {
   sampleSlots: Pick<SampleSlotRepository, "loadSlots">
@@ -40,42 +41,24 @@ export function playSamplerMixesWithDependencies(
   const done = (async () => {
     for (const mix of mixes) {
       if (cancelled) return
-      if (mix.muted) continue
+      const scheduler = getTrackScheduler(mix)
+      if (scheduler.kind !== "sampler") continue
 
-      const secondsPerStep = 60 / mix.pattern.bpm / 4
-
-      for (const clip of mix.clips) {
-        for (const lane of mix.pattern.lanes) {
-          if (cancelled) return
-
-          const slot = slots.find((candidate) => candidate?.dbId === lane.slotDbId)
-          if (!slot) continue
-
-          const buffer = await dependencies.loadSampleAudioBuffer(lane.slotDbId)
-          if (!buffer || cancelled) continue
-
-          for (let stepIndex = 0; stepIndex < lane.steps.length; stepIndex += 1) {
-            if (!lane.steps[stepIndex].active) continue
-
-            const stepOffsetSec = stepIndex * secondsPerStep
-            const absoluteWhen =
-              timelineStartedAt / 1000 + clip.startTime + stepOffsetSec
-            const audioNow = dependencies.getAudioCurrentTime()
-            const when = audioNow + (absoluteWhen - dependencies.nowSeconds())
-
-            // Loading can race the clock; skip only events that are truly lost.
-            if (when < audioNow - 0.5) continue
-
-            const scheduledWhen = Math.max(when, audioNow + 0.01)
-            const source = dependencies.playAudioBufferCalibratedAt(
-              buffer,
-              slot.calibration,
-              scheduledWhen,
-            )
+      await scheduler.schedule(
+        {
+          getAudioCurrentTime: dependencies.getAudioCurrentTime,
+          loadSampleAudioBuffer: dependencies.loadSampleAudioBuffer,
+          nowSeconds: dependencies.nowSeconds,
+          onSourceScheduled(source) {
             scheduledSources.push(source)
-          }
-        }
-      }
+          },
+          playAudioBufferCalibratedAt: dependencies.playAudioBufferCalibratedAt,
+          shouldCancel: () => cancelled,
+          slots,
+        },
+        mix,
+        timelineStartedAt,
+      )
     }
   })()
 

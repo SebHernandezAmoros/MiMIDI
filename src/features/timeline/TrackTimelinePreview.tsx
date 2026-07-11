@@ -1,9 +1,6 @@
 import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import {
   getMidiClipDuration,
-  getMidiTracks,
-  getSamplerTracks,
-  getAudioClipTracks,
   getSamplerTrackDuration,
   type AudioClip,
   type MidiClip,
@@ -15,6 +12,9 @@ import {
 } from "../../engine/project/projectModel"
 import { isSmcPadRecordedNote } from "../../engine/midi/events"
 import { resolveAppMessages, type AppLanguage } from "../../app/appI18n"
+import { AudioClipTimelineLane } from "./AudioClipTimelineLane"
+import { createTrackTimelineLaneGroups } from "./trackTimelineViewModel"
+import { SamplerTimelineLane } from "./SamplerTimelineLane"
 import "./TrackTimelinePreview.css"
 
 type SelectedClipInfo = { trackId: string; clipId: string; type: "midi" | "sampler" }
@@ -119,13 +119,13 @@ export function TrackTimelinePreview({
   timelineLength,
 }: TrackTimelinePreviewProps) {
   const tl = resolveAppMessages(language ?? "es").lab.timeline
-  const midiTracks = getMidiTracks(timeline).filter((t) =>
-    t.trackType !== "steps" && t.clips.some((c) => c.notes.length > 0),
-  )
-  const samplerTracks = getSamplerTracks(timeline).filter((t) =>
-    t.pattern.lanes.some((l) => l.steps.some((s) => s.active)),
-  )
-  const audioClipTracks = getAudioClipTracks(timeline)
+  const laneSummaryLabels = {
+    clipSuffix: tl.clipSuffix,
+    clipsSuffix: tl.clipsSuffix,
+    notesSuffix: tl.notesSuffix,
+    stepsSuffix: tl.stepsSuffix,
+  }
+  const laneGroups = createTrackTimelineLaneGroups(timeline, laneSummaryLabels)
   const [editingMixId, setEditingMixId] = useState<string | null>(null)
   const [editingMixName, setEditingMixName] = useState("")
 
@@ -289,7 +289,7 @@ export function TrackTimelinePreview({
         </div>
       </div>
 
-      {midiTracks.length === 0 && samplerTracks.length === 0 && audioClipTracks.length === 0 ? (
+      {laneGroups.midi.length === 0 && laneGroups.sampler.length === 0 && laneGroups.audioClip.length === 0 ? (
         <p className="timeline-empty">{tl.empty}</p>
       ) : (
         <div className="track-timeline-lanes">
@@ -323,42 +323,44 @@ export function TrackTimelinePreview({
               </div>
             </div>
           )}
-          {midiTracks.map((track) => {
-            const isActive = track.id === activeTrackId && !selectedLaneId
-            const filledClips = track.clips.filter((c) => c.notes.length > 0)
+          {laneGroups.midi.map(({ track, viewModel: laneViewModel }) => {
+            const isActive = laneViewModel.id === activeTrackId && !selectedLaneId
+            const filledClips = track.clips.filter((c) =>
+              laneViewModel.clipsById.has(c.id),
+            )
 
             return (
               <div
                 className={[
                   "track-timeline-lane",
                   isActive ? "track-timeline-lane-active" : "",
-                  track.muted ? "track-timeline-lane-muted" : "",
+                  laneViewModel.muted ? "track-timeline-lane-muted" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                key={track.id}
-                onClick={() => onSelectTrack(track.id)}
+                key={laneViewModel.id}
+                onClick={() => onSelectTrack(laneViewModel.id)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTrack(track.id) }
+                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTrack(laneViewModel.id) }
                 }}
                 role="button"
                 tabIndex={0}
               >
                 <div className="track-timeline-meta">
-                  <strong>{track.name}</strong>
+                  <strong>{laneViewModel.name}</strong>
                   <span className="project-label">
-                    {track.clips.reduce((s, c) => s + c.notes.length, 0)} {tl.notesSuffix} · {filledClips.length} {filledClips.length !== 1 ? tl.clipsSuffix : tl.clipSuffix}
+                    {laneViewModel.summaryLabel}
                   </span>
-                  {(track.muted || isActive) && (
+                  {(laneViewModel.muted || isActive) && (
                     <div className="track-timeline-badges">
-                      {track.muted ? <span className="track-timeline-badge track-timeline-badge-muted">{tl.mute}</span> : null}
+                      {laneViewModel.muted ? <span className="track-timeline-badge track-timeline-badge-muted">{tl.mute}</span> : null}
                       {isActive ? <span className="track-timeline-badge">{tl.active}</span> : null}
                     </div>
                   )}
                 </div>
                 <div className="track-timeline-track">
                   {filledClips.map((clip) => {
-                    const clipDuration = getMidiClipDuration(clip)
+                    const clipDuration = laneViewModel.clipsById.get(clip.id)?.duration ?? getMidiClipDuration(clip)
                     const isPlaying = playheadTime != null
                       && playheadTime >= clip.startTime
                       && playheadTime <= clip.startTime + clipDuration
@@ -408,143 +410,45 @@ export function TrackTimelinePreview({
             )
           })}
 
-          {audioClipTracks.map((track: AudioClipTrack) => {
-            const isLaneActive = selectedLaneId === track.id
-            return (
-              <div
-                className={[
-                  "track-timeline-lane track-timeline-lane-mix",
-                  isLaneActive ? "track-timeline-lane-mix-active" : "",
-                  track.muted ? "track-timeline-lane-muted" : "",
-                ].filter(Boolean).join(" ")}
-                key={track.id}
-                onClick={() => onSelectLane?.(track.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectLane?.(track.id) }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="track-timeline-meta">
-                  <strong>{track.name}</strong>
-                  <span className="project-label">{track.duration.toFixed(1)}s · audio · {track.clips.length} {track.clips.length !== 1 ? tl.clipsSuffix : tl.clipSuffix}</span>
-                  {track.muted && (
-                    <span className="track-timeline-badge track-timeline-badge-muted">Mute</span>
-                  )}
-                </div>
-                <div className="track-timeline-track">
-                  {track.clips.map((clip: AudioClip) => {
-                    const isPlaying = playheadTime != null
-                      && playheadTime >= clip.startTime
-                      && playheadTime <= clip.startTime + track.duration
-                    return (
-                      <div
-                        className={[
-                          "track-timeline-clip track-timeline-clip-mix",
-                          isPlaying ? "track-timeline-clip-playing" : "",
-                        ].filter(Boolean).join(" ")}
-                        key={clip.id}
-                        onPointerDown={(e) => startAudioClipDrag(e, track, clip)}
-                        style={
-                          {
-                            "--track-clip-duration": track.duration / timelineLength,
-                            "--track-clip-start": clip.startTime / timelineLength,
-                          } as TrackTimelineStyle
-                        }
-                      >
-                        <span className="track-timeline-mix-label">{track.name}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+          {laneGroups.audioClip.map(({ track, viewModel: laneViewModel }) => (
+            <AudioClipTimelineLane
+              key={laneViewModel.id}
+              laneViewModel={laneViewModel}
+              onClipPointerDown={startAudioClipDrag}
+              onSelectLane={onSelectLane}
+              playheadTime={playheadTime}
+              selectedLaneId={selectedLaneId}
+              timelineLength={timelineLength}
+              track={track}
+            />
+          ))}
 
-          {samplerTracks.map((mix) => {
-            const mixDuration = getSamplerTrackDuration(mix)
-            return (
-              <div
-                className={[
-                  "track-timeline-lane track-timeline-lane-mix",
-                  selectedLaneId === mix.id ? "track-timeline-lane-mix-active" : "",
-                  mix.muted ? "track-timeline-lane-muted" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                key={mix.id}
-                onClick={() => onSelectLane?.(mix.id)}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="track-timeline-meta">
-                  {editingMixId === mix.id ? (
-                    <input
-                      autoFocus
-                      className="track-timeline-mix-name-input"
-                      onBlur={() => {
-                        if (editingMixName.trim()) onRenameMix?.(mix.id, editingMixName.trim())
-                        setEditingMixId(null)
-                      }}
-                      onChange={(e) => setEditingMixName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { if (editingMixName.trim()) onRenameMix?.(mix.id, editingMixName.trim()); setEditingMixId(null) }
-                        if (e.key === "Escape") setEditingMixId(null)
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      type="text"
-                      value={editingMixName}
-                    />
-                  ) : (
-                    <strong
-                      onDoubleClick={(e) => {
-                        e.stopPropagation()
-                        setEditingMixId(mix.id)
-                        setEditingMixName(mix.name)
-                      }}
-                      title={tl.renameDouble}
-                    >
-                      {mix.name}
-                    </strong>
-                  )}
-                  <span className="project-label">
-                    {mix.pattern.bpm < 10 ? mix.pattern.bpm.toFixed(2) : Math.round(mix.pattern.bpm)} BPM · {mix.pattern.stepsPerBar} {tl.stepsSuffix} · {mix.clips.length} {mix.clips.length !== 1 ? tl.clipsSuffix : tl.clipSuffix}
-                  </span>
-                  {mix.muted && (
-                    <span className="track-timeline-badge track-timeline-badge-muted">Mute</span>
-                  )}
-                </div>
-                <div className="track-timeline-track">
-                  {mix.clips.map((clip) => {
-                    const isPlaying = playheadTime != null
-                      && playheadTime >= clip.startTime
-                      && playheadTime <= clip.startTime + mixDuration
-                    return (
-                    <div
-                      className={[
-                        "track-timeline-clip track-timeline-clip-mix",
-                        selectedClipId?.clipId === clip.id && selectedClipId?.trackId === mix.id
-                          ? "track-timeline-clip-selected"
-                          : "",
-                        isPlaying ? "track-timeline-clip-playing" : "",
-                      ].filter(Boolean).join(" ")}
-                      key={clip.id}
-                      onPointerDown={(e) => startSamplerClipDrag(e, mix, clip)}
-                      style={
-                        {
-                          "--track-clip-duration": mixDuration / timelineLength,
-                          "--track-clip-start": clip.startTime / timelineLength,
-                        } as TrackTimelineStyle
-                      }
-                    >
-                      <span className="track-timeline-mix-label">{mix.name}</span>
-                    </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+          {laneGroups.sampler.map(({ track: mix, viewModel: laneViewModel }) => (
+            <SamplerTimelineLane
+              editingMixName={editingMixName}
+              isEditing={editingMixId === laneViewModel.id}
+              key={laneViewModel.id}
+              laneViewModel={laneViewModel}
+              onCancelEditing={() => setEditingMixId(null)}
+              onClipPointerDown={startSamplerClipDrag}
+              onCommitEditing={(mixId, name) => {
+                onRenameMix?.(mixId, name)
+                setEditingMixId(null)
+              }}
+              onEditingMixNameChange={setEditingMixName}
+              onSelectLane={onSelectLane}
+              onStartEditing={(mixId, name) => {
+                setEditingMixId(mixId)
+                setEditingMixName(name)
+              }}
+              playheadTime={playheadTime}
+              renameDoubleLabel={tl.renameDouble}
+              selectedClipId={selectedClipId}
+              selectedLaneId={selectedLaneId}
+              timelineLength={timelineLength}
+              track={mix}
+            />
+          ))}
         </div>
       )}
     </section>

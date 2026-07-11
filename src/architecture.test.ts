@@ -703,6 +703,12 @@ describe("architecture boundaries", () => {
     const projectViewComposition = readProjectFile(
       "src/app/ProjectViewComposition.tsx",
     )
+    const projectPlaybackComposition = readProjectFile(
+      "src/app/useProjectPlaybackComposition.ts",
+    )
+    const projectPerformanceComposition = readProjectFile(
+      "src/app/useProjectPerformanceComposition.ts",
+    )
     const labApp = readProjectFile("src/features/lab/LabApp.tsx")
 
     expect(labImportViolations).toEqual([])
@@ -718,8 +724,33 @@ describe("architecture boundaries", () => {
     expect(localizedProjectFeatureView).toContain("<ProjectFeatureView")
     expect(appMode).toContain("<ProjectViewComposition")
     expect(appMode).not.toContain('mode="project-only"')
-    expect(projectViewComposition).toContain("useLabProject({")
-    expect(projectViewComposition).toContain("useLabPlayback({")
+    expect(projectViewComposition).toContain(
+      "useProjectPlaybackComposition({",
+    )
+    expect(projectViewComposition).not.toContain("useLabProject({")
+    expect(projectViewComposition).not.toContain("useLabPlayback({")
+    expect(projectPlaybackComposition).toContain("useLabProject(options)")
+    expect(projectPlaybackComposition).toContain(
+      "useLabPlayback({ project: projectSession.project })",
+    )
+    expect(labApp).toContain("useProjectPerformanceComposition({")
+    expect(labApp).not.toContain("useLabInstrumentCatalog(")
+    expect(labApp).not.toContain("useLabRecordingSession({")
+    expect(labApp).not.toContain("useLabPerform({")
+    expect(projectPerformanceComposition).toContain(
+      "useLabInstrumentCatalog(",
+    )
+    expect(projectPerformanceComposition).toContain(
+      "useLabRecordingSession({",
+    )
+    expect(projectPerformanceComposition).toContain("useLabPerform({")
+    expect(projectPerformanceComposition).not.toContain(
+      "useMelodicSequencer",
+    )
+    expect(projectPerformanceComposition).not.toContain("usePadBeats")
+    expect(projectPerformanceComposition).not.toContain(
+      "TrackTimelinePreview",
+    )
     expect(projectViewComposition).not.toContain("useLabPerform")
     expect(projectViewComposition).not.toContain("useLabRecordingSession")
     expect(projectViewComposition).not.toContain("useMelodicSequencer")
@@ -739,14 +770,40 @@ describe("architecture boundaries", () => {
     const pluginsCatalogComposition = readProjectFile(
       "src/app/PluginsCatalogComposition.tsx",
     )
+    const pluginWorkspaceComposition = readProjectFile(
+      "src/app/PluginWorkspaceComposition.tsx",
+    )
     const pluginWorkspaceView = readProjectFile(
       "src/features/plugins-view/PluginWorkspaceView.tsx",
+    )
+    const pluginWorkspaceNotification = readProjectFile(
+      "src/features/plugins-view/usePluginWorkspaceNotification.ts",
+    )
+    const pluginWorkspaceOutputs = readProjectFile(
+      "src/features/plugins-view/pluginWorkspaceOutputs.ts",
+    )
+    const pluginWorkspaceTracks = readProjectFile(
+      "src/features/plugins-view/pluginWorkspaceTracks.ts",
+    )
+    const pluginWorkspaceTempo = readProjectFile(
+      "src/features/plugins-view/pluginWorkspaceTempo.ts",
+    )
+    const pluginWorkspaceNotePreview = readProjectFile(
+      "src/features/plugins-view/usePluginWorkspaceNotePreview.ts",
+    )
+    const pluginWorkspaceClipStorage = readProjectFile(
+      "src/features/plugins-view/pluginWorkspaceClipStorage.ts",
+    )
+    const pluginWorkspaceAPI = readProjectFile(
+      "src/features/plugins-view/usePluginWorkspaceAPI.ts",
     )
 
     expect(labImportViolations).toEqual([])
     expect(appMode).toContain("<PluginsCatalogComposition")
     expect(appMode).not.toContain('mode="plugins-only"')
-    expect(appMode).toContain('mode="plugin-workspace"')
+    expect(appMode).toContain("<PluginWorkspaceComposition")
+    expect(appMode).not.toContain('mode="plugin-workspace"')
+    expect(appMode).not.toContain("../features/lab/LabApp")
     expect(pluginsCatalogComposition).toContain("useLabProject({")
     expect(pluginsCatalogComposition).toContain("useExternalPlugins()")
     expect(pluginsCatalogComposition).not.toContain("useLabPlayback")
@@ -755,6 +812,23 @@ describe("architecture boundaries", () => {
     expect(pluginsCatalogComposition).not.toContain("useMelodicSequencer")
     expect(pluginsCatalogComposition).not.toContain("usePadBeats")
     expect(pluginsCatalogComposition).not.toContain("usePluginAPI")
+    expect(pluginWorkspaceComposition).toContain(
+      "useProjectPlaybackComposition({",
+    )
+    expect(pluginWorkspaceComposition).toContain(
+      "useProjectPerformanceComposition({ projectSession })",
+    )
+    expect(pluginWorkspaceComposition).toContain(
+      "usePluginWorkspaceAPI({",
+    )
+    expect(pluginWorkspaceComposition).toContain("<PluginWorkspaceView")
+    expect(pluginWorkspaceComposition).not.toContain(
+      "useMelodicSequencer",
+    )
+    expect(pluginWorkspaceComposition).not.toContain("usePadBeats")
+    expect(pluginWorkspaceComposition).not.toContain(
+      "TrackTimelinePreview",
+    )
     expect(labApp).toContain("<PluginsCatalogList")
     expect(labApp).not.toContain("lab.registeredPlugins.map((plugin)")
     expect(labApp).toContain("<PluginsCatalogImportToolbar")
@@ -769,10 +843,356 @@ describe("architecture boundaries", () => {
     expect(labApp).not.toContain("No se pudo instalar el plugin:")
     expect(labApp).not.toContain("No se pudo cargar el plugin:")
     expect(labApp).toContain("<PluginWorkspaceView")
+    expect(labApp).toContain("usePluginWorkspaceNotification()")
+    expect(labApp).not.toContain("pluginToastTimerRef")
+    expect(labApp).not.toContain("setPluginToast")
+    expect(labApp).not.toContain("setTimeout(() => setPluginToast")
+    expect(labApp).toContain("handlePluginWorkspaceOutput(")
+    expect(labApp).not.toContain("appendTrackWithNotes")
+    expect(labApp).not.toContain("addAudioClipTrack")
+    expect(labApp).not.toContain("processPluginAudioOutput(output).then")
+    expect(labApp).toContain("getPluginWorkspaceTracks(lab.project.timeline)")
+    expect(labApp).toContain("getPluginWorkspaceBpm(lab.project.timeline)")
+    expect(labApp).toContain("usePluginWorkspaceNotePreview({")
+    expect(labApp).toContain("createPluginWorkspaceClipStorage({")
+    expect(labApp).toContain("usePluginWorkspaceAPI({")
+    expect(labApp).not.toContain("usePluginAPI({")
+    expect(labApp).not.toContain("../../plugin-host/pluginApi")
+    expect(labApp).not.toContain("pluginVoicesRef")
+    expect(labApp).not.toContain(
+      "instrumentCatalog.availableInstruments.find(i => i.id === instrumentId)",
+    )
+    expect(labApp).not.toContain(
+      "storeClip: (blob) => storePluginClip(blob)",
+    )
+    expect(labApp).not.toContain(
+      "loadClip: (dbId) => loadPluginClip(dbId)",
+    )
+    expect(labApp).not.toContain(
+      "getSamplerTracks(lab.project.timeline)[0]?.pattern.bpm ?? 120",
+    )
+    expect(labApp).not.toContain(
+      '.filter(tr => tr.trackType !== "steps")',
+    )
     expect(labApp).not.toContain("<PluginWorkspaceHost")
     expect(labApp).not.toContain('className="plugin-toast"')
     expect(pluginWorkspaceView).toContain("<PluginWorkspaceHost")
     expect(pluginWorkspaceView).toContain('className="plugin-toast"')
+    expect(pluginWorkspaceNotification).toContain(
+      "PLUGIN_WORKSPACE_NOTIFICATION_DURATION_MS = 3500",
+    )
+    expect(pluginWorkspaceNotification).toContain("clearTimeout(timerRef.current)")
+    expect(pluginWorkspaceOutputs).toContain("appendTrackWithNotes(")
+    expect(pluginWorkspaceOutputs).toContain("addAudioClipTrack(")
+    expect(pluginWorkspaceOutputs).toContain(
+      "dependencies.notifySamplerSlotsChanged()",
+    )
+    expect(pluginWorkspaceOutputs).toContain("dependencies.saveFile(")
+    expect(pluginWorkspaceTracks).toContain(
+      '.filter((track) => track.trackType !== "steps")',
+    )
+    expect(pluginWorkspaceTracks).toContain(
+      'type: track.trackType === "melodic" ? "melodic" : "percussion"',
+    )
+    expect(pluginWorkspaceTempo).toContain(
+      "getSamplerTracks(timeline)[0]?.pattern.bpm",
+    )
+    expect(pluginWorkspaceTempo).toContain(
+      "DEFAULT_PLUGIN_WORKSPACE_BPM = 120",
+    )
+    expect(pluginWorkspaceNotePreview).toContain(
+      "voicesRef.current.set(note, voiceId)",
+    )
+    expect(pluginWorkspaceNotePreview).toContain(
+      "voicesRef.current.delete(note)",
+    )
+    expect(pluginWorkspaceClipStorage).toContain(
+      "return dependencies.storeClip(blob)",
+    )
+    expect(pluginWorkspaceClipStorage).toContain(
+      "return dependencies.loadClip(dbId)",
+    )
+    expect(pluginWorkspaceAPI).toContain("return usePluginAPI({")
+    expect(pluginWorkspaceAPI).toContain(
+      "isPlaying: dependencies.transport.isPlaying",
+    )
+    expect(pluginWorkspaceAPI).toContain(
+      "receivePluginOutput: dependencies.session.receivePluginOutput",
+    )
+  })
+
+  it("keeps Edit View presentation independent from the legacy Lab composition", () => {
+    const editViewFiles = listSourceFiles(
+      join(SRC_ROOT, "features", "edit"),
+    ).map(toProjectPath)
+    const labImportViolations = editViewFiles.filter((file) =>
+      /from ["'][^"']*\/lab(?:\/|["'])/.test(readProjectFile(file)),
+    )
+    const appMode = readProjectFile("src/app/AppMode.tsx")
+    const editScreen = readProjectFile("src/features/edit/EditScreen.tsx")
+    const editWorkspace = readProjectFile("src/features/edit/EditWorkspace.tsx")
+    const editActiveTrackSelect = readProjectFile(
+      "src/features/edit/EditActiveTrackSelect.tsx",
+    )
+    const editTimelineViewToggle = readProjectFile(
+      "src/features/edit/EditTimelineViewToggle.tsx",
+    )
+    const editTimelineToolbar = readProjectFile(
+      "src/features/edit/EditTimelineToolbar.tsx",
+    )
+    const editTrackNameInput = readProjectFile(
+      "src/features/edit/EditTrackNameInput.tsx",
+    )
+    const editTimelineView = readProjectFile(
+      "src/features/edit/useEditTimelineView.ts",
+    )
+    const editViewComposition = readProjectFile(
+      "src/app/EditViewComposition.tsx",
+    )
+    const labApp = readProjectFile("src/features/lab/LabApp.tsx")
+
+    expect(labImportViolations).toEqual([])
+    expect(appMode).toContain("<EditViewComposition")
+    expect(appMode).not.toContain('mode="edit-only"')
+    expect(editScreen).toContain("editContent")
+    expect(editWorkspace).toContain("{editContent}")
+    expect(editWorkspace).not.toContain("LabApp")
+    expect(editActiveTrackSelect).toContain('className="ui-select"')
+    expect(editActiveTrackSelect).not.toContain("useLabProject")
+    expect(editActiveTrackSelect).not.toContain("TrackTimelinePreview")
+    expect(editTimelineViewToggle).toContain("data-tutorial=\"view-tracks-tab\"")
+    expect(editTimelineViewToggle).not.toContain("useLabProject")
+    expect(editTimelineViewToggle).not.toContain("TrackTimelinePreview")
+    expect(editTimelineToolbar).toContain("<EditTimelineViewToggle")
+    expect(editTimelineToolbar).toContain("<EditActiveTrackSelect")
+    expect(editTimelineToolbar).not.toContain("useLabProject")
+    expect(editTimelineToolbar).not.toContain("TrackTimelinePreview")
+    expect(editTrackNameInput).toContain(
+      'className="edit-note-input edit-track-name-input"',
+    )
+    expect(editTrackNameInput).not.toContain("useLabProject")
+    expect(editTrackNameInput).not.toContain("TrackTimelinePreview")
+    expect(editTimelineView).toContain("resolveInitialEditTimelineView")
+    expect(editTimelineView).toContain("popstate")
+    expect(editTimelineView).not.toContain("TrackTimelinePreview")
+    expect(editViewComposition).toContain('mode="edit-only"')
+    expect(editViewComposition).not.toContain("TrackTimelinePreview")
+    expect(editViewComposition).not.toContain("useMelodicSequencer")
+    expect(editViewComposition).not.toContain("usePadBeats")
+    expect(labApp).toContain("useEditTimelineView({")
+    expect(labApp).toContain("<EditTimelineToolbar")
+    expect(labApp).not.toContain("<EditActiveTrackSelect")
+    expect(labApp).not.toContain("<EditTimelineViewToggle")
+    expect(labApp).toContain("<EditTrackNameInput")
+    expect(labApp).not.toContain(
+      'aria-label={t.toolbar.selectTrack}',
+    )
+    expect(labApp).not.toContain(
+      'className="edit-note-input edit-track-name-input"',
+    )
+    expect(labApp).not.toContain("data-tutorial=\"view-tracks-tab\"")
+    expect(labApp).not.toContain(
+      'role="group" aria-label={`${t.toolbar.viewNotes}/${t.toolbar.viewTracks}`}',
+    )
+    expect(labApp).not.toContain(
+      'new URLSearchParams(window.location.search).get("timelineView")',
+    )
+    expect(labApp).not.toContain(
+      'window.addEventListener("popstate", syncTimelineView)',
+    )
+  })
+
+  it("keeps Perform View presentation independent from the legacy Lab composition", () => {
+    const performViewFiles = listSourceFiles(
+      join(SRC_ROOT, "features", "perform"),
+    ).map(toProjectPath)
+    const labImportViolations = performViewFiles.filter((file) =>
+      /from ["'][^"']*\/lab(?:\/|["'])/.test(readProjectFile(file)),
+    )
+    const appMode = readProjectFile("src/app/AppMode.tsx")
+    const performScreen = readProjectFile("src/features/perform/PerformScreen.tsx")
+    const performWorkspace = readProjectFile(
+      "src/features/perform/PerformWorkspace.tsx",
+    )
+    const performWebWorkspace = readProjectFile(
+      "src/features/perform/PerformWebWorkspace.tsx",
+    )
+    const performViewComposition = readProjectFile(
+      "src/app/PerformViewComposition.tsx",
+    )
+
+    expect(labImportViolations).toEqual([])
+    expect(appMode).toContain("<PerformViewComposition")
+    expect(appMode).not.toContain('mode="perform-only"')
+    expect(performScreen).toContain("performContent")
+    expect(performWorkspace).toContain("{performContent}")
+    expect(performWorkspace).not.toContain("LabApp")
+    expect(performWebWorkspace).toContain("{performContent}")
+    expect(performWebWorkspace).not.toContain("LabApp")
+    expect(performViewComposition).toContain('mode="perform-only"')
+    expect(performViewComposition).not.toContain("useMelodicSequencer")
+    expect(performViewComposition).not.toContain("usePadBeats")
+    expect(performViewComposition).not.toContain("TrackTimelinePreview")
+  })
+
+  it("keeps Sampler View presentation independent from the legacy Lab composition", () => {
+    const samplerViewFiles = listSourceFiles(
+      join(SRC_ROOT, "features", "sampler"),
+    ).map(toProjectPath)
+    const labImportViolations = samplerViewFiles.filter((file) =>
+      /from ["'][^"']*\/lab(?:\/|["'])/.test(readProjectFile(file)),
+    )
+    const appMode = readProjectFile("src/app/AppMode.tsx")
+    const samplerScreen = readProjectFile("src/features/sampler/SamplerScreen.tsx")
+    const samplerViewComposition = readProjectFile(
+      "src/app/SamplerViewComposition.tsx",
+    )
+
+    expect(labImportViolations).toEqual([])
+    expect(appMode).toContain("<SamplerViewComposition")
+    expect(appMode).not.toContain('mode="sampler-only"')
+    expect(samplerScreen).toContain("samplerContent")
+    expect(samplerScreen).not.toContain("LabApp")
+    expect(samplerViewComposition).toContain('mode="sampler-only"')
+    expect(samplerViewComposition).not.toContain("useMelodicSequencer")
+    expect(samplerViewComposition).not.toContain("usePadBeats")
+    expect(samplerViewComposition).not.toContain("TrackTimelinePreview")
+  })
+
+  it("keeps feature boundaries independent from the legacy Lab composition", () => {
+    const featureFiles = listSourceFiles(join(SRC_ROOT, "features"))
+      .map(toProjectPath)
+      .filter((file) => !file.startsWith("src/features/lab/"))
+    const labImportViolations = featureFiles.filter((file) =>
+      /from ["'][^"']*(?:features\/lab|\/lab)(?:\/|["'])/.test(
+        readProjectFile(file),
+      ),
+    )
+
+    expect(labImportViolations).toEqual([])
+  })
+
+  it("keeps TrackTimelinePreview render derivations on track data handlers", () => {
+    const trackTimelinePreview = readProjectFile(
+      "src/features/timeline/TrackTimelinePreview.tsx",
+    )
+    const trackTimelineViewModel = readProjectFile(
+      "src/features/timeline/trackTimelineViewModel.ts",
+    )
+    const audioClipTimelineLane = readProjectFile(
+      "src/features/timeline/AudioClipTimelineLane.tsx",
+    )
+    const samplerTimelineLane = readProjectFile(
+      "src/features/timeline/SamplerTimelineLane.tsx",
+    )
+    const trackLaneDefinitions = readProjectFile(
+      "src/features/timeline/trackLaneDefinitions.ts",
+    )
+
+    expect(trackTimelinePreview).toContain("createTrackTimelineLaneGroups")
+    expect(trackTimelinePreview).toContain("<AudioClipTimelineLane")
+    expect(trackTimelinePreview).toContain("<SamplerTimelineLane")
+    expect(trackTimelinePreview).toContain("laneViewModel.name")
+    expect(trackTimelinePreview).toContain("laneViewModel.muted")
+    expect(trackTimelinePreview).toContain("laneViewModel.summaryLabel")
+    expect(trackTimelinePreview).not.toContain("getMidiTracks")
+    expect(trackTimelinePreview).not.toContain("getSamplerTracks")
+    expect(trackTimelinePreview).not.toContain("getAudioClipTracks")
+    expect(trackTimelinePreview).not.toContain("trackTimelineClipsById")
+    expect(trackTimelinePreview).not.toContain("track.clips.map((clip: AudioClip)")
+    expect(trackTimelinePreview).not.toContain("notesSuffix} ·")
+    expect(audioClipTimelineLane).toContain("track-timeline-clip track-timeline-clip-mix")
+    expect(audioClipTimelineLane).toContain("onClipPointerDown")
+    expect(audioClipTimelineLane).not.toContain("TrackTimelinePreview")
+    expect(samplerTimelineLane).toContain("track-timeline-mix-name-input")
+    expect(samplerTimelineLane).toContain("onClipPointerDown")
+    expect(samplerTimelineLane).not.toContain("TrackTimelinePreview")
+    expect(trackTimelineViewModel).toContain("getTrackTimelineClips")
+    expect(trackTimelineViewModel).toContain("getTrackDataHandler")
+    expect(trackTimelineViewModel).toContain("getTrackLaneDefinition")
+    expect(trackTimelineViewModel).toContain("createTrackTimelineLaneGroups")
+    expect(trackTimelineViewModel).toContain("clipsById")
+    expect(trackTimelineViewModel).toContain("definition")
+    expect(trackTimelineViewModel).toContain("summaryLabel")
+    expect(trackTimelineViewModel).toContain("capabilities")
+    expect(trackLaneDefinitions).toContain("trackLaneDefinitions")
+    expect(trackLaneDefinitions).toContain("getTrackLaneDefinition")
+    expect(trackLaneDefinitions).not.toContain("react")
+    expect(trackLaneDefinitions).not.toContain("TrackTimelinePreview")
+  })
+
+  it("keeps audio clip track scheduling behind a track scheduler", () => {
+    const scheduleAudioClipTracks = readProjectFile(
+      "src/application/use-cases/scheduleAudioClipTracks.ts",
+    )
+    const audioClipTrackScheduler = readProjectFile(
+      "src/application/use-cases/audioClipTrackScheduler.ts",
+    )
+
+    expect(scheduleAudioClipTracks).toContain("getTrackScheduler")
+    expect(scheduleAudioClipTracks).toContain("scheduler.schedule")
+    expect(scheduleAudioClipTracks).not.toContain(
+      "scheduleAudioClipTrackWithDependencies",
+    )
+    expect(audioClipTrackScheduler).toContain('kind: "audio-clip"')
+    expect(audioClipTrackScheduler).toContain("schedule")
+    expect(audioClipTrackScheduler).not.toContain("react")
+    expect(audioClipTrackScheduler).not.toContain("useLabPlayback")
+    expect(audioClipTrackScheduler).not.toContain("features/lab")
+  })
+
+  it("keeps sampler track playback behind a track scheduler", () => {
+    const playSamplerMixes = readProjectFile(
+      "src/application/use-cases/playSamplerMixes.ts",
+    )
+    const samplerTrackScheduler = readProjectFile(
+      "src/application/use-cases/samplerTrackScheduler.ts",
+    )
+
+    expect(playSamplerMixes).toContain("getTrackScheduler")
+    expect(playSamplerMixes).toContain("scheduler.schedule")
+    expect(playSamplerMixes).not.toContain("scheduleSamplerTrackWithDependencies")
+    expect(samplerTrackScheduler).toContain('kind: "sampler"')
+    expect(samplerTrackScheduler).toContain("schedule")
+    expect(samplerTrackScheduler).not.toContain("react")
+    expect(samplerTrackScheduler).not.toContain("useLabPlayback")
+    expect(samplerTrackScheduler).not.toContain("features/lab")
+  })
+
+  it("keeps MIDI scheduled note resolution behind a track scheduler", () => {
+    const playRecordedNotes = readProjectFile(
+      "src/application/use-cases/playRecordedNotes.ts",
+    )
+    const midiTrackScheduler = readProjectFile(
+      "src/application/use-cases/midiTrackScheduler.ts",
+    )
+
+    expect(playRecordedNotes).toContain("getTrackScheduler")
+    expect(playRecordedNotes).toContain("scheduler.getScheduledNotes")
+    expect(playRecordedNotes).not.toContain("getMidiTrackScheduledNotes")
+    expect(playRecordedNotes).not.toContain("getScheduledTrackNotes")
+    expect(midiTrackScheduler).toContain('kind: "midi"')
+    expect(midiTrackScheduler).toContain("getScheduledNotes")
+    expect(midiTrackScheduler).not.toContain("react")
+    expect(midiTrackScheduler).not.toContain("useLabPlayback")
+    expect(midiTrackScheduler).not.toContain("features/lab")
+    expect(midiTrackScheduler).not.toContain("audioEngine")
+  })
+
+  it("keeps track schedulers registered behind a declarative registry", () => {
+    const trackSchedulers = readProjectFile(
+      "src/application/use-cases/trackSchedulers.ts",
+    )
+
+    expect(trackSchedulers).toContain("trackSchedulers")
+    expect(trackSchedulers).toContain("getTrackScheduler")
+    expect(trackSchedulers).toContain("midiTrackScheduler")
+    expect(trackSchedulers).toContain("samplerTrackScheduler")
+    expect(trackSchedulers).toContain("audioClipTrackScheduler")
+    expect(trackSchedulers).not.toContain("react")
+    expect(trackSchedulers).not.toContain("useLabPlayback")
+    expect(trackSchedulers).not.toContain("features/lab")
+    expect(trackSchedulers).not.toContain("audioEngine")
   })
 
   it("keeps useLabProject project persistence behind application use-cases", () => {

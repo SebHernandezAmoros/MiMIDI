@@ -1,8 +1,7 @@
 import type { AppLanguage } from "./appI18n"
 import { getBrowserSettingsRepository } from "./browserSettingsRepository"
+import { useProjectPlaybackComposition } from "./useProjectPlaybackComposition"
 import { resetLabProjectViewPreferencesWithRepository } from "../application/use-cases/labViewPreferences"
-import { useLabPlayback } from "../features/lab/useLabPlayback"
-import { useLabProject } from "../features/lab/useLabProject"
 import { LocalizedProjectFeatureView } from "../features/project-view/LocalizedProjectFeatureView"
 import { createProjectFeatureComposition } from "../features/project-view/projectFeatureComposition"
 import { createProjectFeatureFileImportHandlers } from "../features/project-view/projectFeatureFileImportHandlers"
@@ -16,12 +15,11 @@ export function ProjectViewComposition({
   language = "es",
   masterVolume,
 }: ProjectViewCompositionProps) {
-  const projectSession = useLabProject({
+  const { playback, projectSession } = useProjectPlaybackComposition({
     mode: "project-only",
     timelineSnapEnabled: false,
     timelineSnapStep: 0.1,
   })
-  const playback = useLabPlayback({ project: projectSession.project })
 
   function stopProjectPlayback() {
     playback.stopAll()
