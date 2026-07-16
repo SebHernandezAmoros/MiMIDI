@@ -1,8 +1,8 @@
 import type { SampleRepository } from "../ports/SampleRepository"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacySampleDeleteUseCaseDependencies } from "./legacySampleDeleteUseCaseDependencies"
 
 export async function deleteSampleSlotWithRepository(
-  samples: SampleRepository,
+  samples: Pick<SampleRepository, "delete">,
   dbId: string,
 ): Promise<void> {
   await samples.delete(dbId)
@@ -10,7 +10,7 @@ export async function deleteSampleSlotWithRepository(
 
 export async function deleteSampleSlot(dbId: string): Promise<void> {
   await deleteSampleSlotWithRepository(
-    createLegacySampleUseCaseDependencies().samples,
+    createLegacySampleDeleteUseCaseDependencies().samples,
     dbId,
   )
 }

@@ -3,7 +3,9 @@ import {
   DEFAULT_SAMPLE_CALIBRATION,
   type SampleSlotRepository,
 } from "../ports/SampleSlotRepository"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacyPluginAudioOutputUseCaseDependencies } from "./legacyPluginAudioOutputUseCaseDependencies"
+import { createLegacyPluginClipLoadUseCaseDependencies } from "./legacyPluginClipLoadUseCaseDependencies"
+import { createLegacyPluginClipStoreUseCaseDependencies } from "./legacyPluginClipStoreUseCaseDependencies"
 
 type SaveFileType = {
   description: string
@@ -40,7 +42,7 @@ export type PluginAudioOutputDependencies = {
   createAudioId(): string
   decodeAudioData(data: ArrayBuffer): Promise<AudioBuffer>
   sampleSlots: SampleSlotRepository
-  samples: Pick<SampleRepository, "load" | "save">
+  samples: Pick<SampleRepository, "save">
 }
 
 export function createPluginAudioDbId(): string {
@@ -130,7 +132,7 @@ export async function processPluginAudioOutputWithDependencies(
 }
 
 export async function storePluginClip(blob: Blob): Promise<string> {
-  const dependencies = createLegacySampleUseCaseDependencies()
+  const dependencies = createLegacyPluginClipStoreUseCaseDependencies()
   return storePluginClipWithDependencies(
     {
       createClipId: createPluginClipDbId,
@@ -141,8 +143,11 @@ export async function storePluginClip(blob: Blob): Promise<string> {
 }
 
 export async function loadPluginClip(dbId: string): Promise<Blob | null> {
+  const dependencies = createLegacyPluginClipLoadUseCaseDependencies()
   return loadPluginClipWithDependencies(
-    createLegacySampleUseCaseDependencies(),
+    {
+      samples: dependencies.samples,
+    },
     dbId,
   )
 }
@@ -150,7 +155,7 @@ export async function loadPluginClip(dbId: string): Promise<Blob | null> {
 export async function processPluginAudioOutput(
   output: PluginAudioOutputInput,
 ): Promise<PluginAudioOutputResult | null> {
-  const dependencies = createLegacySampleUseCaseDependencies()
+  const dependencies = createLegacyPluginAudioOutputUseCaseDependencies()
   return processPluginAudioOutputWithDependencies(
     {
       createAudioId: createPluginAudioDbId,

@@ -5,7 +5,7 @@ import {
   playAudioBufferCalibratedAt,
 } from "../../engine/audio/audioEngine"
 import type { SamplerMixTrack } from "../../domain/project/projectTypes"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacySampleSlotLoadUseCaseDependencies } from "./legacySampleSlotLoadUseCaseDependencies"
 import { getTrackScheduler } from "./trackSchedulers"
 
 export type PlaySamplerMixesDependencies = {
@@ -85,7 +85,7 @@ export function playSamplerMixes(
   mixes: SamplerMixTrack[],
   timelineStartedAt: number,
 ): { cancel: () => void } {
-  const legacyDependencies = createLegacySampleUseCaseDependencies()
+  const legacyDependencies = createLegacySampleSlotLoadUseCaseDependencies()
   const controller = playSamplerMixesWithDependencies(
     {
       getAudioCurrentTime,

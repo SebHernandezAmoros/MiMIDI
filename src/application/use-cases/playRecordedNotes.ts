@@ -1,10 +1,12 @@
 import type { PlayNoteOptions } from "./playNote"
 import { playNote } from "./playNote"
 import { playSmcPadHit, PAD_SOUND_DEFAULTS, smcPadSounds, type PadSoundParams, type SmcPadSoundId } from "./playSmcPadHit"
+import type { PlaybackTimerPort } from "../ports/PlaybackTimerPort"
 import { findAvailableMathematicalInstrument } from "../../engine/audio/instrumentCatalog"
 import {
   createPlayOptions,
 } from "../../engine/audio/mathematicalInstruments"
+import { createBrowserPlaybackTimerPort } from "../../infrastructure/timing/browserPlaybackTimerPort"
 import {
   getMidiTracks,
   getTrackVolumeAutomationValue,
@@ -23,13 +25,21 @@ export type PlayRecordedNotesOptions = PlayNoteOptions & {
   fromZero?: boolean
   onComplete?: () => void
   padSoundSettings?: Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>>
+  timerPort?: PlaybackTimerPort
 }
+
+const browserPlaybackTimerPort = createBrowserPlaybackTimerPort()
 
 export function playRecordedNotes(
   project: MusicalProject,
   options: PlayRecordedNotesOptions = {},
 ): PlaybackHandle {
-  const { fromZero = false, onComplete, ...playOverrides } = options
+  const {
+    fromZero = false,
+    onComplete,
+    timerPort = browserPlaybackTimerPort,
+    ...playOverrides
+  } = options
   const scheduledNotes = getMidiTracks(project.timeline).flatMap((track) => {
     const scheduler = getTrackScheduler(track)
 
@@ -61,7 +71,7 @@ export function playRecordedNotes(
     ),
   )
   const timerIds = scheduledNotes.map((scheduledNote) =>
-    window.setTimeout(() => {
+    timerPort.setTimeout(() => {
       if (isCancelled) {
         return
       }
@@ -113,7 +123,7 @@ export function playRecordedNotes(
       })
     }, Math.max(scheduledNote.absoluteStartTime - firstStartTime, 0) * 1000),
   )
-  const completeTimerId = window.setTimeout(
+  const completeTimerId = timerPort.setTimeout(
     () => {
       if (!isCancelled) {
         onComplete?.()
@@ -127,10 +137,10 @@ export function playRecordedNotes(
       isCancelled = true
 
       for (const timerId of timerIds) {
-        window.clearTimeout(timerId)
+        timerPort.clearTimeout(timerId)
       }
 
-      window.clearTimeout(completeTimerId)
+      timerPort.clearTimeout(completeTimerId)
     },
     contentStartTime: firstStartTime,
     contentEndTime: lastEndTime,

@@ -11,7 +11,6 @@ import {
 } from "../../application/use-cases/pluginAudioOutputs"
 import {
   updatePadSoundSetting,
-  getMidiTracks,
   getSamplerTracks,
   getAudioClipTracks,
   renameSamplerMix,
@@ -66,6 +65,16 @@ import { TrackTimelinePreview } from "../timeline/TrackTimelinePreview"
 import { TimelinePreview } from "../timeline/TimelinePreview"
 import { AppDialog } from "../../app/components/AppDialog"
 import { PerformResponsiveToolbar, type PianoViewMode } from "../perform/components/PerformResponsiveToolbar"
+import {
+  resolveActiveTrackLaneContext,
+  resolveSelectedTrackLaneClipDeleteCommand,
+  resolveSelectedTrackLaneClipDeletion,
+  resolveTrackLaneDeleteClipAction,
+  resolveTrackLaneDuplicateClipCommand,
+  resolveTrackLaneDuplicateClipAvailability,
+  resolveTrackLaneMuteSoloState,
+  resolveTrackLaneToolbarCapabilities,
+} from "../edit/trackLaneToolbarCapabilities"
 import { LabActions } from "./LabActions"
 import { LabNoteEditor } from "./LabNoteEditor"
 import { LabProjectPanel } from "./LabProjectPanel"
@@ -497,27 +506,21 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     setIsInstrumentDialogOpen(false)
   }
 
-  const canDeleteSelectedClip = (() => {
-    if (!selectedClipId) return false
-    if (selectedClipId.type === "midi") {
-      const track = getMidiTracks(lab.project.timeline).find(
-        (t) => t.id === selectedClipId.trackId,
-      )
-      return (track?.clips.length ?? 0) > 1
-    }
-    const mix = getSamplerTracks(lab.project.timeline).find(
-      (m) => m.id === selectedClipId.trackId,
-    )
-    return (mix?.clips.length ?? 0) > 1
-  })()
+  const canDeleteSelectedClip = resolveSelectedTrackLaneClipDeletion({
+    selectedClip: selectedClipId,
+    timeline: lab.project.timeline,
+  })
 
   function confirmDeleteSelectedClip() {
-    if (!selectedClipId) return
-    if (selectedClipId.type === "midi") {
-      lab.removeMidiClipHandler(selectedClipId.trackId, selectedClipId.clipId)
-    } else {
-      lab.removeSamplerClipHandler(selectedClipId.trackId, selectedClipId.clipId)
+    const command = resolveSelectedTrackLaneClipDeleteCommand(selectedClipId)
+    if (!command) return
+
+    const deleteClipHandlers = {
+      "remove-midi-clip": lab.removeMidiClipHandler,
+      "remove-sampler-clip": lab.removeSamplerClipHandler,
     }
+
+    deleteClipHandlers[command.action](command.trackId, command.clipId)
     setSelectedClipId(null)
     setIsClipDeleteConfirmOpen(false)
   }
@@ -536,12 +539,11 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
 
   const editTrackNameControl = timelineView === "tracks"
     ? (() => {
-        const activeSamplerTrack = selectedLaneId
-          ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedLaneId)
-          : null
-        const activeAudioTrack = !activeSamplerTrack && selectedLaneId
-          ? getAudioClipTracks(lab.project.timeline).find((t) => t.id === selectedLaneId)
-          : null
+        const { activeAudioTrack, activeSamplerTrack } = resolveActiveTrackLaneContext({
+          primaryTrack: lab.primaryTrack,
+          selectedLaneId,
+          timeline: lab.project.timeline,
+        })
         return activeSamplerTrack ? (
           <EditTrackNameInput
             key={activeSamplerTrack.id}
@@ -789,16 +791,28 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
           {timelineView === "tracks" &&
             isTrackLaneFocused &&
             (() => {
-              const activeSamplerTrack = selectedLaneId
-                ? getSamplerTracks(lab.project.timeline).find((m) => m.id === selectedLaneId)
-                : null
-              const activeAudioTrack = !activeSamplerTrack && selectedLaneId
-                ? getAudioClipTracks(lab.project.timeline).find((t) => t.id === selectedLaneId)
-                : null
+              const { activeAudioTrack, activeSamplerTrack, activeTimelineTrack } = resolveActiveTrackLaneContext({
+                primaryTrack: lab.primaryTrack,
+                selectedLaneId,
+                timeline: lab.project.timeline,
+              })
+              const toolbarCapabilities = resolveTrackLaneToolbarCapabilities(activeTimelineTrack)
               const lastMixClip = activeSamplerTrack?.clips.at(-1)
-              const dupDisabled = activeSamplerTrack ? !lastMixClip : activeAudioTrack ? true : !lab.activeClip
-              const isMuted = activeSamplerTrack ? activeSamplerTrack.muted : activeAudioTrack ? activeAudioTrack.muted : lab.primaryTrack.muted
-              const isSolo = activeSamplerTrack ? (activeSamplerTrack.solo ?? false) : activeAudioTrack ? false : lab.primaryTrack.solo
+              const duplicateClipCommand = resolveTrackLaneDuplicateClipCommand({
+                midiClipId: lab.activeClip?.id ?? null,
+                samplerClipId: lastMixClip?.id ?? null,
+                track: activeTimelineTrack,
+              })
+              const canDuplicateClip = resolveTrackLaneDuplicateClipAvailability({
+                capabilities: toolbarCapabilities,
+                hasDuplicateTargetClip: duplicateClipCommand !== null,
+              })
+              const deleteClipAction = resolveTrackLaneDeleteClipAction({
+                capabilities: toolbarCapabilities,
+                hasDeletableSelectedClip: canDeleteSelectedClip,
+              })
+              const dupDisabled = !canDuplicateClip
+              const { isMuted, isSolo } = resolveTrackLaneMuteSoloState(activeTimelineTrack)
               return (
                 <>
                   <span aria-hidden="true" className="perform-mode-transport-divider" />
@@ -822,11 +836,12 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                   <button
                     aria-label={t.common.solo}
                     className={`ui-icon-btn edit-mute-solo-btn${isSolo ? " edit-mute-solo-btn-active" : ""}`}
-                    disabled={!!activeAudioTrack}
+                    disabled={!toolbarCapabilities.canSolo}
                     onClick={() => {
+                      if (!toolbarCapabilities.canSolo) return
                       if (activeSamplerTrack) {
                         lab.updateSamplerTrackSoloHandler(activeSamplerTrack.id, !isSolo)
-                      } else if (!activeAudioTrack) {
+                      } else {
                         lab.togglePrimaryTrackSolo()
                       }
                     }}
@@ -840,11 +855,15 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                     className="ui-icon-btn"
                     disabled={dupDisabled}
                     onClick={() => {
-                      if (activeSamplerTrack && lastMixClip) {
-                        lab.duplicateSamplerClipHandler(activeSamplerTrack.id, lastMixClip.id)
-                      } else if (!activeAudioTrack && lab.activeClip) {
-                        lab.duplicateMidiClipHandler(lab.primaryTrack.id, lab.activeClip.id)
+                      if (!duplicateClipCommand) return
+                      const duplicateClipHandlers = {
+                        "duplicate-midi-clip": lab.duplicateMidiClipHandler,
+                        "duplicate-sampler-clip": lab.duplicateSamplerClipHandler,
                       }
+                      duplicateClipHandlers[duplicateClipCommand.action](
+                        duplicateClipCommand.trackId,
+                        duplicateClipCommand.clipId,
+                      )
                     }}
                     title={
                       activeSamplerTrack
@@ -857,11 +876,11 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                   >
                     <Copy size={18} />
                   </button>
-                  {!activeAudioTrack && (
+                  {deleteClipAction.isVisible && (
                   <button
                     aria-label={t.toolbar.deleteClipSelected}
                     className="ui-icon-btn"
-                    disabled={!canDeleteSelectedClip}
+                    disabled={!deleteClipAction.isEnabled}
                     onClick={() => setIsClipDeleteConfirmOpen(true)}
                     title={
                       selectedClipId

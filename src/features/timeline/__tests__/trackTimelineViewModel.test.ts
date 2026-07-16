@@ -90,6 +90,7 @@ describe("trackTimelineViewModel", () => {
     expect(viewModel.name).toBe("Midi Track")
     expect(viewModel.summaryLabel).toBe("1 notes · 1 clip")
     expect(viewModel.capabilities).toEqual({
+      canDeleteClip: true,
       canDuplicateClip: true,
       canMute: true,
       canSolo: true,
@@ -119,6 +120,7 @@ describe("trackTimelineViewModel", () => {
     expect(viewModel.name).toBe("Sampler Track")
     expect(viewModel.summaryLabel).toBe("120 BPM · 16 steps · 1 clip")
     expect(viewModel.capabilities).toEqual({
+      canDeleteClip: true,
       canDuplicateClip: true,
       canMute: true,
       canSolo: true,
@@ -143,6 +145,7 @@ describe("trackTimelineViewModel", () => {
     expect(viewModel.name).toBe("Audio Track")
     expect(viewModel.summaryLabel).toBe("4.0s · audio · 1 clip")
     expect(viewModel.capabilities).toEqual({
+      canDeleteClip: false,
       canDuplicateClip: false,
       canMute: true,
       canSolo: false,

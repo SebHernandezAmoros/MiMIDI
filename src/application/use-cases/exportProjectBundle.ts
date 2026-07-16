@@ -5,7 +5,7 @@ import {
   getAudioClipTracks,
   type MusicalProject,
 } from "../../engine/project/projectModel"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacyProjectBundleExportUseCaseDependencies } from "./legacyProjectBundleExportUseCaseDependencies"
 
 export type ExportProjectBundleDependencies = {
   samples: Pick<SampleRepository, "load">
@@ -44,7 +44,7 @@ export async function exportProjectBundle(
   project: MusicalProject,
 ): Promise<Blob> {
   return exportProjectBundleWithDependencies(
-    createLegacySampleUseCaseDependencies(),
+    createLegacyProjectBundleExportUseCaseDependencies(),
     project,
   )
 }

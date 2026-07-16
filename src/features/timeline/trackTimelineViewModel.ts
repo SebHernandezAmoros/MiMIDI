@@ -32,6 +32,7 @@ export type TrackTimelineLaneViewModel = {
 }
 
 export type TrackTimelineLaneCapabilities = {
+  canDeleteClip: boolean
   canDuplicateClip: boolean
   canMute: boolean
   canSolo: boolean
@@ -135,6 +136,7 @@ function getTrackHandlerCapabilities(
   handler: TrackTimelineLaneCapabilities,
 ): TrackTimelineLaneCapabilities {
   return {
+    canDeleteClip: handler.canDeleteClip,
     canDuplicateClip: handler.canDuplicateClip,
     canMute: handler.canMute,
     canSolo: handler.canSolo,

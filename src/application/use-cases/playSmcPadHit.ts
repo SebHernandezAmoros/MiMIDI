@@ -1,4 +1,6 @@
 import { playFrequency, playNoise } from "../../engine/audio/audioEngine"
+import type { PlaybackTimerPort } from "../ports/PlaybackTimerPort"
+import { createBrowserPlaybackTimerPort } from "../../infrastructure/timing/browserPlaybackTimerPort"
 import type { PadSoundParams, SmcPadSoundId } from "../../engine/midi/events"
 import type { MusicalNote } from "../../engine/midi/notes"
 
@@ -61,11 +63,14 @@ export function getSmcPadSoundDescriptor(soundId: SmcPadSoundId) {
   return smcPadSounds.find((s) => s.id === soundId) ?? smcPadSounds[0]
 }
 
+const browserPlaybackTimerPort = createBrowserPlaybackTimerPort()
+
 export function playSmcPadHit(
   soundId: SmcPadSoundId,
   volumeScale = 1,
   pan = 0,
   params: Partial<PadSoundParams> = {},
+  timerPort: PlaybackTimerPort = browserPlaybackTimerPort,
 ) {
   const resolved: PadSoundParams = { ...PAD_SOUND_DEFAULTS[soundId], ...params }
   const { volume, decay: ds, distortion, tune = 42, length = 0.045, flicker = false } = resolved
@@ -141,7 +146,7 @@ export function playSmcPadHit(
     case "clap":
       // 2 ráfagas muy cercanas (0ms y 8ms) — se perciben como un solo golpe
       ;[0, 8].forEach((delayMs, burstIndex) => {
-        window.setTimeout(() => {
+        timerPort.setTimeout(() => {
           // Cuerpo: bandpass limpio sin distorsión
           playNoise(0.05 * ds, {
             pan, volume: (burstIndex === 0 ? 0.75 : 0.48) * v,
@@ -240,7 +245,7 @@ export function playSmcPadHit(
         filter: { type: "highpass", frequency: 8000, Q: 0.55 },
       })
       // Ligero retorno de las bolitas (más suave, más corto)
-      window.setTimeout(() => {
+      timerPort.setTimeout(() => {
         playNoise(0.045 * ds, {
           pan, volume: 0.28 * v,
           envelope: { attack: 0.001, decay: 0.018 * ds, sustain: 0, release: 0.024 * ds },

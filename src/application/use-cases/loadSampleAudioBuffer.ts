@@ -1,5 +1,5 @@
 import type { SampleRepository } from "../ports/SampleRepository"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacySampleDecodeUseCaseDependencies } from "./legacySampleDecodeUseCaseDependencies"
 
 export type LoadSampleAudioBufferDependencies = {
   samples: Pick<SampleRepository, "load">
@@ -21,7 +21,7 @@ export async function loadSampleAudioBufferWithDependencies(
 
 export async function loadSampleAudioBuffer(dbId: string): Promise<AudioBuffer | null> {
   return loadSampleAudioBufferWithDependencies(
-    createLegacySampleUseCaseDependencies(),
+    createLegacySampleDecodeUseCaseDependencies(),
     dbId,
   )
 }

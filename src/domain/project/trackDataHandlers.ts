@@ -22,6 +22,7 @@ export type TrackDataHandler<TTrack extends TimelineTrack> = {
   kind: TTrack["kind"]
   getClips(track: TTrack): TrackTimelineClip[]
   getClipDuration(track: TTrack, clipId: string): number
+  canDeleteClip: boolean
   canMute: boolean
   canSolo: boolean
   canDuplicateClip: boolean
@@ -41,6 +42,7 @@ export const midiTrackDataHandler: TrackDataHandler<MidiTrack> = {
 
     return clip ? getMidiClipDuration(clip) : 0
   },
+  canDeleteClip: true,
   canMute: true,
   canSolo: true,
   canDuplicateClip: true,
@@ -60,6 +62,7 @@ export const samplerTrackDataHandler: TrackDataHandler<SamplerTrack> = {
       ? getSamplerTrackDuration(track)
       : 0
   },
+  canDeleteClip: true,
   canMute: true,
   canSolo: true,
   canDuplicateClip: true,
@@ -77,6 +80,7 @@ export const audioClipTrackDataHandler: TrackDataHandler<AudioClipTrack> = {
   getClipDuration(track, clipId) {
     return track.clips.some((clip) => clip.id === clipId) ? track.duration : 0
   },
+  canDeleteClip: false,
   canMute: true,
   canSolo: false,
   canDuplicateClip: false,

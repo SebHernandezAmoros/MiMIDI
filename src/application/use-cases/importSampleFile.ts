@@ -1,5 +1,5 @@
 import type { SampleRepository } from "../ports/SampleRepository"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacySampleImportUseCaseDependencies } from "./legacySampleImportUseCaseDependencies"
 export { createSampleDbId } from "./sampleIds"
 
 export type ImportedSampleData = {
@@ -39,7 +39,7 @@ export async function importSampleFileWithDependencies(
 
 export async function importSampleFile(file: File): Promise<ImportedSampleData> {
   return importSampleFileWithDependencies(
-    createLegacySampleUseCaseDependencies(),
+    createLegacySampleImportUseCaseDependencies(),
     file,
   )
 }

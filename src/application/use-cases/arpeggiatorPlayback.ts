@@ -5,10 +5,14 @@ import {
   type ArpeggiatorSettings,
 } from "../../engine/midi/arpeggiator"
 import type { MusicalNote } from "../../engine/midi/notes"
+import type { PlaybackTimerPort } from "../ports/PlaybackTimerPort"
+import { createBrowserPlaybackTimerPort } from "../../infrastructure/timing/browserPlaybackTimerPort"
 
 export type ArpeggiatorHandle = {
   stop: () => void
 }
+
+const browserPlaybackTimerPort = createBrowserPlaybackTimerPort()
 
 type StartArpeggiatorPlaybackOptions = {
   maxSteps?: number
@@ -16,6 +20,7 @@ type StartArpeggiatorPlaybackOptions = {
   onStep: (notes: MusicalNote[], noteDuration: number, stepIndex: number) => void
   settings: ArpeggiatorSettings
   sourceNotes: MusicalNote[]
+  timerPort?: PlaybackTimerPort
 }
 
 export function startArpeggiatorPlayback({
@@ -24,6 +29,7 @@ export function startArpeggiatorPlayback({
   onStep,
   settings,
   sourceNotes,
+  timerPort = browserPlaybackTimerPort,
 }: StartArpeggiatorPlaybackOptions): ArpeggiatorHandle {
   const baseSteps = createArpeggiatorSteps(sourceNotes, settings)
 
@@ -58,7 +64,7 @@ export function startArpeggiatorPlayback({
       return
     }
 
-    timerId = window.setTimeout(runStep, stepDuration * 1000)
+    timerId = timerPort.setTimeout(runStep, stepDuration * 1000)
   }
 
   runStep()
@@ -68,7 +74,7 @@ export function startArpeggiatorPlayback({
       isStopped = true
 
       if (timerId !== null) {
-        window.clearTimeout(timerId)
+        timerPort.clearTimeout(timerId)
       }
     },
   }

@@ -1,6 +1,6 @@
 import { loadStoredProject, saveProject } from "../../engine/project/projectStorage"
 
-export function createLegacyProjectUseCaseDependencies() {
+export function createLegacySendSamplerMixToTimelineUseCaseDependencies() {
   return {
     projects: {
       load: loadStoredProject,

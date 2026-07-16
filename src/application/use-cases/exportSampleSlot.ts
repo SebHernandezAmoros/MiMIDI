@@ -1,5 +1,27 @@
 import type { AudioCalibration } from "../../engine/audio/audioTypes"
+import type { FileSavePort } from "../ports/FileSavePort"
 import { encodeAudioBufferToWav } from "../../engine/audio/wavEncoder"
+import { saveFile, saveFileWithPort } from "./saveFile"
+
+const sampleWavFileTypes = [
+  {
+    accept: { "audio/wav": [".wav"] },
+    description: "Audio WAV",
+  },
+]
+
+export function saveSampleSlotWavWithPort(
+  fileSavePort: FileSavePort,
+  wav: ArrayBuffer,
+  filename: string,
+): Promise<void> {
+  return saveFileWithPort(
+    fileSavePort,
+    new Blob([wav], { type: "audio/wav" }),
+    `${filename}.wav`,
+    sampleWavFileTypes,
+  )
+}
 
 export async function exportSampleSlot(
   audioBuffer: AudioBuffer,
@@ -44,11 +66,5 @@ export async function exportSampleSlot(
   const rendered = await offlineCtx.startRendering()
   const wav = encodeAudioBufferToWav(rendered, { bitDepth: 24 })
 
-  const blob = new Blob([wav], { type: "audio/wav" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = `${filename}.wav`
-  a.click()
-  URL.revokeObjectURL(url)
+  await saveFile(new Blob([wav], { type: "audio/wav" }), `${filename}.wav`, sampleWavFileTypes)
 }

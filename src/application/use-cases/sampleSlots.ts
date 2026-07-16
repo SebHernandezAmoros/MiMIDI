@@ -4,10 +4,9 @@ import type {
 } from "../ports/SampleSlotRepository"
 import { NUM_SAMPLE_SLOTS } from "../ports/SampleSlotRepository"
 import type { SampleRepository } from "../ports/SampleRepository"
-import {
-  createLegacySampleSlotCleanupDependencies,
-  createLegacySampleUseCaseDependencies,
-} from "./legacySampleUseCaseDependencies"
+import { createLegacySampleSlotCleanupDependencies } from "./legacySampleSlotCleanupUseCaseDependencies"
+import { createLegacySampleSlotLoadUseCaseDependencies } from "./legacySampleSlotLoadUseCaseDependencies"
+import { createLegacySampleSlotSaveUseCaseDependencies } from "./legacySampleSlotSaveUseCaseDependencies"
 
 export function loadSampleSlotsWithRepository(
   sampleSlots: Pick<SampleSlotRepository, "loadSlots">,
@@ -38,13 +37,13 @@ export async function clearSampleSlotsWithRepositories({
 
 export function loadSampleSlots(): (SampleSlotMeta | null)[] {
   return loadSampleSlotsWithRepository(
-    createLegacySampleUseCaseDependencies().sampleSlots,
+    createLegacySampleSlotLoadUseCaseDependencies().sampleSlots,
   )
 }
 
 export function saveSampleSlots(slots: (SampleSlotMeta | null)[]): void {
   saveSampleSlotsWithRepository(
-    createLegacySampleUseCaseDependencies().sampleSlots,
+    createLegacySampleSlotSaveUseCaseDependencies().sampleSlots,
     slots,
   )
 }

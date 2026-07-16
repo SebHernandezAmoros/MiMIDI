@@ -1,6 +1,6 @@
 import type { SampleRepository } from "../ports/SampleRepository"
 import type { ImportedSampleData } from "./importSampleFile"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacyMicRecordingUseCaseDependencies } from "./legacyMicRecordingUseCaseDependencies"
 
 export type MicRecorderSession = {
   stop: () => Promise<ImportedSampleData>
@@ -63,7 +63,7 @@ export async function startMicRecording(): Promise<MicRecorderSession> {
     const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
 
     finalizeMicRecordingWithDependencies(
-      createLegacySampleUseCaseDependencies(),
+      createLegacyMicRecordingUseCaseDependencies(),
       blob,
     )
       .then(resolve)

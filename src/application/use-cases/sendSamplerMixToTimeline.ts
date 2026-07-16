@@ -5,7 +5,7 @@ import {
   getSamplerTracks,
   type MusicalProject,
 } from "../../engine/project/projectModel"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacySendSamplerMixToTimelineUseCaseDependencies } from "./legacySendSamplerMixToTimelineUseCaseDependencies"
 
 export function sendSamplerMixToTimelineWithRepository(
   projects: ProjectRepository,
@@ -32,7 +32,7 @@ export function sendSamplerMixToTimeline(
   name: string,
 ): MusicalProject | null {
   return sendSamplerMixToTimelineWithRepository(
-    createLegacySampleUseCaseDependencies().projects,
+    createLegacySendSamplerMixToTimelineUseCaseDependencies().projects,
     pattern,
     name,
   )

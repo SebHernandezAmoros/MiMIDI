@@ -2,7 +2,7 @@ import { strFromU8, unzip } from "fflate"
 import type { SampleRepository } from "../ports/SampleRepository"
 import type { SampleSlotRepository } from "../ports/SampleSlotRepository"
 import type { MusicalProject } from "../../engine/project/projectModel"
-import { createLegacySampleUseCaseDependencies } from "./legacySampleUseCaseDependencies"
+import { createLegacyProjectBundleImportUseCaseDependencies } from "./legacyProjectBundleImportUseCaseDependencies"
 
 export type ImportProjectBundleDependencies = {
   samples: Pick<SampleRepository, "save">
@@ -59,7 +59,7 @@ export async function importProjectBundleWithDependencies(
 
 export async function importProjectBundle(file: File): Promise<MusicalProject> {
   return importProjectBundleWithDependencies(
-    createLegacySampleUseCaseDependencies(),
+    createLegacyProjectBundleImportUseCaseDependencies(),
     file,
   )
 }

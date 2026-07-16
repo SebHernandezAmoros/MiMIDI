@@ -1,31 +1,23 @@
-type SaveFileType = {
-  description: string
-  accept: Record<string, string[]>
-}
+import type { FileSavePort, SaveFileType } from "../ports/FileSavePort"
+import { createBrowserFileSavePort } from "../../infrastructure/files/browserFileSavePort"
 
-export async function saveFile(
+export type { SaveFileType }
+
+const browserFileSavePort = createBrowserFileSavePort()
+
+export function saveFileWithPort(
+  fileSavePort: FileSavePort,
   blob: Blob,
   suggestedName: string,
   types: SaveFileType[],
 ): Promise<void> {
-  if ("showSaveFilePicker" in window) {
-    try {
-      const picker = window.showSaveFilePicker as (opts: { suggestedName: string; types: SaveFileType[] }) => Promise<FileSystemFileHandle>
-      const handle = await picker({ suggestedName, types })
-      const writable = await handle.createWritable()
-      await writable.write(blob)
-      await writable.close()
-      return
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return
-      // API falló — caer al método clásico
-    }
-  }
+  return fileSavePort.save({ blob, suggestedName, types })
+}
 
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = suggestedName
-  a.click()
-  URL.revokeObjectURL(url)
+export function saveFile(
+  blob: Blob,
+  suggestedName: string,
+  types: SaveFileType[],
+): Promise<void> {
+  return saveFileWithPort(browserFileSavePort, blob, suggestedName, types)
 }

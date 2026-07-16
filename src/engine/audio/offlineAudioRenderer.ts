@@ -27,6 +27,11 @@ export type OfflineRenderOptions = {
   sampleRate?: number
 }
 
+export type OfflineRendererSampleDependencies = {
+  loadSlotMetas: typeof loadSlotMetas
+  loadSampleBuffer: typeof loadSampleBuffer
+}
+
 type ScheduledPlaybackEvent = {
   duration: number
   envelope: ADSREnvelope
@@ -39,6 +44,11 @@ type ScheduledPlaybackEvent = {
 
 const DEFAULT_SAMPLE_RATE = 48_000
 const DEFAULT_RELEASE_MARGIN = 0.35
+
+const defaultOfflineRendererSampleDependencies: OfflineRendererSampleDependencies = {
+  loadSlotMetas,
+  loadSampleBuffer,
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
@@ -720,8 +730,9 @@ async function scheduleSamplerMixesOffline(
   ctx: OfflineAudioContext,
   destination: AudioNode,
   project: MusicalProject,
+  dependencies: OfflineRendererSampleDependencies,
 ) {
-  const slots = loadSlotMetas()
+  const slots = dependencies.loadSlotMetas()
   const bufferCache = new Map<string, AudioBuffer | null>()
 
   for (const track of getSamplerTracks(project.timeline)) {
@@ -734,7 +745,7 @@ async function scheduleSamplerMixesOffline(
         if (!slot) continue
 
         if (!bufferCache.has(lane.slotDbId)) {
-          const arrayBuffer = await loadSampleBuffer(lane.slotDbId)
+          const arrayBuffer = await dependencies.loadSampleBuffer(lane.slotDbId)
           if (!arrayBuffer) {
             bufferCache.set(lane.slotDbId, null)
             continue
@@ -760,9 +771,10 @@ async function scheduleSamplerMixesOffline(
   }
 }
 
-export async function renderProjectOffline(
+export async function renderProjectOfflineWithDependencies(
   project: MusicalProject,
   options: OfflineRenderOptions = {},
+  dependencies: OfflineRendererSampleDependencies,
 ) {
   const sampleRate = options.sampleRate ?? DEFAULT_SAMPLE_RATE
   const renderDuration = getProjectRenderDuration(project)
@@ -797,7 +809,23 @@ export async function renderProjectOffline(
     )
   }
 
-  await scheduleSamplerMixesOffline(offlineAudioContext, masterGainNode, project)
+  await scheduleSamplerMixesOffline(
+    offlineAudioContext,
+    masterGainNode,
+    project,
+    dependencies,
+  )
 
   return offlineAudioContext.startRendering()
+}
+
+export async function renderProjectOffline(
+  project: MusicalProject,
+  options: OfflineRenderOptions = {},
+) {
+  return renderProjectOfflineWithDependencies(
+    project,
+    options,
+    defaultOfflineRendererSampleDependencies,
+  )
 }

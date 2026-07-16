@@ -1,6 +1,28 @@
 import { encodeAudioBufferToWav } from "../../engine/audio/wavEncoder"
 import type { SequencerPattern } from "../../engine/audio/sequencerModel"
+import type { FileSavePort } from "../ports/FileSavePort"
 import type { SampleSlotMeta } from "../ports/SampleSlotRepository"
+import { saveFile, saveFileWithPort } from "./saveFile"
+
+const seqMixWavFileTypes = [
+  {
+    accept: { "audio/wav": [".wav"] },
+    description: "Audio WAV",
+  },
+]
+
+export function saveSeqMixWavWithPort(
+  fileSavePort: FileSavePort,
+  wav: ArrayBuffer,
+  filename: string,
+): Promise<void> {
+  return saveFileWithPort(
+    fileSavePort,
+    new Blob([wav], { type: "audio/wav" }),
+    `${filename}.wav`,
+    seqMixWavFileTypes,
+  )
+}
 
 export async function exportSeqMix(
   pattern: SequencerPattern,
@@ -60,12 +82,6 @@ export async function exportSeqMix(
 
   const rendered = await offlineCtx.startRendering()
   const wav = encodeAudioBufferToWav(rendered, { bitDepth: 24 })
-  const blob = new Blob([wav], { type: "audio/wav" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
   const safeName = filename.trim() || `mimidi-mix-${pattern.bpm}bpm`
-  a.download = `${safeName}.wav`
-  a.click()
-  URL.revokeObjectURL(url)
+  await saveFile(new Blob([wav], { type: "audio/wav" }), `${safeName}.wav`, seqMixWavFileTypes)
 }
