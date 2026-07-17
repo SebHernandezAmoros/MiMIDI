@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:functional": "vitest run --config vitest.functional.config.ts",
+    "test:all": "npm run test && npm run test:functional",
     "preview": "vite preview",
     "plugin:build": "node scripts/build-plugin.mjs",
     "plugin:pack": "node scripts/build-mimod.mjs"
@@ -31,6 +33,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "jsdom": "^29.0.2",
+    "puppeteer": "^25.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.9",
