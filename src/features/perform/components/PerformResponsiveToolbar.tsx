@@ -14,13 +14,11 @@ type PerformResponsiveToolbarProps = {
   activeInstrumentCategory: MathematicalInstrument["category"]
   allRecordedNotesCount: number
   instrumentCategories: MathematicalInstrument["category"][]
-  isArpEnabled: boolean
   isInstrumentDialogOpen: boolean
   isPlaying: boolean
   isRecording: boolean
   language?: AppLanguage
   onAddTrack: () => void
-  onArpToggle: () => void
   onCloseInstrumentDialog: () => void
   onConfirmRemoveTrack: () => void
   onInstrumentCategoryChange: (category: MathematicalInstrument["category"]) => void

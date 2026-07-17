@@ -1981,11 +1981,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               isRecording={pianoViewMode === "steps" ? false : labRecording.recordingState === "recording"}
               language={language}
               octave={labPerform.previewOctave}
-              isArpEnabled={labPerform.arpeggiatorSettings.enabled}
               onAddTrack={pianoViewMode === "steps" ? handleAddStepsTrack : lab.addTrack}
-              onArpToggle={() =>
-                labPerform.setArpeggiatorSettings((s) => ({ ...s, enabled: !s.enabled }))
-              }
               onBakeStepsToTrack={handleBakeStepsToTrack}
               onCloseInstrumentDialog={closeInstrumentDialog}
               onConfirmRemoveTrack={pianoViewMode === "steps" ? handleRemoveStepsTrack : lab.confirmRemoveActiveTrack}
@@ -2253,6 +2249,45 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             {/* Modo TECLADO: acordes + arpegiador */}
             {pianoViewMode === "keys" && (
               <>
+            <div className="perform-settings-play-mode-row">
+              <div className="perform-settings-dialog-section perform-settings-arp-toggle-section" data-tutorial="piano-arp-toggle-section">
+                <span className="perform-instrument-dialog-title">{t.perform.arpLabel}</span>
+                <button
+                  aria-pressed={labPerform.arpeggiatorSettings.enabled}
+                  className={`ui-pill-btn perform-settings-arp-toggle${labPerform.arpeggiatorSettings.enabled ? " ui-pill-btn-active" : ""}`}
+                  data-e2e="perform-settings-arp-toggle"
+                  onClick={() =>
+                    labPerform.handleArpeggiatorEnabledChange(!labPerform.arpeggiatorSettings.enabled)
+                  }
+                  type="button"
+                >
+                  {labPerform.arpeggiatorSettings.enabled ? "ARP ON" : "ARP OFF"}
+                </button>
+              </div>
+              <div className="perform-settings-dialog-section perform-settings-piano-mode-section">
+                <span className="perform-instrument-dialog-title">{t.perform.pianoMode}</span>
+                <div className="perform-instrument-dialog-tabs">
+                  <button
+                    aria-pressed={labPerform.pianoMode === "note"}
+                    className={`ui-pill-btn${labPerform.pianoMode === "note" ? " ui-pill-btn-active" : ""}`}
+                    data-e2e="perform-settings-note-mode"
+                    onClick={() => labPerform.setPianoMode("note")}
+                    type="button"
+                  >
+                    {t.perform.modeNote}
+                  </button>
+                  <button
+                    aria-pressed={labPerform.pianoMode === "chord"}
+                    className={`ui-pill-btn${labPerform.pianoMode === "chord" ? " ui-pill-btn-active" : ""}`}
+                    data-e2e="perform-settings-chord-mode"
+                    onClick={() => labPerform.setPianoMode("chord")}
+                    type="button"
+                  >
+                    {t.perform.modeChord}
+                  </button>
+                </div>
+              </div>
+            </div>
             <div className="perform-settings-dialog-section" data-tutorial="piano-chord-section">
               <span className="perform-instrument-dialog-title">{t.perform.chordType}</span>
               <div className="perform-instrument-dialog-tabs">

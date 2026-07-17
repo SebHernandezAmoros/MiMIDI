@@ -367,6 +367,27 @@
   gap: 0.45rem;
 }
 
+.perform-settings-play-mode-row {
+  display: flex;
+  align-items: end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.perform-settings-arp-toggle-section {
+  max-width: 10rem;
+}
+
+.perform-settings-piano-mode-section {
+  min-width: 9rem;
+}
+
+.perform-settings-arp-toggle {
+  min-height: 2.15rem;
+  padding-inline: 1rem;
+  justify-self: start;
+}
+
 .perform-settings-dialog-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

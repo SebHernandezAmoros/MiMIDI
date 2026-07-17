@@ -162,6 +162,7 @@ export function PianoPreview({
     return (
       <button
         className={keyClassName}
+        data-e2e={`piano-key-${note}`}
         key={note}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
