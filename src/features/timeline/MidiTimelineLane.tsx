@@ -41,7 +41,8 @@ export function MidiTimelineLane({
   timelineLength,
   track,
 }: MidiTimelineLaneProps) {
-  const isActive = laneViewModel.id === activeTrackId && !selectedLaneId
+  const sourceTrackId = laneViewModel.sourceTrackId ?? laneViewModel.id
+  const isActive = sourceTrackId === activeTrackId && !selectedLaneId
   const filledClips = track.clips.filter((clip) =>
     laneViewModel.clipsById.has(clip.id),
   )
@@ -53,9 +54,10 @@ export function MidiTimelineLane({
         isActive ? "track-timeline-lane-active" : "",
         laneViewModel.muted ? "track-timeline-lane-muted" : "",
       ].filter(Boolean).join(" ")}
-      onClick={() => onSelectTrack(laneViewModel.id)}
+      data-e2e={laneViewModel.laneE2e}
+      onClick={() => onSelectTrack(sourceTrackId)}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTrack(laneViewModel.id) }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTrack(sourceTrackId) }
       }}
       role="button"
       tabIndex={0}
@@ -65,6 +67,14 @@ export function MidiTimelineLane({
         <span className="project-label">
           {laneViewModel.summaryLabel}
         </span>
+        {laneViewModel.percussionSummaryLabel ? (
+          <span
+            className="project-label track-timeline-percussion-summary"
+            data-e2e="edit-track-percussion-summary"
+          >
+            {laneViewModel.percussionSummaryLabel}
+          </span>
+        ) : null}
         {(laneViewModel.muted || isActive) && (
           <div className="track-timeline-badges">
             {laneViewModel.muted ? <span className="track-timeline-badge track-timeline-badge-muted">{muteLabel}</span> : null}

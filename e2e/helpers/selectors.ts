@@ -5,8 +5,13 @@ export const functionalSelectors = {
   performSettingsChordMode: "[data-e2e=\"perform-settings-chord-mode\"]",
   performSettingsNoteMode: "[data-e2e=\"perform-settings-note-mode\"]",
   padBeatsCell: "[data-e2e=\"pad-beats-cell\"]",
+  padModePads: "[data-e2e=\"pad-mode-pads\"]",
   padModeBeats: "[data-e2e=\"pad-mode-beats\"]",
+  padRecordButton: "[data-tutorial=\"pad-record-button\"]",
+  padSmcKick: "[data-e2e=\"pad-smc-kick\"]",
   padStepCount12: "[data-e2e=\"pad-beats-step-count-12\"]",
+  editTrackPercussionBeatsLane: "[data-e2e=\"edit-track-percussion-beats-lane\"]",
+  editTrackPercussionPadsLane: "[data-e2e=\"edit-track-percussion-pads-lane\"]",
   viewOptionsButton: "[data-tutorial=\"view-options-btn\"]",
 }
 

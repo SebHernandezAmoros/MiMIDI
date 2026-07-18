@@ -5,6 +5,13 @@ type RecordedPageError = {
   text: string
 }
 
+function isExpectedBrowserResourceNoise(message: ConsoleMessage) {
+  return (
+    message.type() === "error" &&
+    message.text().includes("Failed to load resource: net::ERR_NETWORK_ACCESS_DENIED")
+  )
+}
+
 export type PageConsoleRecorder = {
   errors: RecordedPageError[]
   assertNoErrors: () => void
@@ -15,6 +22,10 @@ export function recordPageConsole(page: Page): PageConsoleRecorder {
 
   page.on("console", (message: ConsoleMessage) => {
     if (message.type() !== "error") {
+      return
+    }
+
+    if (isExpectedBrowserResourceNoise(message)) {
       return
     }
 

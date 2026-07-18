@@ -12,6 +12,7 @@
     "test:functional:headed": "node scripts/run-functional-headed.mjs",
     "test:functional:arpeggiator:headed": "node scripts/run-functional-headed.mjs e2e/functional/perform-arpeggiator-flow.functional.test.ts",
     "test:functional:pad-beats:headed": "node scripts/run-functional-headed.mjs e2e/functional/pad-beats-step-count.functional.test.ts",
+    "test:functional:pad-beats-timeline:headed": "node scripts/run-functional-headed.mjs e2e/functional/pad-beats-timeline-clarity.functional.test.ts",
     "test:all": "npm run test && npm run test:functional",
     "preview": "vite preview",
     "plugin:build": "node scripts/build-plugin.mjs",

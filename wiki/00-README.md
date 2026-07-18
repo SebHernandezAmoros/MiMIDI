@@ -1,67 +1,106 @@
-# MiMIDI — Wiki
+# MiMIDI - Wiki
 
-Mobile-first music lab built on mathematical synthesis and a `.mimod` plugin system.
+Public documentation for MiMIDI, a browser-based music laboratory built around
+mathematical synthesis, MIDI-style events, timeline editing and `.mimod`
+plugins.
+
+For detailed internal planning and development memory, see [`docs/`](../docs/).
 
 ---
 
 ## Contents
 
 | # | File | Description |
-|---|------|-------------|
-| 1 | [01-architecture.md](01-architecture.md) | Layers, principles, and folder structure |
-| 2 | [02-plugin-guide.md](02-plugin-guide.md) | How to create plugins — includes an AI prompt template |
-| 3 | [03-roadmap.md](03-roadmap.md) | Development phases and current state |
+|---|---|---|
+| 1 | [01-architecture.md](01-architecture.md) | Current architecture, refactor state and boundaries |
+| 2 | [02-plugin-guide.md](02-plugin-guide.md) | How to create `.mimod` plugins |
+| 3 | [03-roadmap.md](03-roadmap.md) | Current product state and next priorities |
 
 ---
 
-## What is MiMIDI?
+## What Is MiMIDI?
 
-MiMIDI is a browser-based music laboratory designed primarily for phones and tablets. Its deliberate constraint: **all core sound comes from mathematical synthesis** — oscillators, envelopes, and parameters — not sample banks. This keeps the core lightweight and fast on mobile hardware.
+MiMIDI is a web music lab for:
 
-Samples and complex instruments are meant to arrive later as plugins, not as part of the core.
+- playing notes, chords and arpeggios;
+- programming melodic steps and drum beats;
+- recording MIDI-style events;
+- editing notes and tracks on timelines;
+- exporting projects and WAV audio;
+- extending the app through plugins.
 
-The project follows **Screaming Architecture**: the folder structure talks about music, MIDI, audio, instruments, timeline, transport, and plugins — not about React.
+The main product front is currently the web app. The Expo app in
+`apps/mimidi-expo` is a frozen prototype and is not the source of truth for
+current behavior.
 
 ---
 
-## Quick start
+## Quick Start
 
 ```bash
 npm install
-npm run dev        # dev server at localhost:5173
-npm run build      # production build
-npm test           # run unit tests
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+Useful checks:
+
+```bash
+npm run test
+npm run test:functional
+npm run build
 ```
 
 ---
 
-## Plugin system
+## Architecture In One Sentence
 
-MiMIDI uses a Godot-style plugin model: **the core ships with no plugins built in**. Everything is distributed as `.mimod` files that users install from the Plugins tab.
+MiMIDI follows Screaming Architecture: the codebase should be organized around
+music, audio, MIDI, project, tracks, timeline, sampler and plugins rather than
+generic framework folders.
 
-Two plugin types:
-- **Instrument pack** — plain JavaScript, no build step, adds mathematical instruments
-- **React workspace** — TypeScript + React + CSS, full UI panel inside MiMIDI
+The current refactor split a lot of previously centralized behavior into:
 
-See [02-plugin-guide.md](02-plugin-guide.md) for the complete guide and an AI prompt template.
+- `domain/` for pure project/plugin/MIDI rules;
+- `application/` for use-cases and ports;
+- `infrastructure/` for browser adapters;
+- `features/project-session/` for shared project session state;
+- `plugin-host/` for React plugin runtime contracts;
+- compatibility facades in `LabApp`, `projectModel`, `audioEngine` and plugin
+  engine files.
 
 ---
 
-## Tech stack
+## Plugin System
 
-| | |
+MiMIDI plugins are distributed as `.mimod` files, which are ZIP files containing
+`manifest.json` and a bundled `index.js`.
+
+Two common plugin shapes:
+
+- instrument packs: add mathematical instruments;
+- React workspaces: add a full UI panel inside MiMIDI.
+
+See [02-plugin-guide.md](02-plugin-guide.md).
+
+---
+
+## Tech Stack
+
+| Area | Tool |
 |---|---|
-| Framework | React 19 + TypeScript |
+| UI | React 19 + TypeScript |
 | Build | Vite 8 |
 | Audio | Web Audio API |
-| Plugin bundler | esbuild |
-| Plugin storage | IndexedDB + fflate (ZIP) |
-| Tests | Vitest + Testing Library |
+| Plugins | esbuild + fflate + IndexedDB |
+| Tests | Vitest, Testing Library, Puppeteer |
+| PWA | vite-plugin-pwa |
 
 ---
 
 ## Links
 
 - [Main README](../README.md)
-- [Internal technical docs](../docs/)
-- [GitHub](https://github.com/SebHernandezAmoros/MiMIDI)
+- [Internal technical docs](../docs/00-README-DOCS.md)
+- [Architecture refactor plan](../docs/planes/2026-06-19-plan-desacoplamiento-y-estabilizacion-arquitectura.md)

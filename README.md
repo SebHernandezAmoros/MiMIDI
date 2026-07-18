@@ -1,81 +1,115 @@
 # MiMIDI
 
-A **mobile-first** modular music lab built on mathematical synthesis and a plugin architecture. Designed to create, record, and play musical ideas from your phone — with a dedicated browser experience on the way.
+MiMIDI is a browser-based music laboratory for playing, recording, sequencing,
+editing, exporting and extending musical ideas. It is built around mathematical
+synthesis, MIDI-style event data, a timeline-based project model and a `.mimod`
+plugin system.
 
-> The UI is bilingual — Spanish and English. The codebase and plugin API are in English.
+The current primary product front is the web app. A parallel Expo prototype
+exists in `apps/mimidi-expo`, but it is frozen for now and is not the source of
+truth for product behavior.
+
+> The UI is bilingual: Spanish and English. The codebase and plugin API are in
+> English.
 
 ---
 
 <!-- Screenshots -->
 
-**🎹 Piano** — Play and record notes with velocity. Switch between single note and chord mode.
+**Piano / Perform** - Play notes and chords, record takes, use arpeggiator mode,
+and switch instruments per track.
 
 ![Piano](.github/assets/piano.png)
 
 ---
 
-**🎛 Edit** — Multi-track timeline. Drag clips, adjust timing, undo/redo.
+**Edit** - Timeline views for notes and tracks. Move clips, inspect lanes,
+adjust timing, and use undo/redo.
 
 ![Edit](.github/assets/edit.png)
 
 ---
 
-**🔌 Plugin manager** — Install, enable and open plugins from `.mimod` files. Three demo plugins included out of the box.
+**Plugin manager** - Install, enable, disable and open `.mimod` plugins.
 
 ![Plugins](.github/assets/plugins.png)
 
 ---
 
-**🟢 AtariPunk Synth** — Plugin workspace. Square-wave chip synth with oscillators and clip recorder.
+**AtariPunk Synth** - Plugin workspace with square-wave chip synthesis and clip
+recording.
 
 ![AtariPunk](.github/assets/ataripunk.png)
 
 ---
 
-**🟠 SFXR Generator** — Plugin workspace. Procedural 8-bit sound effects with presets, mutate and WAV export.
+**SFXR Generator** - Plugin workspace for procedural 8-bit sound effects with
+presets, mutation and WAV export.
 
 ![SFXR](.github/assets/sfxr.png)
 
 ---
 
-## What is MiMIDI?
+## What Is MiMIDI?
 
-MiMIDI is a mobile-first music laboratory. The primary target is phones and tablets; the desktop browser experience is secondary. Its core deliberate constraint: **all sound comes from mathematical synthesis** — oscillators, envelopes, and parameters — not sample banks. This keeps the core lightweight and fast on mobile hardware, while samples and complex instruments arrive later as plugins.
+MiMIDI is not just a piano screen. It is becoming a small DAW-like creative
+system with:
 
-The project follows **Screaming Architecture**: the folder structure speaks about music, MIDI, audio, instruments, timeline, transport, and plugins — not about React.
+- a mathematical synth core for notes, pads and instruments;
+- MIDI-style events for recording and editing;
+- project persistence and import/export;
+- track timelines for melodic, percussion, sampler and audio-clip material;
+- plugin workspaces and instrument packs;
+- functional browser tests for critical user flows.
 
----
+The guiding architecture is **Screaming Architecture**: folders and boundaries
+should speak about music, MIDI, audio, tracks, timeline, project, sampler and
+plugins before they speak about React.
 
-## Features
-
-### Core
-- Multi-track recording with MIDI events
-- Piano roll timeline — move, resize, snap, undo/redo (Ctrl+Z / Ctrl+Y)
-- Mathematical instruments (sine, square, sawtooth, triangle, noise) with ADSR envelopes
-- WAV export of the current mix
-- Import / export project as JSON
-- SMC Pad — 8 synthetic percussion sounds with velocity via Y position
-- Arpeggiator mode
-- Master volume control
-- Persistent local state (IndexedDB)
-
-### Plugin system
-- Install plugins from `.mimod` files (ZIP-based format)
-- Two plugin types: **instrument packs** (no build step) and **React workspaces** (full UI)
-- Developer mode: load a plugin directly from a local folder (Chrome/Edge)
-- Typed SDK available as `mimidi-plugin-sdk.d.ts`
-- Plugin API exposes: audio playback, project/transport state, clip storage, notifications
-
-### Demo plugins included
-| Plugin | Type | Description |
-|--------|------|-------------|
-| **Motion Synth Pack** | Instrument pack | Additional mathematical leads and pads |
-| **AtariPunk Synth** | Workspace | Square-wave chip synth with its own keyboard |
-| **SFXR Generator** | Workspace | Procedural 8-bit sound effects (shots, jumps, explosions) |
+Samples now exist as an isolated product capability through the sampler and
+audio-clip tracks. The synth core remains mathematical; sample storage/playback
+is kept behind explicit models, repositories and use-cases instead of being
+mixed into UI components.
 
 ---
 
-## Getting started
+## Current Capabilities
+
+### Music And Project
+
+- Piano / Perform view with notes, chords, arpeggiator and per-track instruments
+- SMC Pad with synthetic percussion sounds and pointer-position velocity
+- Melodic Steps and Pad Beats sequencers
+- Note timeline and track timeline
+- MIDI tracks, sampler tracks and audio-clip tracks
+- Per-track volume, mute, solo, pan, envelope and basic automation
+- Project persistence in browser storage
+- Import/export project as JSON
+- Import/export `.mimidi` project bundle with sample data
+- WAV export through `OfflineAudioContext`
+
+### Editing And UX
+
+- Move/resize notes and clips
+- Snap, undo/redo, timeline duration controls
+- Separate app views: Perform, Pad, Sampler, Edit, Project, Plugins, Settings
+- Classic compact app shell with shared UI primitives
+- Spanish/English UI
+- Tutorial system
+
+### Plugin System
+
+- Install plugins from `.mimod` files
+- Persist installed plugins through IndexedDB
+- Enable/disable plugin entries per project
+- Instrument-pack plugins
+- React workspace plugins
+- Plugin clip storage and plugin audio/MIDI outputs
+- Demo plugins: Motion Synth Pack, AtariPunk Synth, SFXR Generator
+
+---
+
+## Getting Started
 
 ```bash
 npm install
@@ -85,159 +119,154 @@ npm run dev
 Open `http://localhost:5173`.
 
 | Command | Description |
-|---------|-------------|
-| `npm run dev` | Dev server with HMR |
-| `npm run build` | Production build |
+|---|---|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Type-check and build production assets |
 | `npm run preview` | Preview the production build |
 | `npm run lint` | Run ESLint |
-| `npm test` | Run unit tests (Vitest) |
+| `npm run test` | Run unit/integration tests with Vitest |
+| `npm run test:functional` | Run Puppeteer functional tests |
+| `npm run test:all` | Run unit/integration + functional tests |
 
 ---
 
-## Plugin development
+## Verification Status
 
-### Install a plugin
-Drag a `.mimod` file onto the plugin list, or use **IMPORT .mimod** in the lab panel.
+The repo currently uses both unit/integration tests and browser-level functional
+tests.
 
-### Build one of the demo plugins
 ```bash
-# Instrument pack (no build step needed — just pack)
-node scripts/build-mimod.mjs motion-synth-pack
-
-# React workspace plugin
-node scripts/build-plugin.mjs ataripunk
-node scripts/build-plugin.mjs sfxr
+npm run test
+npm run test:functional
+npm run build
 ```
 
-Output: `public/demo-plugins/<id>/<id>.mimod`
+There is also an architecture boundary suite in `src/architecture.test.ts` that
+guards important refactor decisions, such as:
 
-### Plugin format
-
-A `.mimod` file is a ZIP with two entries:
-
-```
-my-plugin.mimod (ZIP)
-├── manifest.json
-└── index.js        ← single ESM bundle
-```
-
-**manifest.json** minimum fields:
-```json
-{
-  "id": "my-plugin",
-  "name": "My Plugin",
-  "version": "0.1.0",
-  "description": "What it does.",
-  "author": "Your Name",
-  "license": "MIT",
-  "entryPoint": "index.js",
-  "mimidiVersion": ">=1.0.0",
-  "permissions": []
-}
-```
-
-**Plugin definition** (TypeScript):
-```typescript
-import type { MiMIDIPluginDefinition } from "./mimidi-plugin-sdk"
-
-const plugin: MiMIDIPluginDefinition = {
-  id: "my-plugin",
-  name: "My Plugin",
-  version: "0.1.0",
-  description: "...",
-  enabledByDefault: true,
-
-  // Option A — instrument pack
-  instruments: {
-    instruments: [ /* MathematicalInstrument[] */ ]
-  },
-
-  // Option B — React workspace
-  workspace: {
-    component: MyWorkspaceComponent,
-  }
-}
-
-export default plugin
-```
-
-**Plugin API** available inside the workspace component:
-
-```typescript
-// Received as prop: api: MiMIDIPluginAPI
-api.audio.playNote("C4", instrumentId, 0.5)
-api.transport.isPlaying
-api.transport.onPlay(() => { /* ... */ })
-api.project.getBPM()
-api.session.sendOutput(output)
-api.session.storeClip(blob, "name", duration)
-api.ui.notify("Done!")
-```
-
-Download the full type declarations: **SDK .d.ts** button in the lab panel, or at `/mimidi-plugin-sdk.d.ts`.
+- `engine/**` does not import React or `app/**`;
+- `domain/**` stays independent from UI/browser APIs;
+- `application/**` stays independent from React and direct browser APIs;
+- feature slices do not import the legacy `features/lab` composition;
+- current track kinds are registered across data handlers, lanes and schedulers.
 
 ---
 
-## Architecture
+## Plugin Development
 
+### Build Demo Plugins
+
+```bash
+# Instrument pack
+npm run plugin:pack motion-synth-pack
+
+# React workspace plugins
+npm run plugin:build ataripunk
+npm run plugin:build sfxr
 ```
+
+Output:
+
+```text
+public/demo-plugins/<plugin-id>/<plugin-id>.mimod
+```
+
+### Plugin Format
+
+A `.mimod` file is a ZIP with:
+
+```text
+my-plugin.mimod
++-- manifest.json
++-- index.js
+```
+
+`index.js` must be a self-contained ESM bundle. React workspace plugins use the
+host React runtime exposed through `globalThis.__MIMIDI_RUNTIME__`; they must not
+bundle their own copy of React.
+
+Full public type declarations live at:
+
+```text
+public/mimidi-plugin-sdk.d.ts
+```
+
+For the full guide, see [wiki/02-plugin-guide.md](wiki/02-plugin-guide.md).
+
+---
+
+## Architecture Snapshot
+
+```text
 src/
-  application/        ← use-cases, coordination
+  app/                  app shell, navigation and top-level compositions
+  application/
+    ports/              repository/file/timer contracts
+    use-cases/          commands, transfers, playback, export/import
+  domain/
+    project/            pure project, track, clip and timeline rules
+    plugins/            pure plugin contracts/manifests
+    midi/               shared MIDI domain types
   engine/
-    audio/            ← synthesis, oscillators, envelopes, WAV export
-    midi/             ← events, recording, playback
+    audio/              Web Audio facade + synth/sample/FX modules
+    midi/               note/event/arpeggiator logic
+    plugins/            plugin loading/registry compatibility facades
+    project/            projectModel compatibility facade
+  infrastructure/
+    storage/            localStorage/IndexedDB adapters
+    files/              browser file-save adapter
+    timing/             browser timer adapter
   features/
-    lab/              ← plugin registry, lab UI
-    edit/             ← multi-track editor, piano roll
-    project/          ← project list, persistence
-    perform/          ← performance view
-    sampler/          ← SMC pad
-    settings-view/
-  domain/             ← musical types (Note, Track, Clip, Project…)
-  shared/             ← UI components, hooks, i18n
+    lab/                legacy compatibility composition
+    project-session/    shared project session hooks/provider
+    perform/ edit/ project-view/ plugins-view/
+    sampler/ audio-sampler/ timeline/ piano/
+    step-sequencer/ pad-sequencer/ tutorial/
+  plugin-host/          React plugin host API/runtime boundary
 
-public/
-  demo-plugins/       ← plugin source + built .mimod files
-    ataripunk/
-    sfxr/
-    motion-synth-pack/
-
-docs/                 ← internal technical documentation
-wiki/                 ← public documentation
-scripts/              ← plugin build tools
+e2e/                    Puppeteer functional tests
+public/demo-plugins/    plugin source + generated .mimod files
+docs/                   internal living technical memory
+wiki/                   public documentation
 ```
 
-**Key principles:**
-- React is the presentation layer — no synthesis logic inside components
-- MIDI = musical intention and events; Audio = sound generation
-- Core stays small: samples and complex instruments belong in plugins
-- Plugins are extensions, not patches — the API is designed to stay stable
+The refactor deliberately keeps compatibility facades where needed:
+
+- `features/lab/LabApp.tsx` is still the legacy composition for several views.
+- `engine/project/projectModel.ts` re-exports the split project domain.
+- `engine/audio/audioEngine.ts` is a facade over smaller audio modules.
+- `engine/plugins/pluginModel.ts` keeps compatibility while pure contracts live
+  in `domain/plugins` and React-specific contracts live in `plugin-host`.
 
 ---
 
-## Tech stack
+## Tech Stack
 
-| | |
+| Area | Tool |
 |---|---|
-| Framework | React 19 + TypeScript |
+| UI | React 19 + TypeScript |
 | Build | Vite 8 |
 | Audio | Web Audio API |
-| Plugin bundler | esbuild |
-| Plugin storage | IndexedDB + fflate (ZIP) |
+| Plugin packaging | esbuild + fflate |
+| Storage | localStorage + IndexedDB behind adapters |
 | Icons | lucide-react |
-| Tests | Vitest + Testing Library |
+| Unit/integration tests | Vitest + Testing Library |
+| Functional tests | Vitest + Puppeteer |
+| PWA | vite-plugin-pwa |
 
 ---
 
 ## Documentation
 
-| | |
+| Path | Purpose |
 |---|---|
-| [`wiki/`](wiki/00-README.md) | Public docs — architecture, plugin guide, roadmap |
-| [`docs/`](docs/00-README-DOCS.md) | Internal technical memory — decisions, context, dev log |
+| [wiki/](wiki/00-README.md) | Public-facing architecture, plugin guide and roadmap |
+| [docs/](docs/00-README-DOCS.md) | Internal living memory, plans, decisions and dev log |
+| [docs/planes/2026-06-19-plan-desacoplamiento-y-estabilizacion-arquitectura.md](docs/planes/2026-06-19-plan-desacoplamiento-y-estabilizacion-arquitectura.md) | Main refactor history and current architectural state |
 
 ---
 
 ## License
 
-[MIT + Commons Clause](LICENSE) — free to use, study, and contribute. Commercial use requires permission from the author.
+[MIT + Commons Clause](LICENSE) - free to use, study and contribute.
+Commercial use requires permission from the author.

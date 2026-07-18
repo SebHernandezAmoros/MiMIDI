@@ -1,105 +1,177 @@
-# MiMIDI — Roadmap
+# MiMIDI - Roadmap
 
-## Development philosophy
+## Development Philosophy
 
-> Funciona → Separar → Refinar → Expandir
+```text
+Make it work -> separate it -> refine it -> expand it
+```
 
-MiMIDI grows in layers: get something working, separate concerns, refine quality, then expand surface. No premature abstraction, no skipping phases.
-
----
-
-## Foundation phases (completed)
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | Audio core | ✅ Complete |
-| 2 | Note system | ✅ Complete |
-| 3 | Piano | ✅ Complete |
-| 4 | Basic MIDI | ✅ Complete |
-| 5 | Timeline | ✅ Complete |
-| 6 | Plugin system | ✅ MVP complete |
-| 7 | Advanced synthesis | ✅ MVP complete |
-| 8 | Musical project & persistence | ✅ Complete |
+MiMIDI is being developed as a living music system, not as a throwaway demo.
+The current priority is stability and clear boundaries before large new feature
+surfaces.
 
 ---
 
-## What works today (May 2026)
+## Foundation Status
 
-- Multi-track recording with MIDI events
-- Mathematical instruments with ADSR, LFO, filters, distortion, pan
-- Piano roll timeline — move, resize, snap, undo/redo (`Ctrl+Z` / `Ctrl+Y`)
-- WAV PCM 32-bit float export via `OfflineAudioContext`
-- Import / export project as JSON
-- Local persistence via IndexedDB
-- SMC Pad — 8 synthetic percussion sounds with velocity
-- Arpeggiator — Up, Down, Up/Down, Random, Chord modes
-- Track timeline with per-track time offset
-- Plugin system — install `.mimod` files, persists across sessions
-- App mode with separate views: Edit, Project, Perform, Lab, Sampler, Settings
-
-### Demo plugins shipped
-| Plugin | Type |
-|--------|------|
-| Motion Synth Pack | Instrument pack |
-| AtariPunk Synth | React workspace |
-| SFXR Generator | React workspace |
+| Area | Status |
+|---|---|
+| Audio core | Implemented, now modularized behind `audioEngine` facade |
+| Note/MIDI system | Implemented |
+| Piano / Perform | Implemented, still partially routed through `LabApp` facade |
+| Recording | Implemented |
+| Note timeline | Implemented |
+| Track timeline | Implemented with data handlers, lane view models and schedulers |
+| Project persistence | Implemented |
+| JSON / `.mimidi` bundle transfer | Implemented |
+| WAV export | Implemented |
+| Plugins | Implemented with compatibility facades and newer domain/plugin-host split |
+| Functional tests | Implemented with Puppeteer |
+| Expo app | Frozen prototype, not current product front |
 
 ---
 
-## What's next
+## What Works Today
 
-### Step 1 — Become a real application
-The current state is a functional lab. The next step is turning it into a polished, navigable app with a clear identity.
-
-- Consolidate the web app as the primary product front
-- Clean navigation between all views (Perform, Edit, Lab, Sampler, Settings)
-- Visual hierarchy, spacing, density — consistent across all screens
-- Responsive layout faithful to the mobile-first design
-
-### Step 2 — Dedicated desktop web environment
-A separate, optimized experience for larger screens (laptop / desktop browser).
-
-- Layout adapted for wider viewports — sidebars, panels, more information density
-- Keyboard shortcuts fully documented and accessible
-- Desktop-specific UX where it makes sense (hover states, drag handles, etc.)
-
-### Step 3 — Windows installable (PWA)
-Make MiMIDI installable on Windows as a Progressive Web App — no Electron needed.
-
-- `manifest.json` with app metadata and icons
-- Service worker for offline support
-- Installable from Chrome/Edge via the native "Install app" prompt
-
-### Step 4 — Community patches and improvements
-Open the project to external contributions.
-
-- Defined areas where contributions are welcome: plugins, translations, instruments, UI fixes
-- Review and merge community-submitted `.mimod` plugins
+- Piano / Perform view with notes, chords and arpeggiator
+- Per-track mathematical instruments
+- SMC Pad with synthetic percussion
+- Melodic Steps and Pad Beats sequencers
+- Note editing with move/resize/snap
+- Track timeline with MIDI, sampler and audio-clip tracks
+- Pads/Beats shown clearly as separate percussion timeline lanes when needed
+- Undo/redo
+- Project import/export as JSON
+- Project bundle import/export with sample data
+- WAV export through offline rendering
+- Plugin manager with `.mimod` import
+- Plugin workspaces and instrument packs
+- Installed plugin persistence
+- Spanish/English UI
+- Architecture boundary tests
+- Puppeteer functional tests
 
 ---
 
-## Plugin roadmap
+## Recent Architectural Refactor
 
-Demo plugins already shipped: **Motion Synth Pack**, **AtariPunk Synth**, **SFXR Generator**.
+The project used to concentrate too much behavior in a few large files:
 
-These are planned or in the backlog — community contributions welcome:
+- `LabApp.tsx`;
+- `useLabProject.ts`;
+- `projectModel.ts`;
+- `audioEngine.ts`.
 
-| Plugin | Description |
-|--------|-------------|
-| **Wave Designer** | Visual waveform editor — draw a custom waveform and use it as an oscillator |
-| **Bitcrusher** | Bit depth and sample rate reduction for lo-fi / 8-bit textures |
-| **Pattern Generator** | Procedural MIDI pattern creator — generative sequences and rhythms |
-| **Oscillator** | Standalone oscillator workspace with real-time waveform visualization |
-| **Circuit Bending** | Experimental sound mangler inspired by circuit-bent hardware |
-| **Cassette** | Animated cassette player — works with the screen off, tape-style audio |
-| **Sample Library** | Minimal reference plugin for loading a custom sampled instrument |
-| **Vertical Mode** | Alternative layout optimized for tall phone screens |
+The refactor moved responsibilities into:
+
+- `domain/project`;
+- `domain/plugins`;
+- `application/use-cases`;
+- `application/ports`;
+- `infrastructure/storage`;
+- `features/project-session`;
+- `features/plugins-view`;
+- `plugin-host`;
+- track data handlers, lane definitions and schedulers.
+
+The old files remain as compatibility facades where needed. The goal is
+evolution without breaking the working app.
 
 ---
 
-## Anti-patterns we avoid
+## Current Priority
 
-- No sample banks in the core (samples belong in plugins)
-- No synthesis logic inside React components
-- No generic `utils/` or `services/` folders — everything has a musical domain name
-- No over-engineering before the feature is validated
+### 1. Keep Stabilizing The Web App
+
+The web app is the current product source of truth. New work should:
+
+- avoid adding new responsibilities to `LabApp`;
+- enter through domain/use-cases/ports where possible;
+- add tests before important behavior changes;
+- keep `npm run test`, `npm run test:functional` and `npm run build` green.
+
+### 2. Finish Small Product Fixes With TDD
+
+Recent functional plans focus on flows such as:
+
+- Beats step-count persistence;
+- Pads/Beats clarity in the timeline;
+- arpeggiator visibility and interaction;
+- future beat markers and drag-to-paint improvements.
+
+### 3. Continue Gradual Feature Extraction
+
+Perform, Edit and Sampler still use legacy `LabApp` compositions. Future work
+should continue extracting real feature roots without destroying the lab
+sandbox.
+
+### 4. Improve Timeline And Sequencer UX
+
+Planned improvements include:
+
+- stronger beat/bar markers in Steps, Beats and Sampler grids;
+- dynamic markers based on subdivision;
+- drag-to-paint for step grids;
+- clearer piano-roll style editing later as a separate larger plan.
+
+### 5. Sampler / FX / Audio-Clip Polish
+
+Important future audio work:
+
+- EQ, reverb and delay for sampler slots;
+- consistent live/export FX behavior;
+- more robust audio-clip timeline behavior;
+- storage cleanup and bundle portability guarantees.
+
+---
+
+## Plugin Roadmap
+
+Demo plugins:
+
+| Plugin | Status |
+|---|---|
+| Motion Synth Pack | Available |
+| AtariPunk Synth | Available |
+| SFXR Generator | Available |
+
+Backlog ideas:
+
+| Plugin | Idea |
+|---|---|
+| Wave Designer | Draw or shape custom waveforms |
+| Bitcrusher | Bit depth / sample-rate reduction |
+| Pattern Generator | Procedural MIDI patterns |
+| Oscillator | Standalone oscillator workspace |
+| Circuit Bending | Experimental sound mangling |
+| Cassette | Tape-style playback/visual workspace |
+| Sample Library | Reference sampled-instrument plugin |
+
+---
+
+## Release Direction
+
+Short-term release direction:
+
+- publish a stable web demo first;
+- keep the app installable as PWA where possible;
+- document plugin creation clearly;
+- keep Expo frozen until the web product is more mature.
+
+Longer-term possibilities:
+
+- formal monorepo split into `apps/web`, `apps/mobile`, `packages/core`;
+- mobile app from a shared core, not from a parallel rewrite;
+- public plugin SDK and templates;
+- code splitting/performance pass for the large app chunk.
+
+---
+
+## Anti-Patterns We Avoid
+
+- Adding new feature modes directly to `LabApp`
+- Putting synthesis, storage or project rules inside React components
+- Adding browser API access inside `domain` or `application`
+- Expanding `projectModel.ts` or `audioEngine.ts` instead of using split modules
+- Adding track types without tests for timeline, playback, export/import and migration
+- Treating plugins as patches instead of extensions through public contracts

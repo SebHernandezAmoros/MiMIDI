@@ -1,149 +1,256 @@
-# MiMIDI — Architecture
+# MiMIDI - Architecture
 
-## Core principle: Screaming Architecture
+## Core Principle: Screaming Architecture
 
-The folder structure must talk about **music, MIDI, audio, instruments, and plugins** — not about React. Looking at the project, you should immediately understand what it does without reading a single line of code.
+MiMIDI is organized around product capabilities and musical domains:
 
-Instead of:
-```
-components/ hooks/ services/ utils/
-```
+- audio;
+- MIDI;
+- project;
+- tracks and clips;
+- timeline;
+- sampler;
+- plugins;
+- app views.
 
-MiMIDI organizes by musical domain:
-```
-engine/audio/   engine/midi/   features/piano/   features/timeline/
-```
-
----
-
-## Architectural principles
-
-### 1. Small, stable, extensible core
-The core does only what is essential: audio model, MIDI events, project structure, transport, persistence, and plugin contracts. Everything else is a plugin.
-
-### 2. UI decoupled from the engine
-React is the presentation layer. Components consume capabilities — they do not contain synthesis logic, MIDI logic, or business rules.
-
-### 3. MIDI ≠ Audio
-- **MIDI** = musical intention, events, time, structure
-- **Audio** = sound generation, oscillators, envelopes, output
-
-These two domains stay separate and coordinated, never merged.
-
-### 4. Mathematical synthesis in the core
-All core sound comes from oscillators, waveforms, ADSR envelopes, and parameters. No sample banks in the core. Samples belong in plugins.
-
-### 5. Plugins as extension, not patch
-The plugin system influences the architecture from day one. Module boundaries, public contracts, and event systems are designed to be pluggable.
+The codebase should make it obvious that this is a music system before it makes
+it obvious that it uses React.
 
 ---
 
-## System layers
+## Current Architectural State
 
-```
-┌─────────────────────────────────────┐
-│          Presentation               │  React components, navigation, UI state
-├─────────────────────────────────────┤
-│          Application                │  Use-cases, coordination (play, record, export)
-├─────────────────────────────────────┤
-│        Musical Domain               │  Project, Track, Clip, Note, Instrument, Preset
-├─────────────────────────────────────┤
-│         MIDI Engine                 │  Events, recording, playback, normalization
-├─────────────────────────────────────┤
-│         Audio Engine                │  Synthesis, oscillators, ADSR, WAV export
-├─────────────────────────────────────┤
-│        Infrastructure               │  Web Audio API, IndexedDB, serialization
-├─────────────────────────────────────┤
-│      Plugins / Extensions           │  .mimod format, plugin registry, API host
-└─────────────────────────────────────┘
-```
+MiMIDI started as a lab-style app and grew quickly. A major refactor has been
+moving responsibilities out of a few central files into clearer layers while
+keeping compatibility facades so the product stays usable.
+
+The important current truth:
+
+- the web app is the product source of truth;
+- `features/lab/LabApp.tsx` still exists as a legacy compatibility composition;
+- `Project`, `Plugins`, and parts of the app shell have newer compositions;
+- `Perform`, `Edit`, and `Sampler/Pad` still route through `LabApp` facades;
+- architecture rules are guarded by `src/architecture.test.ts`;
+- browser functional flows are covered in `e2e/functional`.
 
 ---
 
-## Audio engine signal chain
+## Layers
 
-Each voice follows this path:
-
-```
-OscillatorNode | AudioBufferSourceNode (noise)
-  → GainNode          (ADSR envelope)
-  → [WaveShaperNode]  (optional distortion — arctangent curve)
-  → [BiquadFilterNode] (optional filter — highpass, bandpass…)
-  → StereoPannerNode
-  → masterGainNode
-  → AudioContext.destination
-```
-
-Optional nodes are only created when requested. A plain sine wave goes directly from gain to pan.
-
----
-
-## Folder structure
-
-```
+```text
 src/
-  app/              ← bootstrap, layout, router, providers
+  app/
+    AppMode.tsx
+    *Composition.tsx
+    navigation, shell, app settings
+
+  domain/
+    project/
+      pure project, track, clip, timeline and migration rules
+    plugins/
+      pure plugin manifests and contribution contracts
+    midi/
+      shared MIDI domain types
+
+  application/
+    ports/
+      ProjectRepository, SampleRepository, SettingsRepository,
+      ExternalPluginRepository, FileSavePort, PlaybackTimerPort
+    use-cases/
+      playback, export/import, project transfers, settings,
+      plugins, samples, schedulers
+
+  infrastructure/
+    storage/
+      localStorage and IndexedDB adapters
+    files/
+      browser file save adapter
+    timing/
+      browser timer adapter
+
   engine/
-    audio/          ← audioEngine, WAV export, OfflineAudioContext
-    midi/           ← events, recording, playback
+    audio/
+      Web Audio facade plus synth, sample playback, FX, WAV and renderer modules
+    midi/
+      note/event/arpeggiator logic
+    plugins/
+      loader/registry compatibility facades
+    project/
+      projectModel compatibility facade
+
   features/
-    lab/            ← plugin registry, lab UI (LabApp)
-    edit/           ← multi-track editor, piano roll timeline
-    project/        ← project list, persistence
-    perform/        ← performance view
-    sampler/        ← SMC pad (8 synthetic percussion sounds)
-    settings-view/
-    history/        ← undo/redo (useProjectHistory)
-    piano/
+    project-session/
+      shared project session hooks and provider
     timeline/
-  domain/           ← musical types: Note, Track, Clip, Project…
-  shared/           ← shared UI components, hooks, i18n, CSS tokens
+      track lane view models, lane components and drag helpers
+    perform/ edit/ project-view/ plugins-view/
+    sampler/ audio-sampler/ piano/
+    step-sequencer/ pad-sequencer/ tutorial/
+    lab/
+      legacy controlled composition
 
-public/
-  demo-plugins/     ← plugin source + built .mimod files
-    ataripunk/      ← AtariPunk Synth (React workspace)
-    sfxr/           ← SFXR Generator (React workspace)
-    motion-synth-pack/ ← Motion Synth Pack (instrument pack)
-
-docs/               ← internal living documentation
-wiki/               ← public documentation (this folder)
-scripts/            ← plugin build tools (build-plugin.mjs, build-mimod.mjs)
+  plugin-host/
+    React plugin host API and runtime boundary
 ```
 
 ---
 
-## Track types
+## Refactor Boundaries
 
-Tracks have a type that determines which view records to them:
+### Compatibility Facades
 
-| Type | Recorded from | Created by |
-|------|--------------|------------|
-| `"melodic"` | Piano view | `appendTrack()` |
-| `"percussion"` | SMC Pad view | `appendPadTrack()` |
+Several files remain intentionally as facades:
 
-Each view filters tracks by its own type, preventing accidental overwrites. The Edit timeline shows all types together for the final mix.
+| Facade | Current role |
+|---|---|
+| `features/lab/LabApp.tsx` | Legacy composition for lab and some app views |
+| `features/lab/useLabProject.ts` | Compatibility facade over project-session hooks |
+| `engine/project/projectModel.ts` | Re-export facade over `domain/project` |
+| `engine/audio/audioEngine.ts` | Public facade over smaller audio modules |
+| `engine/plugins/pluginModel.ts` | Compatibility facade over domain/plugin-host contracts |
 
-A plugin can introduce new track types (e.g. `"sample"`) without modifying the core, by following the same pattern.
+New work should avoid adding responsibilities to these files unless the change
+is explicitly part of a planned compatibility layer.
+
+### Architecture Tests
+
+`src/architecture.test.ts` protects the current boundaries. Among other checks,
+it verifies:
+
+- `engine/**` does not import React or `app/**`;
+- `domain/**` does not import UI or browser APIs;
+- `application/**` does not import React or direct browser APIs;
+- feature slices outside `features/lab` do not import the lab composition;
+- track kinds are registered across data handlers, lanes and schedulers;
+- plugin React contracts stay outside the pure plugin domain.
 
 ---
 
-## Extension contracts
+## Audio Architecture
 
-Three things a plugin can register:
+The public audio API is still exposed through `engine/audio/audioEngine.ts`, but
+its internals are split into smaller modules:
 
-1. **Instruments** — mathematical instrument definitions added to the core catalog
-2. **Workspace** — a React component that gets its own panel inside MiMIDI
-3. **Tool slots** *(planned)* — buttons injected into specific toolbars (`piano-toolbar`, `pad-toolbar`, `edit-toolbar`, `sampler-panel`)
+```text
+engine/audio/
+  audioTypes.ts
+  audioContextManager.ts
+  masterOutput.ts
+  synthVoiceEngine.ts
+  oscillatorEngine.ts
+  noiseEngine.ts
+  lfoEngine.ts
+  fxChain.ts
+  sampleCalibration.ts
+  samplePlaybackEngine.ts
+  offlineAudioRenderer.ts
+  wavEncoder.ts
+  audioEngine.ts          compatibility facade
+```
+
+The synth core remains mathematical: oscillators, envelopes, LFO, filters,
+distortion, noise and generated percussion. The app also has sampler and
+audio-clip capabilities, but those are treated as isolated product modules with
+storage/playback contracts, not as random UI-side audio code.
 
 ---
 
-## Quality checklist for architectural decisions
+## MIDI And Project Model
 
-Before adding something to the core, ask:
+MIDI represents musical intention: notes, timing, velocity and playback source.
+Audio represents sound generation and rendering. These are intentionally
+separate.
 
-- Does this belong in the core or in a plugin?
-- Can it live decoupled from the rest?
-- Are we mixing UI with domain logic?
-- Does the structure still talk about the product, not the framework?
-- Will this make plugins harder in the future?
-- Does this add unnecessary weight to the core?
+Project rules now live mostly under `domain/project`, with `projectModel.ts`
+kept for backwards-compatible imports.
+
+Important track concepts:
+
+| Track kind | Purpose |
+|---|---|
+| `midi` | Melodic, percussion and steps note data |
+| `sampler` | Sequencer/sample pattern tracks |
+| `audio-clip` | Rendered or recorded audio blobs on the timeline |
+
+Important MIDI track types:
+
+| Track type | Used by |
+|---|---|
+| `melodic` | Piano / Perform |
+| `percussion` | Pads and Beats |
+| `steps` | Melodic step sequencer |
+
+Current timeline rendering uses track data handlers, lane definitions and track
+schedulers so new track behavior can become more declarative over time.
+
+---
+
+## Plugins
+
+Plugin responsibilities are split by layer:
+
+```text
+domain/plugins/       pure manifest and contribution contracts
+engine/plugins/       loading, registry and compatibility facades
+plugin-host/          React workspace API/runtime boundary
+features/plugins-view/ UI and user workflows for plugins
+```
+
+A plugin can contribute:
+
+- mathematical instruments;
+- a React workspace;
+- outputs sent back to the host, such as MIDI or audio;
+- tool slots, where supported by the host UI.
+
+Plugins are loaded dynamically and are not sandboxed yet. Users should only
+install plugins they trust.
+
+---
+
+## Storage And Ports
+
+Browser storage is intentionally behind ports/adapters:
+
+- `ProjectRepository`;
+- `SampleRepository`;
+- `SampleSlotRepository`;
+- `SettingsRepository`;
+- `ExternalPluginRepository`;
+- `FileSavePort`;
+- `PlaybackTimerPort`.
+
+Features should not reach directly for `localStorage`, `indexedDB`, `window` or
+`document` unless the feature is explicitly a browser-facing adapter or UI shell.
+
+---
+
+## Testing Strategy
+
+MiMIDI uses several layers of tests:
+
+- domain and use-case tests with Vitest;
+- React integration tests with Testing Library;
+- architecture boundary tests;
+- Puppeteer functional tests for real browser flows.
+
+Functional tests currently cover:
+
+- app smoke and navigation;
+- arpeggiator controls and flow;
+- Beats step-count persistence;
+- Pads/Beats clarity in the Edit track timeline.
+
+---
+
+## Decision Checklist
+
+Before adding a feature, ask:
+
+- What domain does it touch?
+- Can the UI call an application use-case instead of a low-level engine module?
+- Does it require storage? If yes, is there a repository/port?
+- Does it add a track behavior? If yes, does it need a data handler, lane or scheduler?
+- Does it add audio behavior? If yes, can it live behind an audio module/facade?
+- Does it add plugin surface? If yes, is it pure contract, host runtime or UI?
+- Can it avoid adding responsibility to `LabApp`, `projectModel` and `audioEngine`?

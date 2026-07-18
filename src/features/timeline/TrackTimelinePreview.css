@@ -115,6 +115,11 @@
   gap: 0.35rem;
 }
 
+.track-timeline-percussion-summary {
+  font-size: 0.72rem;
+  color: var(--ui-color-text);
+}
+
 .track-timeline-badge {
   padding: 0.18rem 0.45rem;
   border: 1px solid var(--ui-color-border-strong);

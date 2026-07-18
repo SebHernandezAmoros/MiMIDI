@@ -1419,6 +1419,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             <div className="ui-toggle-group" role="group" aria-label="Modo de entrada" data-tutorial="pad-view-mode-toggle">
               <button
                 aria-pressed={padViewMode === "pads"}
+                data-e2e="pad-mode-pads"
                 onClick={() => handleSetPadViewMode("pads")}
                 type="button"
               >
@@ -1519,6 +1520,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                     ]
                       .filter(Boolean)
                       .join(" ")}
+                    data-e2e={`pad-smc-${pad.id}`}
                     onPointerDown={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect()
                       const velocity = Math.max(

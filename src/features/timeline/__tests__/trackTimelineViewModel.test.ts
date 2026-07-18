@@ -111,6 +111,46 @@ describe("trackTimelineViewModel", () => {
     expect(viewModel.clipsById.has("empty-clip")).toBe(false)
   })
 
+  it("summarizes programmed Beats and recorded Pads for percussion lanes", () => {
+    const percussionTrack: MidiTrack = {
+      ...createMidiTrack(),
+      clips: [
+        {
+          id: "percussion-clip",
+          notes: [
+            {
+              duration: 0.1,
+              id: "beat-note",
+              instrumentId: "pure-sine",
+              note: "C2",
+              startTime: 0,
+              velocity: 0.8,
+            },
+            {
+              duration: 0.2,
+              id: "pad-note",
+              instrumentId: "pure-sine",
+              note: "D2",
+              playbackSource: "smc-pad",
+              startTime: 0.5,
+              velocity: 1,
+            },
+          ],
+          startTime: 0,
+        },
+      ],
+      id: "pad-track",
+      name: "Pad 1",
+      trackType: "percussion",
+    }
+
+    const viewModel = createTrackTimelineLaneViewModel(percussionTrack)
+
+    expect(viewModel.percussionSummaryLabel).toBe(
+      "Pad 1 · programado 1 · grabado 1",
+    )
+  })
+
   it("builds sampler lane data from normalized clips", () => {
     const viewModel = createTrackTimelineLaneViewModel(createSamplerTrack())
 
@@ -211,5 +251,61 @@ describe("trackTimelineViewModel", () => {
     expect(groups.midi[0]?.viewModel.kind).toBe("midi")
     expect(groups.sampler[0]?.viewModel.kind).toBe("sampler")
     expect(groups.audioClip[0]?.viewModel.kind).toBe("audio-clip")
+  })
+
+  it("renders programmed Beats and recorded Pads as separate timeline lanes", () => {
+    const percussionTrack: MidiTrack = {
+      ...createMidiTrack(),
+      clips: [
+        {
+          id: "percussion-clip",
+          notes: [
+            {
+              duration: 0.1,
+              id: "beat-note",
+              instrumentId: "pure-sine",
+              note: "C2",
+              startTime: 0,
+              velocity: 0.8,
+            },
+            {
+              duration: 0.2,
+              id: "pad-note",
+              instrumentId: "pure-sine",
+              note: "D2",
+              playbackSource: "smc-pad",
+              startTime: 0.5,
+              velocity: 1,
+            },
+          ],
+          startTime: 0,
+        },
+      ],
+      id: "pad-track",
+      name: "Pad 1",
+      trackType: "percussion",
+    }
+
+    const groups = createTrackTimelineLaneGroups([percussionTrack])
+
+    expect(groups.midi).toHaveLength(2)
+    expect(groups.midi.map((lane) => lane.viewModel.name)).toEqual([
+      "Pad 1 - Beats",
+      "Pad 1 - Pads",
+    ])
+    expect(groups.midi.map((lane) => lane.viewModel.sourceTrackId)).toEqual([
+      "pad-track",
+      "pad-track",
+    ])
+    expect(groups.midi.map((lane) => lane.viewModel.laneE2e)).toEqual([
+      "edit-track-percussion-beats-lane",
+      "edit-track-percussion-pads-lane",
+    ])
+    expect(groups.midi[0]?.track.clips[0]?.notes.map((note) => note.id)).toEqual([
+      "beat-note",
+    ])
+    expect(groups.midi[1]?.track.clips[0]?.notes.map((note) => note.id)).toEqual([
+      "pad-note",
+    ])
   })
 })

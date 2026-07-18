@@ -28,6 +28,9 @@ export type TrackTimelineLaneViewModel = {
   kind: TimelineTrack["kind"]
   muted: boolean
   name: string
+  laneE2e?: string
+  percussionSummaryLabel?: string
+  sourceTrackId?: string
   summaryLabel: string
 }
 
@@ -84,6 +87,7 @@ export function createTrackTimelineLaneViewModel(
     kind: track.kind,
     muted: track.muted,
     name: track.name,
+    percussionSummaryLabel: createPercussionSummaryLabel(track),
     summaryLabel: createLaneSummaryLabel(track, clips.length, labels),
   }
 }
@@ -98,10 +102,7 @@ export function createTrackTimelineLaneGroups(
       viewModel: createTrackTimelineLaneViewModel(track, labels),
     })),
     midi: getMidiTracks(timeline)
-      .map((track) => ({
-        track,
-        viewModel: createTrackTimelineLaneViewModel(track, labels),
-      }))
+      .flatMap((track) => createMidiTimelineLaneEntries(track, labels))
       .filter(
         (lane) =>
           lane.track.trackType !== "steps" && lane.viewModel.clips.length > 0,
@@ -116,6 +117,60 @@ export function createTrackTimelineLaneGroups(
         track,
         viewModel: createTrackTimelineLaneViewModel(track, labels),
       })),
+  }
+}
+
+function createMidiTimelineLaneEntries(
+  track: MidiTrack,
+  labels?: TrackTimelineLaneSummaryLabels,
+): Array<TrackTimelineLaneEntry<MidiTrack>> {
+  if (track.trackType !== "percussion") {
+    return [{
+      track,
+      viewModel: createTrackTimelineLaneViewModel(track, labels),
+    }]
+  }
+
+  const programmedTrack = createPercussionDisplayTrack(track, "beats")
+  const recordedTrack = createPercussionDisplayTrack(track, "pads")
+
+  return [programmedTrack, recordedTrack]
+    .filter((displayTrack) =>
+      displayTrack.clips.some((clip) => clip.notes.length > 0),
+    )
+    .map((displayTrack) => {
+      const role = displayTrack.name.endsWith("Beats") ? "beats" : "pads"
+      const viewModel = createTrackTimelineLaneViewModel(displayTrack, labels)
+      return {
+        track: displayTrack,
+        viewModel: {
+          ...viewModel,
+          id: `${track.id}:${role}`,
+          laneE2e: role === "beats"
+            ? "edit-track-percussion-beats-lane"
+            : "edit-track-percussion-pads-lane",
+          sourceTrackId: track.id,
+        },
+      }
+    })
+}
+
+function createPercussionDisplayTrack(
+  track: MidiTrack,
+  role: "beats" | "pads",
+): MidiTrack {
+  const isPadsLane = role === "pads"
+  return {
+    ...track,
+    name: `${track.name} - ${isPadsLane ? "Pads" : "Beats"}`,
+    clips: track.clips.map((clip) => ({
+      ...clip,
+      notes: clip.notes.filter((note) =>
+        isPadsLane
+          ? note.playbackSource === "smc-pad"
+          : note.playbackSource !== "smc-pad",
+      ),
+    })),
   }
 }
 
@@ -167,6 +222,20 @@ function createLaneSummaryLabel(
     : String(Math.round(track.pattern.bpm))
 
   return `${bpmLabel} BPM · ${track.pattern.stepsPerBar} ${labels.stepsSuffix} · ${track.clips.length} ${getClipCountSuffix(track.clips.length, labels)}`
+}
+
+function createPercussionSummaryLabel(track: TimelineTrack): string | undefined {
+  if (track.kind !== "midi" || track.trackType !== "percussion") return undefined
+
+  const notes = track.clips.flatMap((clip) => clip.notes)
+  if (notes.length === 0) return undefined
+
+  const recordedCount = notes.filter(
+    (note) => note.playbackSource === "smc-pad",
+  ).length
+  const programmedCount = notes.length - recordedCount
+
+  return `${track.name} · programado ${programmedCount} · grabado ${recordedCount}`
 }
 
 function getClipCountSuffix(
