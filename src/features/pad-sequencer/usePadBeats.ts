@@ -4,6 +4,11 @@ import {
   playSmcPadHit,
 } from "../../application/use-cases/playSmcPadHit"
 import type { PadSoundParams, SmcPadSoundDescriptor, SmcPadSoundId } from "../../application/use-cases/playSmcPadHit"
+import type { SettingsRepository } from "../../application/ports/SettingsRepository"
+import {
+  loadLabStepCountWithRepository,
+  saveLabStepCountWithRepository,
+} from "../../application/use-cases/labViewPreferences"
 import type { MidiRecordedNote } from "../../engine/midi/events"
 import { calcStepDurationSec } from "../step-sequencer/useMelodicSequencer"
 import type { StepCount, StepSubdivision } from "../step-sequencer/useMelodicSequencer"
@@ -22,6 +27,7 @@ export function usePadBeats({
   padSoundSettings,
   onToggleStep,
   onClearAll,
+  settingsRepository,
 }: {
   sounds: SmcPadSoundDescriptor[]
   bpm: number
@@ -30,8 +36,11 @@ export function usePadBeats({
   padSoundSettings: Partial<Record<SmcPadSoundId, Partial<PadSoundParams>>>
   onToggleStep: (row: number, col: number) => void
   onClearAll: () => void
+  settingsRepository: SettingsRepository
 }) {
-  const [stepCount, setStepCountState] = useState<StepCount>(16)
+  const [stepCount, setStepCountState] = useState<StepCount>(() =>
+    loadLabStepCountWithRepository(settingsRepository),
+  )
   const [activeStep, setActiveStep] = useState<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -67,6 +76,10 @@ export function usePadBeats({
   useEffect(() => { subdivisionRef.current = stepSubdivision }, [stepSubdivision])
   useEffect(() => { stepCountRef.current = stepCount }, [stepCount])
   useEffect(() => { padSoundSettingsRef.current = padSoundSettings }, [padSoundSettings])
+
+  useEffect(() => {
+    saveLabStepCountWithRepository(settingsRepository, stepCount)
+  }, [settingsRepository, stepCount])
 
   const stop = useCallback(() => {
     if (intervalRef.current) {

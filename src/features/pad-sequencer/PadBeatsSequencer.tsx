@@ -34,6 +34,8 @@ export function PadBeatsSequencer({ sounds, grid, stepCount, activeStep, onToggl
                   isActive && isCursor ? "pbs-cell-on-cursor" : "",
                   isBeatStart ? "pbs-cell-beat-start" : "",
                 ].filter(Boolean).join(" ")}
+                data-e2e="pad-beats-cell"
+                data-row={rowIdx}
                 onPointerDown={() => onToggleStep(rowIdx, colIdx)}
                 type="button"
               />

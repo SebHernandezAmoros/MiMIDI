@@ -4,6 +4,9 @@ export const functionalSelectors = {
   performSettingsArpToggle: "[data-e2e=\"perform-settings-arp-toggle\"]",
   performSettingsChordMode: "[data-e2e=\"perform-settings-chord-mode\"]",
   performSettingsNoteMode: "[data-e2e=\"perform-settings-note-mode\"]",
+  padBeatsCell: "[data-e2e=\"pad-beats-cell\"]",
+  padModeBeats: "[data-e2e=\"pad-mode-beats\"]",
+  padStepCount12: "[data-e2e=\"pad-beats-step-count-12\"]",
   viewOptionsButton: "[data-tutorial=\"view-options-btn\"]",
 }
 

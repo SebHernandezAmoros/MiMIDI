@@ -253,6 +253,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     stepSubdivision: seqStepSubdivision,
     clipNotes: padBeatsClipNotes,
     padSoundSettings: lab.project.padSoundSettings,
+    settingsRepository,
     onToggleStep: (row, col) => {
       const sound = smcPadSounds[row]
       if (!sound || lab.primaryTrack.trackType !== "percussion") return
@@ -1425,6 +1426,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               </button>
               <button
                 aria-pressed={padViewMode === "beats"}
+                data-e2e="pad-mode-beats"
                 data-tutorial="pad-view-mode-beats-btn"
                 onClick={() => handleSetPadViewMode("beats")}
                 type="button"
@@ -1660,6 +1662,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                       <button
                         key={sc}
                         className={`ui-pill-btn${padBeats.stepCount === sc ? " ui-pill-btn-active" : ""}`}
+                        data-e2e={`pad-beats-step-count-${sc}`}
                         onClick={() => padBeats.setStepCount(sc)}
                         type="button"
                       >
