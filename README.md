@@ -226,7 +226,6 @@ src/
 
 e2e/                    Puppeteer functional tests
 public/demo-plugins/    plugin source + generated .mimod files
-docs/                   internal living technical memory
 wiki/                   public documentation
 ```
 
@@ -261,8 +260,6 @@ The refactor deliberately keeps compatibility facades where needed:
 | Path | Purpose |
 |---|---|
 | [wiki/](wiki/00-README.md) | Public-facing architecture, plugin guide and roadmap |
-| [docs/](docs/00-README-DOCS.md) | Internal living memory, plans, decisions and dev log |
-| [docs/planes/2026-06-19-plan-desacoplamiento-y-estabilizacion-arquitectura.md](docs/planes/2026-06-19-plan-desacoplamiento-y-estabilizacion-arquitectura.md) | Main refactor history and current architectural state |
 
 ---
 

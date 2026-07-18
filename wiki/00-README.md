@@ -4,8 +4,6 @@ Public documentation for MiMIDI, a browser-based music laboratory built around
 mathematical synthesis, MIDI-style events, timeline editing and `.mimod`
 plugins.
 
-For detailed internal planning and development memory, see [`docs/`](../docs/).
-
 ---
 
 ## Contents
@@ -102,5 +100,3 @@ See [02-plugin-guide.md](02-plugin-guide.md).
 ## Links
 
 - [Main README](../README.md)
-- [Internal technical docs](../docs/00-README-DOCS.md)
-- [Architecture refactor plan](../docs/planes/2026-06-19-plan-desacoplamiento-y-estabilizacion-arquitectura.md)
