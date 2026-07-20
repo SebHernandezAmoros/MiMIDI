@@ -1,0 +1,12 @@
+{
+  "id": "oscillator",
+  "name": "Oscillator",
+  "version": "0.1.0",
+  "description": "Oscilador simple para disenar timbres basicos y enviar frases MIDI al proyecto.",
+  "author": "MiMIDI Core Team",
+  "sourceUrl": "https://github.com/SebHernandezAmoros/MiMIDI",
+  "license": "MIT",
+  "entryPoint": "index.js",
+  "mimidiVersion": ">=1.0.0",
+  "permissions": []
+}

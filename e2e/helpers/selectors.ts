@@ -15,6 +15,13 @@ export const functionalSelectors = {
   editTrackPadsLane: "[data-e2e=\"edit-track-pads-lane\"]",
   editTrackPercussionBeatsLane: "[data-e2e=\"edit-track-percussion-beats-lane\"]",
   editTrackPercussionPadsLane: "[data-e2e=\"edit-track-percussion-pads-lane\"]",
+  pluginImportInput: "input[accept=\".mimod\"]",
+  pluginOscillatorWorkspace: "[data-e2e=\"oscillator-workspace\"]",
+  pluginOscillatorWaveSquare: "[data-e2e=\"oscillator-wave-square\"]",
+  pluginOscillatorMotionVibrato: "[data-e2e=\"oscillator-motion-vibrato\"]",
+  pluginOscillatorMotionShapeStep: "[data-e2e=\"oscillator-motion-shape-step\"]",
+  pluginOscillatorPreview: "[data-e2e=\"oscillator-preview\"]",
+  pianoInstrumentButton: "[data-tutorial=\"instrument-button\"]",
   viewOptionsButton: "[data-tutorial=\"view-options-btn\"]",
 }
 
