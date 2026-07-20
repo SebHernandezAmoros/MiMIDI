@@ -40,7 +40,7 @@ describe("project feature composition", () => {
       hasPlayableContent: false,
       noteCount: 0,
       samplerMixCount: 0,
-      trackCount: 2,
+      trackCount: 3,
     })
     expect(contract.status).toBe(status)
 

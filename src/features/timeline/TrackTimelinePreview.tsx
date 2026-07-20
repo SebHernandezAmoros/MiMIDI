@@ -317,6 +317,7 @@ export function TrackTimelinePreview({
               laneViewModel={laneViewModel}
               muteLabel={tl.mute}
               onClipPointerDown={startMidiClipDrag}
+              onSelectLane={onSelectLane}
               onSelectTrack={onSelectTrack}
               playheadTime={playheadTime}
               selectedClipId={selectedClipId}

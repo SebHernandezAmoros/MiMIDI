@@ -53,7 +53,7 @@ describe("project session lifecycle", () => {
     expect(restartedProject.id).toBe(project.id)
     expect(restartedProject.name).toBe("MiMIDI Project")
     expect(getMidiTracks(restartedProject.timeline).map((track) => track.trackType))
-      .toEqual(["melodic", "percussion", "steps"])
+      .toEqual(["melodic", "percussion", "percussion", "steps"])
     expect(resolution.activeTrackId).toBe("track-1")
     expect(resolution.selectedRecordedNoteId).toBeNull()
     expect(resolution.message).toBe("Proyecto reiniciado desde cero.")

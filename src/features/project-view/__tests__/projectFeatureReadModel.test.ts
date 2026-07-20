@@ -14,7 +14,7 @@ describe("project feature read model", () => {
       hasPlayableContent: false,
       noteCount: 0,
       samplerMixCount: 0,
-      trackCount: 2,
+      trackCount: 3,
     })
   })
 
@@ -56,7 +56,7 @@ describe("project feature read model", () => {
       hasPlayableContent: true,
       noteCount: 1,
       samplerMixCount: 1,
-      trackCount: 2,
+      trackCount: 3,
     })
   })
 })

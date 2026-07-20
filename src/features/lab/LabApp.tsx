@@ -199,6 +199,11 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
 
   // ── Core hooks ───────────────────────────────────────────────────────────────
   const lab = useLabProject({ mode, timelineSnapEnabled, timelineSnapStep })
+  const visiblePadModeTracks = padViewMode === "beats" ? lab.beatsTracks : lab.padTracks
+  const activePadModeTrack =
+    visiblePadModeTracks.find((track) => track.id === lab.primaryTrack.id) ??
+    visiblePadModeTracks[0] ??
+    null
 
   const labPlayback = useLabPlayback({ project: lab.project })
 
@@ -243,8 +248,8 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
   })
 
   // ── Pad beats sequencer ──────────────────────────────────────────────────────
-  const padBeatsClipNotes = lab.primaryTrack.trackType === "percussion"
-    ? (lab.primaryTrack.clips[0]?.notes ?? [])
+  const padBeatsClipNotes = activePadModeTrack?.trackType === "percussion"
+    ? (activePadModeTrack.clips[0]?.notes ?? [])
     : []
 
   const padBeats = usePadBeats({
@@ -256,14 +261,14 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     settingsRepository,
     onToggleStep: (row, col) => {
       const sound = smcPadSounds[row]
-      if (!sound || lab.primaryTrack.trackType !== "percussion") return
+      if (!sound || !activePadModeTrack || activePadModeTrack.trackType !== "percussion") return
       lab.applyUpdate(p =>
-        toggleStepNoteInTrack(p, lab.primaryTrack.id, sound.note, col, seqBpm, lab.primaryTrack.instrumentId, seqStepSubdivision),
+        toggleStepNoteInTrack(p, activePadModeTrack.id, sound.note, col, seqBpm, activePadModeTrack.instrumentId, seqStepSubdivision),
       )
     },
     onClearAll: () => {
-      if (lab.primaryTrack.trackType !== "percussion") return
-      lab.applyUpdate(p => resetTrackClips(p, lab.primaryTrack.id))
+      if (!activePadModeTrack || activePadModeTrack.trackType !== "percussion") return
+      lab.applyUpdate(p => resetTrackClips(p, activePadModeTrack.id))
     },
   })
 
@@ -449,6 +454,15 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
     setPadViewMode(mode)
     saveLabPadViewModeWithRepository(settingsRepository, mode)
   }
+
+  useEffect(() => {
+    if (mode !== "sampler-only") return
+    if (!activePadModeTrack) return
+    if (activePadModeTrack.id !== lab.primaryTrack.id) {
+      switchActiveTrack(activePadModeTrack.id)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePadModeTrack?.id, lab.primaryTrack.id, mode, padViewMode])
 
   function handleAddStepsTrack() {
     lab.addStepsTrack()
@@ -1397,7 +1411,7 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
                       ? labPlayback.playbackTransport.stop
                       : () =>
                           labPlayback.playbackTransport.play(
-                            { ...lab.project, timeline: [lab.primaryTrack] },
+                            { ...lab.project, timeline: activePadModeTrack ? [activePadModeTrack] : [lab.primaryTrack] },
                             { padSoundSettings: lab.project.padSoundSettings },
                           )
                 }
@@ -1442,10 +1456,11 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
             <select
               aria-label={t.toolbar.activeTrack}
               className="ui-select"
-              value={lab.primaryTrack.id}
+              data-e2e="pad-track-select"
+              value={activePadModeTrack?.id ?? ""}
               onChange={(e) => switchActiveTrack(e.target.value)}
             >
-              {lab.percussionTracks.map((track) => (
+              {visiblePadModeTracks.map((track) => (
                 <option key={track.id} value={track.id}>
                   {track.name}
                 </option>
@@ -1478,8 +1493,13 @@ function LabApp({ language = "es", mode = "full", onOpenPlugin, pluginId, settin
               </button>
             </div>}
 
-            <button className="ui-pill-btn" data-tutorial="add-pad-track-button" onClick={lab.addPadTrack} type="button">
-              {t.toolbar.addPadTrack}
+            <button
+              className="ui-pill-btn"
+              data-tutorial="add-pad-track-button"
+              onClick={padViewMode === "beats" ? lab.addBeatsTrack : lab.addPadTrack}
+              type="button"
+            >
+              {padViewMode === "beats" ? "+ Beats" : t.toolbar.addPadTrack}
             </button>
 
             <span aria-hidden="true" className="perform-mode-transport-divider" />

@@ -144,6 +144,12 @@ function normalizeRawNote(note: MidiRecordedNote): MidiRecordedNote {
 }
 
 function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
+  const trackType =
+    raw.trackType === "percussion"
+      ? "percussion"
+      : raw.trackType === "steps"
+        ? "steps"
+        : "melodic"
   const rawEnvelope =
     typeof raw.envelope === "object" && raw.envelope !== null
       ? (raw.envelope as Record<string, unknown>)
@@ -229,12 +235,13 @@ function normalizeMidiTrackData(raw: Record<string, unknown>): MidiTrack {
         : 8,
     pan: typeof raw.pan === "number" ? clamp(raw.pan, -1, 1) : 0,
     solo: typeof raw.solo === "boolean" ? raw.solo : false,
-    trackType:
-      raw.trackType === "percussion"
-        ? "percussion"
-        : raw.trackType === "steps"
-          ? "steps"
-          : "melodic",
+    percussionRole:
+      trackType === "percussion"
+        ? raw.percussionRole === "beats"
+          ? "beats"
+          : "pads"
+        : undefined,
+    trackType,
     volumeAutomation: {
       enabled: typeof rawAutomation?.enabled === "boolean" ? rawAutomation.enabled : false,
       points:

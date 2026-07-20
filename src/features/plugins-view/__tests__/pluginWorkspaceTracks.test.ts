@@ -17,6 +17,11 @@ describe("getPluginWorkspaceTracks", () => {
         name: "Pad 1",
         type: "percussion",
       },
+      {
+        id: "track-3",
+        name: "Beats 1",
+        type: "percussion",
+      },
     ])
   })
 

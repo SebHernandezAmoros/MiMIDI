@@ -47,36 +47,57 @@ describe("functional pad beats timeline clarity", () => {
     await page.close()
   })
 
-  it("shows programmed Beats and recorded Pads in separate Pad 1 timeline lanes", async () => {
+  it("shows programmed Beats and recorded Pads in separate real timeline tracks", async () => {
     await prepareCleanAppPage(page, appViewUrl(app.url, "pad"))
 
     await page.click(functionalSelectors.padModeBeats)
     await page.waitForSelector(functionalSelectors.padBeatsCell)
+    await page.waitForFunction(
+      (selector) => Array.from(document.querySelectorAll(`${selector} option`)).some((option) =>
+        option.textContent?.includes("Beats 1"),
+      ),
+      {},
+      functionalSelectors.padTrackSelect,
+    )
     await page.click(functionalSelectors.padBeatsCell)
 
     await page.click(functionalSelectors.padModePads)
     await page.waitForSelector(functionalSelectors.padSmcKick)
+    await page.waitForFunction(
+      (selector) => {
+        const labels = Array.from(document.querySelectorAll(`${selector} option`))
+          .map((option) => option.textContent ?? "")
+        return labels.some((label) => label.includes("Pad 1")) &&
+          labels.every((label) => !label.includes("Beats"))
+      },
+      {},
+      functionalSelectors.padTrackSelect,
+    )
     await page.click(functionalSelectors.padRecordButton)
     await page.click(functionalSelectors.padSmcKick)
     await page.click(functionalSelectors.padRecordButton)
 
     await page.goto(editTracksUrl(app.url), { waitUntil: "domcontentloaded" })
     await page.waitForSelector(activeNavSelector("Edit"))
-    await page.waitForSelector(functionalSelectors.editTrackPercussionBeatsLane)
-    await page.waitForSelector(functionalSelectors.editTrackPercussionPadsLane)
+    await page.waitForSelector(functionalSelectors.editTrackBeatsLane)
+    await page.waitForSelector(functionalSelectors.editTrackPadsLane)
 
     const beatsLane = await page.$eval(
-      functionalSelectors.editTrackPercussionBeatsLane,
+      functionalSelectors.editTrackBeatsLane,
       (element) => element.textContent ?? "",
     )
     const padsLane = await page.$eval(
-      functionalSelectors.editTrackPercussionPadsLane,
+      functionalSelectors.editTrackPadsLane,
       (element) => element.textContent ?? "",
     )
 
-    expect(beatsLane).toContain("Pad 1 - Beats")
-    expect(beatsLane).toContain("programado")
-    expect(padsLane).toContain("Pad 1 - Pads")
-    expect(padsLane).toContain("grabado")
+    expect(beatsLane).toContain("Beats 1")
+    expect(padsLane).toContain("Pad 1")
+
+    await page.click(functionalSelectors.editTrackBeatsLane)
+    expect(beatsLane).toContain("1 notas")
+
+    await page.click(functionalSelectors.editTrackPadsLane)
+    expect(padsLane).toContain("notas")
   }, 60_000)
 })

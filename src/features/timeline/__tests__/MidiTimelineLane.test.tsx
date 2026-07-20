@@ -86,4 +86,41 @@ describe("MidiTimelineLane", () => {
       track.clips[0],
     )
   })
+
+  it("selects the source track and focuses the virtual percussion lane", () => {
+    const track = createMidiTrack()
+    const laneViewModel = {
+      ...createTrackTimelineLaneViewModel(track),
+      id: "midi-track:beats",
+      laneE2e: "edit-track-percussion-beats-lane",
+      name: "Pad 1 - Beats",
+      sourceTrackId: "midi-track",
+    }
+    const onSelectLane = vi.fn()
+    const onSelectTrack = vi.fn()
+
+    const { container } = render(
+      <MidiTimelineLane
+        activeLabel="Activo"
+        activeTrackId="midi-track"
+        laneViewModel={laneViewModel}
+        muteLabel="Silencio"
+        onClipPointerDown={vi.fn()}
+        onSelectLane={onSelectLane}
+        onSelectTrack={onSelectTrack}
+        playheadTime={null}
+        selectedClipId={null}
+        selectedLaneId="midi-track:beats"
+        timelineLength={10}
+        track={track}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button"))
+    fireEvent.keyDown(screen.getByRole("button"), { key: " " })
+
+    expect(container.querySelector(".track-timeline-lane-active")).toBeTruthy()
+    expect(onSelectTrack).toHaveBeenCalledWith("midi-track")
+    expect(onSelectLane).toHaveBeenCalledWith("midi-track:beats")
+  })
 })

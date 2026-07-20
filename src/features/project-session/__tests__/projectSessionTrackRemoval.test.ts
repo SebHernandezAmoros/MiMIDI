@@ -19,7 +19,7 @@ describe("project session track removal", () => {
   it("removes a regular track and selects a neighboring fallback", () => {
     const project = createDefaultProject()
     const tracks = getMidiTracks(project.timeline)
-    const activeTrack = tracks[2]
+    const activeTrack = tracks[0]
     const fallbackTrack = tracks[1]
 
     const result = resolveActiveTrackRemoval({

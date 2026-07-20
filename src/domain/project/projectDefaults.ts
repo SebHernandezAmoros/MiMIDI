@@ -18,8 +18,9 @@ export function createDefaultProjectWithPluginStates(
     pluginStates,
     timeline: [
       createProjectTrack(1, "melodic"),
-      { ...createProjectTrack(2, "percussion"), name: "Pad 1" },
-      { ...createProjectTrack(3, "steps"), name: "Steps 1" },
+      { ...createProjectTrack(2, "percussion"), name: "Pad 1", percussionRole: "pads" },
+      { ...createProjectTrack(3, "percussion"), name: "Beats 1", percussionRole: "beats" },
+      { ...createProjectTrack(4, "steps"), name: "Steps 1" },
     ],
     trackTimelineDuration: 8,
   }

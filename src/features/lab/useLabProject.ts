@@ -38,6 +38,7 @@ import {
 } from "../project-session/projectSessionMessages"
 import { resolveInstrumentIdByCategory } from "../project-session/projectSessionInstrumentSelection"
 import { resolveActiveTrackIdAfterTrackListChange } from "../project-session/projectSessionTrackSelection"
+import { getBeatsTracks, getPadTracks } from "../../domain/project/percussionTrackRoles"
 import { useProjectAudioClipTrackMixEditing } from "../project-session/useProjectAudioClipTrackMixEditing"
 import { useProjectAudioTransfer } from "../project-session/useProjectAudioTransfer"
 import { useProjectClipDuplication } from "../project-session/useProjectClipDuplication"
@@ -129,6 +130,8 @@ export function useLabProject({
   const hasNoTracks = midiTracks.length === 0
   const melodicTracks = midiTracks.filter((t) => t.trackType === "melodic")
   const percussionTracks = midiTracks.filter((t) => t.trackType === "percussion")
+  const padTracks = getPadTracks(midiTracks)
+  const beatsTracks = getBeatsTracks(midiTracks)
   const stepsTracks = midiTracks.filter((t) => t.trackType === "steps")
 
   const primaryTrack = resolvePrimaryTrack({
@@ -181,10 +184,9 @@ export function useLabProject({
       tracks,
     })
     if (nextActiveTrackId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTrackId(nextActiveTrackId)
     }
-  }, [project.timeline, activeTrackId])
+  }, [project.timeline, activeTrackId, setActiveTrackId])
 
   useEffect(() => {
     if (!isTrackRemovalConfirmOpen) return
@@ -242,6 +244,18 @@ export function useLabProject({
       const result = resolveTrackCreation({
         project: currentProject,
         trackType: "percussion",
+      })
+      setActiveTrackId(result.activeTrackId)
+      setProjectMessage(result.message)
+      return result.project
+    })
+  }
+
+  function addBeatsTrack() {
+    applyUpdate((currentProject) => {
+      const result = resolveTrackCreation({
+        project: currentProject,
+        trackType: "beats",
       })
       setActiveTrackId(result.activeTrackId)
       setProjectMessage(result.message)
@@ -534,6 +548,8 @@ export function useLabProject({
     hasNoTracks,
     melodicTracks,
     percussionTracks,
+    padTracks,
+    beatsTracks,
     stepsTracks,
     primaryTrack,
     allRecordedNotes,
@@ -565,6 +581,7 @@ export function useLabProject({
     // actions — track
     addTrack,
     addPadTrack,
+    addBeatsTrack,
     addStepsTrack,
     lastCreatedStepsTrackIdRef,
     removeStepsTrack,

@@ -78,6 +78,8 @@ export {
 } from "../../domain/project/projectTrackMutations"
 export {
   appendPadTrack,
+  appendBeatsTrack,
+  appendPercussionTrack,
   appendStepsTrack,
   appendTrack,
   appendTrackWithNotes,

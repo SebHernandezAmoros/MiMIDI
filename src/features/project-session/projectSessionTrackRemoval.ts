@@ -1,6 +1,7 @@
 import type { MusicalProject } from "../../domain/project/projectTypes"
 import { createProjectTrack } from "../../domain/project/projectFactories"
-import { appendPadTrack, removeTrack } from "../../domain/project/projectTrackLifecycle"
+import { appendPercussionTrack, removeTrack } from "../../domain/project/projectTrackLifecycle"
+import { getPercussionTrackRole } from "../../domain/project/percussionTrackRoles"
 import { getMidiTracks } from "../../domain/project/timelineQueries"
 import {
   formatStepsTrackRemovedMessage,
@@ -31,11 +32,12 @@ export function resolveActiveTrackRemoval({
 
   if (!activeTrack) return null
 
-  const percussionTracks = midiTracks.filter(
-    (track) => track.trackType === "percussion",
+  const activePercussionRole = getPercussionTrackRole(activeTrack)
+  const sameRolePercussionTracks = midiTracks.filter(
+    (track) => getPercussionTrackRole(track) === activePercussionRole,
   )
   const isLastPercussionTrack =
-    activeTrack.trackType === "percussion" && percussionTracks.length === 1
+    activePercussionRole !== null && sameRolePercussionTracks.length === 1
   const isLastMidiTrack = midiTracks.length === 1
   const currentIndex = midiTracks.findIndex(
     (track) => track.id === activeTrack.id,
@@ -44,8 +46,8 @@ export function resolveActiveTrackRemoval({
     midiTracks[currentIndex - 1]?.id ?? midiTracks[currentIndex + 1]?.id
   const withoutTrack = removeTrack(project, activeTrack.id)
 
-  const nextProject = isLastPercussionTrack
-    ? appendPadTrack(withoutTrack)
+  const nextProject = isLastPercussionTrack && activePercussionRole
+    ? appendPercussionTrack(withoutTrack, activePercussionRole)
     : isLastMidiTrack
       ? {
           ...withoutTrack,
@@ -55,7 +57,7 @@ export function resolveActiveTrackRemoval({
 
   return {
     activeTrackId: isLastPercussionTrack
-      ? `track-${midiTracks.length}`
+      ? (getMidiTracks(nextProject.timeline).at(-1)?.id ?? "")
       : isLastMidiTrack
         ? "track-1"
         : (fallbackTrackId ?? ""),

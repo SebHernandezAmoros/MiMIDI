@@ -3,6 +3,7 @@ import type {
   ProjectTrackType,
 } from "../../domain/project/projectTypes"
 import {
+  appendBeatsTrack,
   appendPadTrack,
   appendStepsTrack,
   appendTrack,
@@ -13,7 +14,7 @@ import { formatTrackAddedMessage } from "./projectSessionMessages"
 export type TrackCreationType = Extract<
   ProjectTrackType,
   "melodic" | "percussion" | "steps"
->
+> | "beats"
 
 export type TrackCreationResolution = {
   activeTrackId: string
@@ -30,7 +31,9 @@ export function resolveTrackCreation({
   trackType: TrackCreationType
 }): TrackCreationResolution {
   const nextProject =
-    trackType === "percussion"
+    trackType === "beats"
+      ? appendBeatsTrack(project)
+      : trackType === "percussion"
       ? appendPadTrack(project)
       : trackType === "steps"
         ? appendStepsTrack(project)

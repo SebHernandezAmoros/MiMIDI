@@ -85,11 +85,18 @@ export function createTrackTimelineLaneViewModel(
     definition: getTrackLaneDefinition(track),
     id: track.id,
     kind: track.kind,
+    laneE2e: createLaneE2e(track),
     muted: track.muted,
     name: track.name,
     percussionSummaryLabel: createPercussionSummaryLabel(track),
     summaryLabel: createLaneSummaryLabel(track, clips.length, labels),
   }
+}
+
+function createLaneE2e(track: TimelineTrack): string | undefined {
+  if (track.kind !== "midi" || track.trackType !== "percussion") return undefined
+  if (track.percussionRole === "beats") return "edit-track-beats-lane"
+  return "edit-track-pads-lane"
 }
 
 export function createTrackTimelineLaneGroups(
@@ -124,7 +131,7 @@ function createMidiTimelineLaneEntries(
   track: MidiTrack,
   labels?: TrackTimelineLaneSummaryLabels,
 ): Array<TrackTimelineLaneEntry<MidiTrack>> {
-  if (track.trackType !== "percussion") {
+  if (track.trackType !== "percussion" || track.percussionRole) {
     return [{
       track,
       viewModel: createTrackTimelineLaneViewModel(track, labels),

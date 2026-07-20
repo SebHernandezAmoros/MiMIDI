@@ -15,6 +15,7 @@ export type TrackVolumeAutomation = {
 }
 
 export type ProjectTrackType = "melodic" | "percussion" | "steps"
+export type PercussionTrackRole = "pads" | "beats"
 
 export type MidiClip = {
   id: string
@@ -42,6 +43,7 @@ export type MidiTrack = {
   name: string
   noteTimelineDuration: number
   pan: number
+  percussionRole?: PercussionTrackRole
   solo: boolean
   trackType: ProjectTrackType
   volumeAutomation: TrackVolumeAutomation

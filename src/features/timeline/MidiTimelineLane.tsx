@@ -20,6 +20,7 @@ type MidiTimelineLaneProps = {
     track: MidiTrack,
     clip: MidiClip,
   ) => void
+  onSelectLane?: (laneId: string) => void
   onSelectTrack: (trackId: string) => void
   playheadTime?: number | null
   selectedClipId?: SelectedClipInfo | null
@@ -34,6 +35,7 @@ export function MidiTimelineLane({
   laneViewModel,
   muteLabel,
   onClipPointerDown,
+  onSelectLane,
   onSelectTrack,
   playheadTime,
   selectedClipId,
@@ -42,10 +44,18 @@ export function MidiTimelineLane({
   track,
 }: MidiTimelineLaneProps) {
   const sourceTrackId = laneViewModel.sourceTrackId ?? laneViewModel.id
-  const isActive = sourceTrackId === activeTrackId && !selectedLaneId
+  const isVirtualLane = Boolean(laneViewModel.sourceTrackId)
+  const isActive = isVirtualLane
+    ? selectedLaneId === laneViewModel.id
+    : sourceTrackId === activeTrackId && !selectedLaneId
   const filledClips = track.clips.filter((clip) =>
     laneViewModel.clipsById.has(clip.id),
   )
+
+  function selectTimelineLane() {
+    onSelectTrack(sourceTrackId)
+    if (isVirtualLane) onSelectLane?.(laneViewModel.id)
+  }
 
   return (
     <div
@@ -55,9 +65,9 @@ export function MidiTimelineLane({
         laneViewModel.muted ? "track-timeline-lane-muted" : "",
       ].filter(Boolean).join(" ")}
       data-e2e={laneViewModel.laneE2e}
-      onClick={() => onSelectTrack(sourceTrackId)}
+      onClick={selectTimelineLane}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTrack(sourceTrackId) }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectTimelineLane() }
       }}
       role="button"
       tabIndex={0}

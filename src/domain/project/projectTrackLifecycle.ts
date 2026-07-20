@@ -1,7 +1,8 @@
 import type { MidiRecordedNote } from "../../engine/midi/events"
 import { createMidiClip, createProjectTrack } from "./projectFactories"
 import { getMidiTracks, isMidiTrack } from "./timelineQueries"
-import type { MidiTrack, MusicalProject } from "./projectTypes"
+import type { MidiTrack, MusicalProject, PercussionTrackRole } from "./projectTypes"
+import { getPercussionTrackRole } from "./percussionTrackRoles"
 
 function mapMidiTrack(
   project: MusicalProject,
@@ -29,14 +30,31 @@ export function appendTrack(project: MusicalProject): MusicalProject {
   }
 }
 
-export function appendPadTrack(project: MusicalProject): MusicalProject {
+export function appendPercussionTrack(
+  project: MusicalProject,
+  role: PercussionTrackRole,
+): MusicalProject {
   const midiTracks = getMidiTracks(project.timeline)
-  const padCount = midiTracks.filter((track) => track.trackType === "percussion").length
+  const trackCount = midiTracks.filter(
+    (track) => getPercussionTrackRole(track) === role,
+  ).length
   const track = createProjectTrack(midiTracks.length + 1, "percussion")
+  const label = role === "beats" ? "Beats" : "Pad"
   return {
     ...project,
-    timeline: [...project.timeline, { ...track, name: `Pad ${padCount + 1}` }],
+    timeline: [
+      ...project.timeline,
+      { ...track, name: `${label} ${trackCount + 1}`, percussionRole: role },
+    ],
   }
+}
+
+export function appendPadTrack(project: MusicalProject): MusicalProject {
+  return appendPercussionTrack(project, "pads")
+}
+
+export function appendBeatsTrack(project: MusicalProject): MusicalProject {
+  return appendPercussionTrack(project, "beats")
 }
 
 export function appendStepsTrack(project: MusicalProject): MusicalProject {

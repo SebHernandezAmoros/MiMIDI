@@ -4,6 +4,7 @@ import {
   addSamplerMix,
   appendNotesToTrack,
   appendNoteToTrack,
+  appendBeatsTrack,
   appendPadTrack,
   appendTrack,
   appendTrackWithNotes,
@@ -80,7 +81,14 @@ describe("timeline track contracts", () => {
     expect(tracks.map((track) => track.trackType)).toEqual([
       "melodic",
       "percussion",
+      "percussion",
       "steps",
+    ])
+    expect(tracks.map((track) => track.percussionRole ?? null)).toEqual([
+      null,
+      "pads",
+      "beats",
+      null,
     ])
     expect(project.trackTimelineDuration).toBeGreaterThan(0)
   })
@@ -89,10 +97,13 @@ describe("timeline track contracts", () => {
     const base = createDefaultProject()
     const withMelodic = appendTrack(base)
     const withPad = appendPadTrack(withMelodic)
-    const tracks = getMidiTracks(withPad.timeline)
+    const withBeats = appendBeatsTrack(withPad)
+    const tracks = getMidiTracks(withBeats.timeline)
 
     expect(tracks.filter((track) => track.trackType === "melodic")).toHaveLength(2)
-    expect(tracks.filter((track) => track.trackType === "percussion")).toHaveLength(2)
+    expect(tracks.filter((track) => track.trackType === "percussion")).toHaveLength(4)
+    expect(tracks.filter((track) => track.percussionRole === "pads").map((track) => track.name)).toEqual(["Pad 1", "Pad 2"])
+    expect(tracks.filter((track) => track.percussionRole === "beats").map((track) => track.name)).toEqual(["Beats 1", "Beats 2"])
     expect(tracks.filter((track) => track.trackType === "steps")).toHaveLength(1)
   })
 
@@ -390,6 +401,7 @@ describe("timeline track contracts", () => {
     expect(reset.id).toBe("keep-id")
     expect(getMidiTracks(reset.timeline).map((track) => track.trackType)).toEqual([
       "melodic",
+      "percussion",
       "percussion",
       "steps",
     ])
